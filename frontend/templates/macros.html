@@ -1,0 +1,12 @@
+{# Macros reutilizables para no repetir HTML entre pantallas. #}
+
+{% macro campo(nombre, etiqueta, tipo='text', valor='', requerido=true) %}
+  <label class="campo">
+    <span>{{ etiqueta }}</span>
+    <input type="{{ tipo }}" name="{{ nombre }}" value="{{ valor }}" {% if requerido %}required{% endif %}>
+  </label>
+{% endmacro %}
+
+{% macro boton(texto, tipo='submit', clase='boton') %}
+  <button type="{{ tipo }}" class="{{ clase }}">{{ texto }}</button>
+{% endmacro %}

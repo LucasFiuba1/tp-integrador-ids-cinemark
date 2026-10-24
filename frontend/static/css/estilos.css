@@ -1,0 +1,87 @@
+/* Cine Paradiso: sala a oscuras, marquesina dorada, telón rojo. Mobile-first. */
+:root {
+  --noche: #14213d;      /* fondo de sala */
+  --butaca: #1f2f54;     /* superficies */
+  --marquesina: #e9b44c; /* acción principal */
+  --telon: #9e2a2b;      /* ocupado / error */
+  --pantalla: #f2f4f8;   /* texto principal */
+  --tenue: #a7b0c4;      /* texto secundario */
+  --titulos: "Big Shoulders Display", "Arial Narrow", sans-serif;
+  --texto: "Source Sans 3", "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--noche);
+  color: var(--pantalla);
+  font: 1rem/1.55 var(--texto);
+}
+
+a { color: var(--marquesina); }
+a:focus-visible, button:focus-visible, input:focus-visible {
+  outline: 3px solid var(--marquesina);
+  outline-offset: 2px;
+}
+
+h1, h2, h3 { font-family: var(--titulos); font-weight: 800; line-height: 1.1; margin: 0 0 .5em; }
+h1 { font-size: clamp(2rem, 7vw, 3.5rem); }
+
+.marquesina {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 4px solid var(--marquesina);
+}
+
+.marca {
+  font: 800 1.75rem/1 var(--titulos);
+  color: var(--marquesina);
+  text-decoration: none;
+}
+
+.menu { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+.menu a { color: var(--pantalla); text-decoration: none; }
+
+.contenido { flex: 1; width: 100%; max-width: 72rem; margin: 0 auto; padding: 1.5rem 1.25rem; }
+.portada { max-width: 40rem; padding: 2rem 0; }
+.portada p, .estado { color: var(--tenue); }
+
+.boton {
+  display: inline-block;
+  padding: .7rem 1.2rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--marquesina);
+  color: var(--noche);
+  font: 600 1rem var(--texto);
+  cursor: pointer;
+  text-decoration: none;
+}
+.boton-secundario { background: transparent; color: var(--marquesina); border: 2px solid var(--marquesina); }
+
+.campo { display: grid; gap: .3rem; margin-bottom: 1rem; }
+.campo input {
+  padding: .65rem .8rem;
+  border: 1px solid var(--tenue);
+  border-radius: 6px;
+  background: var(--butaca);
+  color: var(--pantalla);
+  font: inherit;
+}
+
+.aviso { padding: .75rem 1rem; border-radius: 6px; background: var(--butaca); border-left: 4px solid var(--marquesina); }
+.aviso-error { border-left-color: var(--telon); }
+
+.pie { padding: 1.25rem; color: var(--tenue); font-size: .9rem; text-align: center; }
+
+@media (min-width: 48rem) {
+  .contenido { padding: 2.5rem 2rem; }
+}
