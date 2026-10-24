@@ -1,5 +1,5 @@
 -- Cine Paradiso: datos iniciales mínimos.
--- Ejecutar después de schema.sql: mysql -u <usuario> -p < db/seed.sql
+-- Ejecutar después de schema.sql: mysql -u <usuario> -p < src/backend/sql/seed.sql
 -- La carga completa de prueba (películas, funciones, compras) se completa en el Hito 2 (SCRUM-37).
 USE cine_paradiso;
 

@@ -7,21 +7,24 @@ Aplicación web para comprar entradas de cine (película → función → butaca
 ## Estructura
 
 ```
-backend/            API REST en Flask (JSON) que se conecta a MySQL
-  app.py            create_app(): configuración, manejo de errores y blueprints
-  config.py         lectura de variables de entorno
-  db.py             acceso a MySQL con SQL explícito (sin ORM)
-  errores.py        formato único de errores JSON
-  routes/           un blueprint por módulo (auth, cartelera, compras, admin, dashboards)
-frontend/           sitio del cliente y backoffice en Flask + Jinja
-  app.py            create_app()
-  api_client.py     única puerta al backend, usando requests
-  routes/           blueprints: público y backoffice
-  templates/        base.html, macros y páginas
-  static/css/       estilos responsive
-db/
-  schema.sql        creación de tablas y relaciones
-  seed.sql          datos iniciales
+src/
+  backend/          API REST en Flask (JSON) que se conecta a MySQL
+    app.py          create_app(): configuración, manejo de errores y blueprints
+    config.py       lectura de variables de entorno
+    db.py           acceso a MySQL con SQL explícito (sin ORM)
+    errores.py      formato único de errores JSON
+    routes/         un blueprint por módulo (auth, cartelera, compras, admin, dashboards)
+    services/       lógica de negocio por funcionalidad, a implementar con los casos de uso
+    sql/
+      schema.sql    creación de tablas y relaciones
+      seed.sql      datos iniciales
+  frontend/         sitio del cliente y backoffice en Flask + Jinja
+    app.py          create_app()
+    api_client.py   única puerta al backend, usando requests
+    routes/         blueprints: público y backoffice
+    templates/      base.html, macros y páginas
+    static/css/     estilos responsive
+tests/              pruebas automatizadas con unittest
 docs/
   endpoints.md      listado de endpoints con ejemplos
   base_de_datos.md  diagrama entidad-relación y reglas del negocio en la base
@@ -48,22 +51,35 @@ En dos terminales, desde la raíz del repo:
 
 ```bash
 source .venv/bin/activate
-flask --app backend.app run --port 5000 --debug     # API en http://localhost:5000
+flask --app src.backend.app run --port 5000 --debug     # API en http://localhost:5000
 ```
 
 ```bash
 source .venv/bin/activate
-flask --app frontend.app run --port 5001 --debug    # Sitio en http://localhost:5001
+flask --app src.frontend.app run --port 5001 --debug    # Sitio en http://localhost:5001
 ```
 
 Verificación rápida: `http://localhost:5000/api/salud` devuelve `{"estado": "ok"}` y la portada del sitio muestra el estado de la API.
 
 Usuario administrador de prueba: `admin@cineparadiso.com` / `admin1234`.
 
+## Pruebas
+
+Desde la raíz, con el entorno virtual activado:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Las pruebas iniciales verifican la API de salud, el formato de errores y la
+portada con la API disponible o caída, sin requerir MySQL ni servidores activos.
+Al implementar compras, reservas y permisos, agregar sus pruebas en `tests/`.
+
 ## Reglas del proyecto
 
 - El frontend se comunica con el backend **solo desde Python con `requests`**. Prohibido usar `fetch`, `axios` o `XMLHttpRequest` en el navegador.
-- **Sin ORM**: todas las consultas son SQL explícito y parametrizado (`backend/db.py`).
+- **Sin ORM**: todas las consultas son SQL explícito y parametrizado (`src/backend/db.py`).
+- Las rutas manejan HTTP; los casos de uso van en `src/backend/services/`, en módulos por funcionalidad (por ejemplo, `compras.py`). Las operaciones atómicas usan una misma `transaccion()`.
 - Fechas y horas en un único campo `DATETIME`.
 - Sin variables globales ni código repetido: usar `create_app()`, macros de Jinja y los helpers comunes.
 
