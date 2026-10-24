@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Cine Paradiso{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
+</head>
+<body>
+  <header class="marquesina">
+    <a class="marca" href="{{ url_for('publico.inicio') }}">Cine Paradiso</a>
+    <nav class="menu">
+      <a href="{{ url_for('publico.inicio') }}">Cartelera</a>
+      {% if session.get('rol') == 'admin' %}
+        <a href="#">Backoffice</a>
+      {% endif %}
+      {% if session.get('token') %}
+        <a href="#">Mi perfil</a>
+      {% else %}
+        <a class="boton boton-secundario" href="#">Ingresar</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="contenido">
+    {% with mensajes = get_flashed_messages(with_categories=true) %}
+      {% for categoria, mensaje in mensajes %}
+        <p class="aviso aviso-{{ categoria }}">{{ mensaje }}</p>
+      {% endfor %}
+    {% endwith %}
+    {% block contenido %}{% endblock %}
+  </main>
+
+  <footer class="pie">Cine Paradiso. Películas que vuelven a la pantalla grande.</footer>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block titulo %}Página no encontrada · Cine Paradiso{% endblock %}
+{% block contenido %}
+  <h1>No encontramos esa página</h1>
+  <p>Volvé a la <a href="{{ url_for('publico.inicio') }}">cartelera</a> para elegir una función.</p>
+{% endblock %}
