@@ -1,12 +1,13 @@
 """Punto de entrada del backend (API REST en JSON).
 
-Ejecutar: flask --app backend.app run --port 5000 --debug
+Ejecutar: flask --app src.backend.app run --port 5000 --debug
 """
+
 from flask import Flask
 
-from backend.config import cargar_configuracion
-from backend.errores import registrar_manejadores
-from backend.routes import registrar_rutas
+from src.backend.config import cargar_configuracion
+from src.backend.errores import registrar_manejadores
+from src.backend.routes import registrar_rutas
 
 
 def create_app():

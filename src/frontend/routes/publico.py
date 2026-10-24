@@ -1,7 +1,7 @@
 """Páginas para el cliente: cartelera, compra y perfil."""
 from flask import Blueprint, render_template
 
-from frontend.api_client import ErrorBackend, llamar
+from src.frontend.api_client import ErrorBackend, llamar
 
 publico_bp = Blueprint("publico", __name__)
 

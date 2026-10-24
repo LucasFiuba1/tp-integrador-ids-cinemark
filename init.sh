@@ -28,11 +28,11 @@ if [ "$1" == "--db" ]; then
   source .env
   set +a
   echo "Creando la base ${DB_NAME} y cargando datos iniciales..."
-  mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" < db/schema.sql
-  mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" < db/seed.sql
+  mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" < src/backend/sql/schema.sql
+  mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" < src/backend/sql/seed.sql
 fi
 
 echo ""
 echo "Listo. Para levantar las aplicaciones (en dos terminales):"
-echo "  source .venv/bin/activate && flask --app backend.app run --port 5000 --debug"
-echo "  source .venv/bin/activate && flask --app frontend.app run --port 5001 --debug"
+echo "  source .venv/bin/activate && flask --app src.backend.app run --port 5000 --debug"
+echo "  source .venv/bin/activate && flask --app src.frontend.app run --port 5001 --debug"

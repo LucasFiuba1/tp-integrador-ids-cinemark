@@ -1,11 +1,11 @@
 """Punto de entrada del frontend (sitio del cliente y backoffice).
 
-Ejecutar: flask --app frontend.app run --port 5001 --debug
+Ejecutar: flask --app src.frontend.app run --port 5001 --debug
 """
 from flask import Flask, render_template
 
-from frontend.config import cargar_configuracion
-from frontend.routes import registrar_rutas
+from src.frontend.config import cargar_configuracion
+from src.frontend.routes import registrar_rutas
 
 
 def create_app():

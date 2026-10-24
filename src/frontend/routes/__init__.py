@@ -1,6 +1,6 @@
 """Registro de blueprints del frontend: sitio público y backoffice."""
-from frontend.routes.backoffice import backoffice_bp
-from frontend.routes.publico import publico_bp
+from src.frontend.routes.backoffice import backoffice_bp
+from src.frontend.routes.publico import publico_bp
 
 
 def registrar_rutas(app):
