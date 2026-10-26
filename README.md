@@ -24,7 +24,7 @@ src/
     routes/         blueprints: público y backoffice
     templates/      base.html, macros y páginas
     static/css/     estilos responsive
-tests/              pruebas automatizadas con unittest
+  tests/              pruebas automatizadas con unittest
 docs/
   endpoints.md      listado de endpoints con ejemplos
   base_de_datos.md  diagrama entidad-relación y reglas del negocio en la base
@@ -68,7 +68,7 @@ Usuario administrador de prueba: `admin@cineparadiso.com` / `admin1234`.
 Desde la raíz, con el entorno virtual activado:
 
 ```bash
-python -m unittest discover -s tests -v
+python -m unittest discover -s src/tests -v
 ```
 
 Las pruebas iniciales verifican la API de salud, el formato de errores y la
