@@ -28,8 +28,8 @@ if [ "$1" == "--db" ]; then
   source .env
   set +a
   echo "Creando la base ${DB_NAME} y cargando datos iniciales..."
-  mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" < src/backend/sql/schema.sql
-  mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" < src/backend/sql/seed.sql
+  mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" < src/backend/db/schema.sql
+  mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" < src/backend/db/seed.sql
 fi
 
 echo ""
