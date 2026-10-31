@@ -135,3 +135,14 @@ def modificar(pelicula_id, datos):
         (titulo, sinopsis, poster_url, duracion_min, clasificacion, genero, desde, hasta, pelicula_id),
     )
     return obtener(pelicula_id)
+
+
+def dar_de_baja(pelicula_id):
+    """Baja lógica si la película tiene funciones asociadas; física si no."""
+    obtener(pelicula_id)
+    fila = consultar_uno("SELECT COUNT(*) AS total FROM funciones WHERE pelicula_id = %s", (pelicula_id,))
+    if fila["total"] > 0:
+        ejecutar("UPDATE peliculas SET activa = FALSE WHERE id = %s", (pelicula_id,))
+        return {"id": pelicula_id, "baja": "logica"}
+    ejecutar("DELETE FROM peliculas WHERE id = %s", (pelicula_id,))
+    return {"id": pelicula_id, "baja": "fisica"}

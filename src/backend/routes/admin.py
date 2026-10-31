@@ -46,3 +46,9 @@ def obtener_pelicula(pelicula_id):
 @requiere_rol("admin")
 def modificar_pelicula(pelicula_id):
     return jsonify(peliculas.modificar(pelicula_id, _cuerpo_json()))
+
+
+@admin_bp.delete("/peliculas/<int:pelicula_id>")
+@requiere_rol("admin")
+def eliminar_pelicula(pelicula_id):
+    return jsonify(peliculas.dar_de_baja(pelicula_id))
