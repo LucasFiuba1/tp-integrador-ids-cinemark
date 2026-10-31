@@ -10,3 +10,93 @@
 {% macro boton(texto, tipo='submit', clase='boton') %}
   <button type="{{ tipo }}" class="{{ clase }}">{{ texto }}</button>
 {% endmacro %}
+
+{# Mensajes flash; base.html los muestra arriba y base_admin.html dentro del panel principal. #}
+{% macro avisos() %}
+  {% for categoria, mensaje in get_flashed_messages(with_categories=true) %}
+    <p class="aviso aviso-{{ categoria }}">{{ mensaje }}</p>
+  {% endfor %}
+{% endmacro %}
+
+{# Título de la pantalla, bajada opcional y botón de acción principal: accion={"texto": ..., "url": ...}. #}
+{% macro cabecera_pagina(titulo, accion=none, bajada='') %}
+  <header class="cabecera-pagina">
+    <div>
+      <h1>{{ titulo }}</h1>
+      {% if bajada %}<p class="cabecera-bajada">{{ bajada }}</p>{% endif %}
+    </div>
+    {% if accion %}
+      <a class="boton" href="{{ accion.url }}">{{ accion.texto }}</a>
+    {% endif %}
+  </header>
+{% endmacro %}
+
+{# Estado en texto con borde: se distingue por la palabra, no solo por el color.
+   texto permite otra leyenda para el mismo estado (por ejemplo "En cartelera" para activa). #}
+{% macro badge_estado(estado, texto='') %}
+  <span class="badge badge-{{ estado }}">{{ texto or estado | capitalize }}</span>
+{% endmacro %}
+
+{# Tabla del backoffice dentro de un panel.
+   columnas: [{"clave": "titulo", "titulo": "Título"}, {"clave": "estado", "titulo": "Estado", "tipo": "estado"}]
+   filas: lista de dicts con "id" (y "activa" si admite baja lógica).
+   acciones: {"editar": "backoffice.editar_x", "baja": "backoffice.baja_x"}, endpoints que reciben id.
+   A las filas con activa = false no se les ofrece la baja. #}
+{% macro tabla(columnas, filas, acciones={}, vacio='Todavía no hay registros.') %}
+  {% if filas %}
+    <div class="panel panel-tabla">
+      <table class="tabla">
+        <thead>
+          <tr>
+            {% for columna in columnas %}<th scope="col">{{ columna.titulo }}</th>{% endfor %}
+            {% if acciones %}<th scope="col">Acciones</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for fila in filas %}
+            <tr>
+              {% for columna in columnas %}
+                <td data-etiqueta="{{ columna.titulo }}">
+                  {% if columna.tipo == "estado" %}{{ badge_estado(fila[columna.clave]) }}{% else %}{{ fila[columna.clave] }}{% endif %}
+                </td>
+              {% endfor %}
+              {% if acciones %}
+                <td class="tabla-acciones" data-etiqueta="Acciones">
+                  {% if acciones.editar %}
+                    <a class="accion-texto" href="{{ url_for(acciones.editar, id=fila.id) }}">Editar</a>
+                  {% endif %}
+                  {% if acciones.baja and fila.activa is not sameas false %}
+                    <form method="post" action="{{ url_for(acciones.baja, id=fila.id) }}">
+                      <button type="submit" class="accion-texto accion-peligro">Dar de baja</button>
+                    </form>
+                  {% endif %}
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="estado-vacio">{{ vacio }}</p>
+  {% endif %}
+{% endmacro %}
+
+{# Indicador de los dashboards. tono "positivo" o "negativo" colorea el detalle (ej. "▲ 12% vs. ayer"). #}
+{% macro tarjeta_kpi(titulo, valor, detalle='', tono='') %}
+  <article class="kpi">
+    <h2 class="kpi-titulo">{{ titulo }}</h2>
+    <p class="kpi-valor">{{ valor }}</p>
+    {% if detalle %}<p class="kpi-detalle{% if tono %} kpi-{{ tono }}{% endif %}">{{ detalle }}</p>{% endif %}
+  </article>
+{% endmacro %}
+
+{# Barra horizontal para los dashboards: el largo es valor / maximo y el número se muestra como texto. #}
+{% macro barra(etiqueta, valor, maximo=100, sufijo='', destacada=false) %}
+  {% set porcentaje = [valor / maximo * 100, 100] | min if maximo else 0 %}
+  <div class="barra{% if destacada %} barra-destacada{% endif %}">
+    <span class="barra-etiqueta">{{ etiqueta }}</span>
+    <span class="barra-pista"><span class="barra-relleno" style="width: {{ porcentaje | round(1) }}%"></span></span>
+    <span class="barra-valor">{{ valor }}{{ sufijo }}</span>
+  </div>
+{% endmacro %}

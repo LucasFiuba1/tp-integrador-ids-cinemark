@@ -26,7 +26,9 @@ preferir HTML/CSS puro (checkboxes estilizados para las butacas).
 
 ## Templates
 
-- Todas extienden `base.html` (`{% block titulo %}`, `{% block contenido %}`).
+- Todas extienden `base.html` (`{% block titulo %}`, `{% block contenido %}`). Las del backoffice extienden
+  `backoffice/base_admin.html` (`{% block admin %}`), con las vistas protegidas por `@requiere_admin` y
+  las macros `cabecera_pagina`, `tabla`, `badge_estado`, `tarjeta_kpi` y `barra` (ver `docs/design_system.md`).
 - Reusar `macros.html` (`campo`, `boton`) y agregar macros nuevas en vez de copiar HTML
   (tarjeta de película, grilla de butacas, tabla del backoffice, resumen de compra).
 - `url_for(...)` para todos los links y `action` de formularios.

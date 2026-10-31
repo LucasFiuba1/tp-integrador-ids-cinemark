@@ -74,6 +74,27 @@ CSS no admite variables dentro de `@media`, así que se usan estos valores liter
 | desktop | `@media (min-width: 64rem)` | frames D/B (1440 px) |
 | ancho | `@media (min-width: 90rem)` | 1440 px en adelante |
 
+## Componentes del backoffice
+
+Mockups: página **Backoffice** de Figma (B1–B6 desktop, M1–M2 mobile).
+
+Las pantallas de administración extienden `templates/backoffice/base_admin.html` y escriben en `{% block admin %}`.
+El layout reemplaza el header y el footer públicos por un sidebar a toda altura (marca + etiqueta "Backoffice",
+secciones de `SECCIONES` en `routes/backoffice.py` con la actual marcada con `aria-current="page"`, y abajo el usuario
+con "Cerrar sesión"). En mobile es una barra con ☰ que despliega el menú con un checkbox, sin JS. Los mensajes
+flash se muestran dentro del panel principal. Las vistas se protegen con `@requiere_admin`.
+
+| Macro (`macros.html`) | Uso |
+|---|---|
+| `cabecera_pagina(titulo, accion=none, bajada='')` | `h1`, bajada opcional y botón blanco: `accion={"texto": "Importar de TMDB", "url": url_for(...)}`. |
+| `tabla(columnas, filas, acciones={}, vacio=...)` | Tabla dentro de un `.panel`. Columnas `{"clave", "titulo", "tipo"}` (`tipo: "estado"` muestra un badge). Acciones `{"editar": endpoint, "baja": endpoint}` que reciben `id`: "Editar" es un link y "Dar de baja" un `<form method="post">` en rojo, que no se ofrece si `fila.activa` es `false`. Sin filas muestra `vacio`. En mobile cada fila se apila con la etiqueta de cada dato. |
+| `badge_estado(estado, texto='')` | Palabra en mayúscula con borde: `activa` (verde), `inactiva` (gris, borde punteado), `cancelada` (rojo), `utilizada` (blanco). Se distingue por el texto, no solo por el color; `texto` cambia la leyenda (ej. "En cartelera"). |
+| `tarjeta_kpi(titulo, valor, detalle='', tono='')` | Indicador de los dashboards; agrupar en `<div class="kpis">` (2 por fila en mobile, 4 en desktop). `tono` `positivo`/`negativo` colorea el detalle. |
+| `barra(etiqueta, valor, maximo=100, sufijo='', destacada=false)` | Fila etiqueta / pista / valor; ancho `valor / maximo` con tope 100 %. Relleno blanco y `destacada` en `--color-primario`. |
+
+Clases sueltas: `.panel` (tarjeta oscura para gráficos y formularios, con `h2`), `.accion-texto` / `.accion-peligro`
+(acciones sin caja), `.avatar`, `.estado-vacio` y `.visualmente-oculto`.
+
 ## Ejemplo
 
 ```css

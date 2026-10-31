@@ -1,3 +1,4 @@
+{% from "macros.html" import avisos -%}
 <!doctype html>
 <html lang="es">
 <head>
@@ -11,12 +12,13 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
 </head>
 <body>
+  {% block cabecera %}
   <header class="marquesina">
     <a class="marca" href="{{ url_for('publico.inicio') }}">Cine Paradiso</a>
     <nav class="menu">
       <a href="{{ url_for('publico.inicio') }}">Cartelera</a>
       {% if session.get('rol') == 'admin' %}
-        <a href="#">Backoffice</a>
+        <a href="{{ url_for('backoffice.inicio') }}">Backoffice</a>
       {% endif %}
       {% if session.get('token') %}
         <a href="#">Mi perfil</a>
@@ -25,16 +27,15 @@
       {% endif %}
     </nav>
   </header>
+  {% endblock %}
 
-  <main class="contenido">
-    {% with mensajes = get_flashed_messages(with_categories=true) %}
-      {% for categoria, mensaje in mensajes %}
-        <p class="aviso aviso-{{ categoria }}">{{ mensaje }}</p>
-      {% endfor %}
-    {% endwith %}
+  <main class="contenido {% block clase_contenido %}{% endblock %}">
+    {% block avisos %}{{ avisos() }}{% endblock %}
     {% block contenido %}{% endblock %}
   </main>
 
+  {% block pie %}
   <footer class="pie">Cine Paradiso. Películas que vuelven a la pantalla grande.</footer>
+  {% endblock %}
 </body>
 </html>
