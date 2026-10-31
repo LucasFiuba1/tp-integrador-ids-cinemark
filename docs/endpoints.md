@@ -140,6 +140,44 @@ Errores de cancelación: 409 `FUERA_DE_PLAZO` · 409 `YA_CANCELADA` · 409 `YA_U
 | GET | `/api/me/compras` | 👤 | Historial de compras (entradas, servicios, total, estado, si es cancelable). |
 | GET | `/api/me/peliculas-vistas` | 👤 | Películas cuyo QR fue validado en el ingreso. |
 
+El usuario sale del token: no hay parámetros. El historial solo incluye compras `confirmada` y `cancelada` (las `pendiente` y `vencida` nunca se pagaron). `token_qr` es `null` si la compra está cancelada.
+
+```http
+GET /api/me/compras
+
+200 OK
+[
+  {
+    "id": 88, "estado": "confirmada", "total": 23000.0,
+    "creada_en": "2026-11-05T18:30:00", "confirmada_en": "2026-11-05T18:33:10",
+    "cancelada_en": null, "utilizada_en": null,
+    "funcion": {
+      "id": 12, "fecha_hora": "2026-11-10T20:30:00", "pelicula": "Volver al futuro",
+      "poster_url": "https://image.tmdb.org/...", "sala": "Sala 1", "local": "Paradiso Centro"
+    },
+    "butacas": ["D5", "D6"],
+    "servicios": [ { "nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": 6500.0 } ],
+    "token_qr": "eyJjb21wcmFfaWQiOjg4fQ...",
+    "cancelable": true
+  }
+]
+```
+
+```http
+GET /api/me/peliculas-vistas
+
+200 OK
+[
+  {
+    "pelicula_id": 3, "titulo": "Volver al futuro", "poster_url": "https://image.tmdb.org/...",
+    "genero": "Ciencia ficción", "fecha_hora": "2026-11-10T20:30:00",
+    "sala": "Sala 1", "local": "Paradiso Centro", "utilizada_en": "2026-11-10T20:21:00"
+  }
+]
+```
+
+Errores: 401 sin token o token vencido. Un usuario sin compras recibe `[]`.
+
 ## Backoffice (administrador)
 
 ### Películas
