@@ -20,3 +20,6 @@ paths:
 - Cambios de esquema: editar `src/backend/db/schema.sql` (es re-ejecutable: borra y crea) y, si hace falta,
   `seed.sql`; actualizar el diagrama y las tablas de `docs/base_de_datos.md` en el mismo PR.
 - Nombres en español y `snake_case`, tablas en plural, FK `<entidad>_id`.
+- **No levantar otras instancias de `mysqld`** (en el scratchpad, `/tmp` ni otro puerto). Las pruebas no usan MySQL;
+  para probar a mano usar el MySQL local que ya corre (puerto 3306), con una base aparte si hace falta aislamiento.
+  Una instancia temporal que sobrevive a la sesión puede escribir su log sin parar y llenar el disco.
