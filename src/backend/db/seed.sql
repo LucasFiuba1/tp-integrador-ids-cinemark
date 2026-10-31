@@ -4,9 +4,10 @@
 USE cine_paradiso;
 
 -- Administrador inicial. Email: admin@cineparadiso.com / Contraseña: admin1234 (cambiar en producción)
+-- Hash pbkdf2:sha256 (no scrypt): el Python de macOS no trae hashlib.scrypt.
 INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES
 ('Administrador', 'admin@cineparadiso.com',
- 'scrypt:32768:8:1$doHaRPNpm9vdwO4P$bb1cba2d88821535989740ef7b4c09b4e01eeaeff1a37e67a3e1451ff6734d0c2ab9a1d0c40825f37967bb50c95a584e3c4a279968ed294487cfdd2195db3f13',
+ 'pbkdf2:sha256:1000000$Qy0iQ4Ie6vonin9r$14235bb09ae665dc0d551c0a54f3a155b5c8f50ea03bd7c91bb7400dedf3e927',
  'admin');
 
 -- Los 3 locales del enunciado.
@@ -28,7 +29,7 @@ INSERT INTO butacas (sala_id, fila, numero)
 WITH RECURSIVE numeros (n) AS (
     SELECT 1 UNION ALL SELECT n + 1 FROM numeros WHERE n < 26
 )
-SELECT s.id, CHAR(64 + f.n), c.n
+SELECT s.id, CHAR(64 + f.n USING utf8mb4), c.n
 FROM salas s
 JOIN numeros f ON f.n <= s.filas
 JOIN numeros c ON c.n <= s.columnas;
