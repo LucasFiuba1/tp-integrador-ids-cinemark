@@ -1,0 +1,36 @@
+{# Pago (Figma D5 desktop y M5 mobile): datos de la tarjeta del pago simulado y resumen de la compra.
+   compra tiene la forma de GET /api/compras/<id>; el botón del resumen envía el formulario de la tarjeta. #}
+{% extends "base.html" %}
+{% from "macros.html" import pasos_compra, cabecera_pagina, campo, casilla, boton, resumen_compra %}
+
+{% block titulo %}Pago · Cine Paradiso{% endblock %}
+
+{% block contenido %}
+  {{ pasos_compra(4) }}
+  {{ cabecera_pagina("Pagá tu compra", bajada="Pago simulado: no se realiza ningún cobro real.") }}
+
+  <div class="checkout">
+    <section class="panel checkout-tarjeta" aria-labelledby="titulo-tarjeta">
+      <h2 id="titulo-tarjeta">Datos de la tarjeta</h2>
+      <form id="formulario-pago" method="post" action="{{ url_for('publico.pago', compra_id=compra.id) }}" novalidate>
+        {{ campo("titular", "Titular de la tarjeta", valor=formulario.titular, placeholder="Como figura en la tarjeta",
+                 autocompletar="cc-name", error=errores.titular) }}
+        {{ campo("numero", "Número de tarjeta", placeholder="4242 4242 4242 4242", autocompletar="cc-number",
+                 error=errores.numero) }}
+        <div class="checkout-fila">
+          {{ campo("vencimiento", "Vencimiento", valor=formulario.vencimiento, placeholder="MM/AA",
+                   autocompletar="cc-exp", error=errores.vencimiento) }}
+          {{ campo("codigo_seguridad", "Código de seguridad", tipo="password", placeholder="123",
+                   autocompletar="cc-csc", error=errores.codigo_seguridad) }}
+        </div>
+        {{ casilla("acepto", "Acepto los términos y condiciones y la política de cancelación (hasta 2 horas antes).",
+                   formulario.acepto, errores.acepto) }}
+        <p class="checkout-nota">Te enviaremos por email la factura, el QR de ingreso y un botón para cancelar.</p>
+      </form>
+    </section>
+
+    {% call resumen_compra(compra) %}
+      {{ boton("Confirmar y pagar", clase="boton boton-bloque", formulario="formulario-pago") }}
+    {% endcall %}
+  </div>
+{% endblock %}

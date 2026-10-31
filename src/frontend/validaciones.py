@@ -4,8 +4,13 @@ Cada función recibe el formulario ya leído (dict de strings) y devuelve un dic
 Si el dict está vacío, el formulario es válido. Los límites siguen a docs/base_de_datos.md (VARCHAR del schema).
 """
 import re
+from datetime import date
 
 PATRON_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+PATRON_VENCIMIENTO = re.compile(r"^(0[1-9]|1[0-2])/(\d{2})$")
+PATRON_CODIGO_SEGURIDAD = re.compile(r"^\d{3,4}$")
+DIGITOS_TARJETA = (13, 19)
+
 MAXIMO_EMAIL = 150
 MAXIMO_NOMBRE = 100
 MINIMO_PASSWORD = 8
@@ -58,6 +63,45 @@ def validar_registro(datos):
         "email": _error_email(datos["email"]),
         "password": error_password,
         "repetir_password": None if datos["repetir_password"] == password else "Las contraseñas no coinciden.",
+    })
+
+
+def _error_numero_tarjeta(numero):
+    digitos = numero.replace(" ", "").replace("-", "")
+    if not digitos:
+        return "Ingresá el número de la tarjeta."
+    if not digitos.isdigit() or not DIGITOS_TARJETA[0] <= len(digitos) <= DIGITOS_TARJETA[1]:
+        return f"El número tiene que tener entre {DIGITOS_TARJETA[0]} y {DIGITOS_TARJETA[1]} dígitos."
+    return None
+
+
+def _error_vencimiento(vencimiento, hoy):
+    coincidencia = PATRON_VENCIMIENTO.match(vencimiento)
+    if not coincidencia:
+        return "Ingresá el vencimiento como MM/AA, por ejemplo 12/28."
+    mes, anio = int(coincidencia.group(1)), 2000 + int(coincidencia.group(2))
+    if (anio, mes) < (hoy.year, hoy.month):
+        return "La tarjeta está vencida."
+    return None
+
+
+def validar_pago(datos, hoy=None):
+    """Datos de la tarjeta del pago simulado. hoy se recibe para poder probar el vencimiento con una fecha fija."""
+    titular = datos["titular"]
+    if not titular:
+        error_titular = "Ingresá el nombre del titular como figura en la tarjeta."
+    elif len(titular) > MAXIMO_NOMBRE:
+        error_titular = f"El nombre puede tener hasta {MAXIMO_NOMBRE} caracteres."
+    else:
+        error_titular = None
+
+    return _sin_vacios({
+        "titular": error_titular,
+        "numero": _error_numero_tarjeta(datos["numero"]),
+        "vencimiento": _error_vencimiento(datos["vencimiento"], hoy or date.today()),
+        "codigo_seguridad": None if PATRON_CODIGO_SEGURIDAD.match(datos["codigo_seguridad"])
+        else "El código de seguridad tiene 3 o 4 dígitos.",
+        "acepto": None if datos["acepto"] else "Tenés que aceptar los términos y la política de cancelación.",
     })
 
 
