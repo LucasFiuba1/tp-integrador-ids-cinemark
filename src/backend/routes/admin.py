@@ -6,7 +6,7 @@ import pymysql
 from flask import Blueprint, jsonify, request
 
 from src.backend.errores import respuesta_error
-from src.backend.services import locales
+from src.backend.services import locales, salas
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
@@ -56,3 +56,11 @@ def eliminar_local(local_id):
         return respuesta_error(409, "LOCAL_CON_SALAS", "No se puede eliminar un local que tiene salas.")
     locales.eliminar_local(local_id)
     return "", 204
+
+
+@admin_bp.get("/salas")
+def listar_salas():
+    local_id = request.args.get("local_id", type=int)
+    return jsonify(salas.listar_salas(local_id))
+
+
