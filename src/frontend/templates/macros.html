@@ -1,12 +1,184 @@
 {# Macros reutilizables para no repetir HTML entre pantallas. #}
 
-{% macro campo(nombre, etiqueta, tipo='text', valor='', requerido=true) %}
-  <label class="campo">
+{# Campo de formulario con su label. autocompletar es el valor de autocomplete (ej. "email", "current-password").
+   error es el mensaje de validación que devolvió la ruta: marca el campo y lo muestra debajo.
+   enfocar pone el cursor en el campo al cargar (ej. para que un lector de QR USB escriba ahí). #}
+{% macro campo(nombre, etiqueta, tipo='text', valor='', requerido=true, placeholder='', autocompletar='', minimo=none, error='', enfocar=false) %}
+  <label class="campo{% if error %} campo-invalido{% endif %}">
     <span>{{ etiqueta }}</span>
-    <input type="{{ tipo }}" name="{{ nombre }}" value="{{ valor }}" {% if requerido %}required{% endif %}>
+    <input type="{{ tipo }}" name="{{ nombre }}" value="{{ valor }}"
+      {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}
+      {%- if autocompletar %} autocomplete="{{ autocompletar }}"{% endif %}
+      {%- if minimo %} minlength="{{ minimo }}"{% endif %}
+      {%- if requerido %} required{% endif %}
+      {%- if enfocar %} autofocus{% endif %}
+      {%- if error %} aria-invalid="true" aria-describedby="error-{{ nombre }}"{% endif %}>
+    {% if error %}<small class="campo-mensaje" id="error-{{ nombre }}">{{ error }}</small>{% endif %}
   </label>
 {% endmacro %}
 
-{% macro boton(texto, tipo='submit', clase='boton') %}
-  <button type="{{ tipo }}" class="{{ clase }}">{{ texto }}</button>
+{# formulario es el id del <form> que envía el botón cuando está fuera de él (ej. el resumen lateral del pago). #}
+{% macro boton(texto, tipo='submit', clase='boton', formulario='') %}
+  <button type="{{ tipo }}" class="{{ clase }}"{% if formulario %} form="{{ formulario }}"{% endif %}>{{ texto }}</button>
+{% endmacro %}
+
+{# Mensajes flash; base.html los muestra arriba y base_admin.html dentro del panel principal. #}
+{% macro avisos() %}
+  {% for categoria, mensaje in get_flashed_messages(with_categories=true) %}
+    <p class="aviso aviso-{{ categoria }}">{{ mensaje }}</p>
+  {% endfor %}
+{% endmacro %}
+
+{# Título de la pantalla, bajada opcional y botón de acción principal: accion={"texto": ..., "url": ...}. #}
+{% macro cabecera_pagina(titulo, accion=none, bajada='') %}
+  <header class="cabecera-pagina">
+    <div>
+      <h1>{{ titulo }}</h1>
+      {% if bajada %}<p class="cabecera-bajada">{{ bajada }}</p>{% endif %}
+    </div>
+    {% if accion %}
+      <a class="boton" href="{{ accion.url }}">{{ accion.texto }}</a>
+    {% endif %}
+  </header>
+{% endmacro %}
+
+{# Estado en texto con borde: se distingue por la palabra, no solo por el color.
+   texto permite otra leyenda para el mismo estado (por ejemplo "En cartelera" para activa). #}
+{% macro badge_estado(estado, texto='') %}
+  <span class="badge badge-{{ estado }}">{{ texto or estado | capitalize }}</span>
+{% endmacro %}
+
+{# Tabla del backoffice dentro de un panel.
+   columnas: [{"clave": "titulo", "titulo": "Título"}, {"clave": "estado", "titulo": "Estado", "tipo": "estado"}]
+     tipo "estado" muestra un badge (con "textos": {valor: leyenda} opcional); "activo" hace lo mismo con un booleano
+     (true -> activa, false -> inactiva); "hora" y "fecha_hora" formatean ISO y "precio" muestra $6.500.
+   filas: lista de dicts con "id" (y "activa" o "activo" si admite baja lógica).
+   acciones: {"editar": "backoffice.editar_x", "baja": "backoffice.baja_x"}, endpoints que reciben id;
+     "texto_baja" cambia la leyenda del botón de baja (por defecto "Dar de baja").
+   A las filas con activa / activo = false no se les ofrece la baja. #}
+{% macro tabla(columnas, filas, acciones={}, vacio='Todavía no hay registros.') %}
+  {% if filas %}
+    <div class="panel panel-tabla">
+      <table class="tabla">
+        <thead>
+          <tr>
+            {% for columna in columnas %}<th scope="col">{{ columna.titulo }}</th>{% endfor %}
+            {% if acciones %}<th scope="col">Acciones</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for fila in filas %}
+            <tr>
+              {% for columna in columnas %}
+                <td data-etiqueta="{{ columna.titulo }}">
+                  {% set valor = fila[columna.clave] %}
+                  {% if columna.tipo == "activo" %}{% set valor = "activa" if valor else "inactiva" %}{% endif %}
+                  {% if columna.tipo in ("estado", "activo") %}{{ badge_estado(valor, (columna.textos or {}).get(valor, '')) }}
+                  {% elif columna.tipo == "precio" %}{{ valor | precio }}
+                  {% elif columna.tipo == "hora" %}{{ valor | hora }}
+                  {% elif columna.tipo == "fecha_hora" %}{{ valor | fecha_hora }}
+                  {% else %}{{ valor }}{% endif %}
+                </td>
+              {% endfor %}
+              {% if acciones %}
+                <td class="tabla-acciones" data-etiqueta="Acciones">
+                  {% if acciones.editar %}
+                    <a class="accion-texto" href="{{ url_for(acciones.editar, id=fila.id) }}">Editar</a>
+                  {% endif %}
+                  {% if acciones.baja and fila.activa is not sameas false and fila.activo is not sameas false %}
+                    <form method="post" action="{{ url_for(acciones.baja, id=fila.id) }}">
+                      <button type="submit" class="accion-texto accion-peligro">{{ acciones.texto_baja or "Dar de baja" }}</button>
+                    </form>
+                  {% endif %}
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="estado-vacio">{{ vacio }}</p>
+  {% endif %}
+{% endmacro %}
+
+{# Indicador de los dashboards. tono "positivo" o "negativo" colorea el detalle (ej. "▲ 12% vs. ayer"). #}
+{% macro tarjeta_kpi(titulo, valor, detalle='', tono='') %}
+  <article class="kpi">
+    <h2 class="kpi-titulo">{{ titulo }}</h2>
+    <p class="kpi-valor">{{ valor }}</p>
+    {% if detalle %}<p class="kpi-detalle{% if tono %} kpi-{{ tono }}{% endif %}">{{ detalle }}</p>{% endif %}
+  </article>
+{% endmacro %}
+
+{# Barra horizontal para los dashboards: el largo es valor / maximo y el número se muestra como texto. #}
+{% macro barra(etiqueta, valor, maximo=100, sufijo='', destacada=false) %}
+  {% set porcentaje = [valor / maximo * 100, 100] | min if maximo else 0 %}
+  <div class="barra{% if destacada %} barra-destacada{% endif %}">
+    <span class="barra-etiqueta">{{ etiqueta }}</span>
+    <span class="barra-pista"><span class="barra-relleno" style="width: {{ porcentaje | round(1) }}%"></span></span>
+    <span class="barra-valor">{{ valor }}{{ sufijo }}</span>
+  </div>
+{% endmacro %}
+
+{# Casilla de verificación con su texto (ej. aceptar términos). Se marca si valor no está vacío. #}
+{% macro casilla(nombre, etiqueta, valor='', error='') %}
+  <label class="casilla{% if error %} campo-invalido{% endif %}">
+    <input type="checkbox" name="{{ nombre }}" value="si"{% if valor %} checked{% endif %}
+      {%- if error %} aria-invalid="true" aria-describedby="error-{{ nombre }}"{% endif %}>
+    <span>{{ etiqueta }}</span>
+  </label>
+  {% if error %}<small class="campo-mensaje" id="error-{{ nombre }}">{{ error }}</small>{% endif %}
+{% endmacro %}
+
+{# Lista de datos etiqueta -> valor en dos columnas (resultado de validar ingreso, ticket de la compra).
+   filas: lista de tuplas (etiqueta, valor). #}
+{% macro datos(filas, clase='') %}
+  <dl class="datos {{ clase }}">
+    {% for etiqueta, valor in filas %}
+      <div><dt>{{ etiqueta }}</dt><dd>{{ valor }}</dd></div>
+    {% endfor %}
+  </dl>
+{% endmacro %}
+
+{# Pasos de la compra: los anteriores a actual se marcan hechos (✓) y actual queda en curso. #}
+{% macro pasos_compra(actual) %}
+  {% set pasos = ["Función", "Butacas", "Servicios", "Pago"] %}
+  <ol class="pasos" aria-label="Pasos de la compra">
+    {% for paso in pasos %}
+      {% set estado = "hecho" if loop.index < actual else ("actual" if loop.index == actual else "pendiente") %}
+      <li class="paso paso-{{ estado }}"{% if estado == "actual" %} aria-current="step"{% endif %}>
+        <span class="paso-marca" aria-hidden="true">{{ "✓" if estado == "hecho" else loop.index }}</span>
+        {{ paso }}{% if estado == "hecho" %}<span class="visualmente-oculto"> (hecho)</span>{% endif %}
+      </li>
+    {% endfor %}
+  </ol>
+{% endmacro %}
+
+{# Resumen lateral de la compra (servicios y pago): película, función, detalle de precios, total y vencimiento
+   de la reserva. compra tiene la forma de GET /api/compras/<id>; el botón de la pantalla va en el caller(). #}
+{% macro resumen_compra(compra) %}
+  <aside class="panel resumen" aria-labelledby="titulo-resumen">
+    <div class="resumen-pelicula">
+      {% if compra.poster_url %}
+        <img class="resumen-poster" src="{{ compra.poster_url }}" alt="Póster de {{ compra.pelicula }}">
+      {% else %}
+        <span class="resumen-poster" aria-hidden="true"></span>
+      {% endif %}
+      <div>
+        <h2 id="titulo-resumen">{{ compra.pelicula }}</h2>
+        <p class="resumen-funcion">{{ compra.local }} · {{ compra.sala }}<br>{{ compra.funcion | fecha_hora }}</p>
+      </div>
+    </div>
+    {% set cantidad = compra.butacas | length %}
+    {% set detalle = namespace(filas=[(cantidad ~ (" entrada" if cantidad == 1 else " entradas"),
+                                       compra.subtotal_entradas | precio)]) %}
+    {% for servicio in compra.servicios %}
+      {% set detalle.filas = detalle.filas + [(servicio.nombre ~ " × " ~ servicio.cantidad, servicio.subtotal | precio)] %}
+    {% endfor %}
+    {{ datos(detalle.filas, "resumen-detalle") }}
+    <p class="resumen-total"><span>Total</span><strong>{{ compra.total | precio }}</strong></p>
+    <p class="resumen-vence">Tu reserva vence a las <strong>{{ compra.vence_en | hora }}</strong></p>
+    {{ caller() }}
+  </aside>
 {% endmacro %}

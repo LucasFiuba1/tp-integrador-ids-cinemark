@@ -1,0 +1,46 @@
+{# Compra confirmada (Figma D6 desktop y M6 mobile): QR de ingreso y datos de la compra.
+   compra tiene la forma de GET /api/compras/<id> con estado confirmada (incluye qr_png_base64). #}
+{% extends "base.html" %}
+{% from "macros.html" import datos %}
+
+{% block titulo %}Compra confirmada · Cine Paradiso{% endblock %}
+
+{% block contenido %}
+  <section class="confirmada">
+    <header class="confirmada-cabecera">
+      <span class="confirmada-icono" aria-hidden="true">✓</span>
+      <h1>¡Compra confirmada!</h1>
+      <p class="cabecera-bajada">Enviamos la factura y tu QR de ingreso a {{ compra.email }}</p>
+    </header>
+
+    <article class="panel ticket" aria-labelledby="titulo-ticket">
+      <img class="ticket-qr" src="data:image/png;base64,{{ compra.qr_png_base64 }}"
+        alt="Código QR de ingreso de la compra #{{ compra.id }}">
+      <div class="ticket-detalle">
+        <h2 id="titulo-ticket">{{ compra.pelicula }}</h2>
+        {% set servicios = namespace(textos=[]) %}
+        {% for servicio in compra.servicios %}
+          {% set servicios.textos = servicios.textos + [servicio.nombre ~ " × " ~ servicio.cantidad] %}
+        {% endfor %}
+        {{ datos([
+          ("Local", compra.local),
+          ("Sala", compra.sala),
+          ("Función", compra.funcion | fecha_hora),
+          ("Butaca" if compra.butacas | length == 1 else "Butacas", compra.butacas | join(", ")),
+          ("Servicios", servicios.textos | join(", ") or "Sin servicios"),
+        ]) }}
+        <p class="resumen-total"><span>Total</span><strong>{{ compra.total | precio }}</strong></p>
+        <p class="ticket-numero">N.º de compra #{{ compra.id }}</p>
+      </div>
+    </article>
+
+    <div class="confirmada-acciones">
+      {# Mi perfil todavía no tiene pantalla (igual que en base.html): el link se completa cuando exista. #}
+      <a class="boton" href="#">Ver mis compras</a>
+      <a class="boton boton-secundario" href="{{ url_for('publico.inicio') }}">Volver a cartelera</a>
+    </div>
+
+    <p class="aviso confirmada-nota">Podés cancelar tu compra hasta 2 horas antes de la función, desde el email o desde
+      tu perfil. Al cancelar se liberan las butacas y el QR deja de ser válido.</p>
+  </section>
+{% endblock %}

@@ -26,18 +26,23 @@ preferir HTML/CSS puro (checkboxes estilizados para las butacas).
 
 ## Templates
 
-- Todas extienden `base.html` (`{% block titulo %}`, `{% block contenido %}`).
+- Todas extienden `base.html` (`{% block titulo %}`, `{% block contenido %}`). Las del backoffice extienden
+  `backoffice/base_admin.html` (`{% block admin %}`), con las vistas protegidas por `@requiere_admin` y
+  las macros `cabecera_pagina`, `tabla`, `badge_estado`, `tarjeta_kpi` y `barra` (ver `docs/design_system.md`).
 - Reusar `macros.html` (`campo`, `boton`) y agregar macros nuevas en vez de copiar HTML
   (tarjeta de película, grilla de butacas, tabla del backoffice, resumen de compra).
 - `url_for(...)` para todos los links y `action` de formularios.
 - Accesibilidad: `label` en cada campo, `alt` en pósters, contraste suficiente, foco visible.
 
-## Estilos (`static/css/estilos.css`)
+## Estilos (`static/css/tokens.css` + `static/css/estilos.css`)
 
-- Mobile-first, layout con Flexbox/Grid, media queries hacia arriba. Probar a 390 px y 1440 px.
-- Usar solo los tokens de `:root`: `--noche`, `--butaca`, `--marquesina`, `--telon`, `--pantalla`, `--tenue`,
-  fuentes `--titulos` (Big Shoulders Display) y `--texto` (Source Sans 3). No hardcodear colores nuevos.
-- Butacas: libre / seleccionada (`--marquesina`) / ocupada (`--telon`), distinguibles también sin color.
+- Mobile-first, layout con Flexbox/Grid, media queries hacia arriba (`48rem` tablet, `64rem` desktop, `90rem` ancho).
+  Probar a 390 px y 1440 px.
+- Usar solo los tokens de `tokens.css` (catálogo en `docs/design_system.md`): colores `--color-*`, fuentes
+  `--fuente-titulos` (Oswald, mayúscula) y `--fuente-texto` (Roboto), tamaños `--texto-*`, espacios `--espacio-1..8`,
+  radios `--radio-*`. Nada de hex ni medidas sueltas; un valor nuevo se agrega primero en `tokens.css`.
+- Butacas: libre (`--color-superficie`), seleccionada (`--color-primario`), ocupada (`--color-superficie-alta`),
+  distinguibles también sin color.
 
 ## Mockups (Figma `3zp9Q3xZzZjXT6pe4ToVkQ`)
 

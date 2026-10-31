@@ -1,5 +1,5 @@
 -- Cine Paradiso: creación de la base de datos.
--- Ejecutar: mysql -u <usuario> -p < src/backend/sql/schema.sql
+-- Ejecutar: mysql -u <usuario> -p < src/backend/db/schema.sql
 -- Re-ejecutable: borra y vuelve a crear todas las tablas.
 -- Todas las fechas y horas se guardan en un único campo DATETIME.
 
@@ -111,6 +111,7 @@ CREATE TABLE compras (
     confirmada_en DATETIME NULL,
     cancelada_en  DATETIME NULL,
     utilizada_en  DATETIME NULL,
+    UNIQUE KEY uq_compra_funcion (id, funcion_id),
     INDEX idx_compra_usuario (usuario_id),
     FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
     FOREIGN KEY (funcion_id) REFERENCES funciones (id)
@@ -121,6 +122,7 @@ CREATE TABLE compras (
 -- "activa" vale 1 mientras la compra está vigente y NULL cuando se cancela o vence:
 -- MySQL permite varios NULL en un UNIQUE, así la butaca se puede volver a vender
 -- sin perder el historial.
+-- La FK compuesta (compra_id, funcion_id) obliga a que la entrada sea de la misma función que su compra.
 CREATE TABLE entradas (
     id         INT AUTO_INCREMENT PRIMARY KEY,
     compra_id  INT NOT NULL,
@@ -129,8 +131,7 @@ CREATE TABLE entradas (
     precio     DECIMAL(10, 2) NOT NULL,
     activa     TINYINT NULL DEFAULT 1,
     UNIQUE KEY uq_butaca_por_funcion (funcion_id, butaca_id, activa),
-    FOREIGN KEY (compra_id) REFERENCES compras (id) ON DELETE CASCADE,
-    FOREIGN KEY (funcion_id) REFERENCES funciones (id),
+    FOREIGN KEY (compra_id, funcion_id) REFERENCES compras (id, funcion_id) ON DELETE CASCADE,
     FOREIGN KEY (butaca_id) REFERENCES butacas (id),
     CHECK (activa IS NULL OR activa = 1)
 );

@@ -11,13 +11,13 @@ src/
   backend/          API REST en Flask (JSON) que se conecta a MySQL
     app.py          create_app(): configuración, manejo de errores y blueprints
     config.py       lectura de variables de entorno
+    db/
+      schema.sql    creación de tablas y relaciones
+      seed.sql      datos iniciales
     db.py           acceso a MySQL con SQL explícito (sin ORM)
     errores.py      formato único de errores JSON
     routes/         un blueprint por módulo (auth, cartelera, compras, admin, dashboards)
     services/       lógica de negocio por funcionalidad, a implementar con los casos de uso
-    sql/
-      schema.sql    creación de tablas y relaciones
-      seed.sql      datos iniciales
   frontend/         sitio del cliente y backoffice en Flask + Jinja
     app.py          create_app()
     api_client.py   única puerta al backend, usando requests

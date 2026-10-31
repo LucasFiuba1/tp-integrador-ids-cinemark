@@ -1,0 +1,14 @@
+{% extends "auth/base_auth.html" %}
+{% from "macros.html" import campo, boton %}
+
+{% block titulo %}Crear cuenta · Cine Paradiso{% endblock %}
+{% block titulo_tarjeta %}Creá tu cuenta{% endblock %}
+{% block bajada %}Es gratis y lleva menos de un minuto.{% endblock %}
+
+{% block campos %}
+  {{ campo("nombre", "Nombre completo", valor=formulario.nombre, placeholder="Ana Pérez", autocompletar="name", error=errores.nombre) }}
+  {{ campo("email", "Email", "email", formulario.email, placeholder="tu@email.com", autocompletar="email", error=errores.email) }}
+  {{ campo("password", "Contraseña", "password", placeholder="Mínimo 8 caracteres", autocompletar="new-password", minimo=8, error=errores.password) }}
+  {{ campo("repetir_password", "Repetir contraseña", "password", placeholder="Repetí la contraseña", autocompletar="new-password", minimo=8, error=errores.repetir_password) }}
+  {{ boton("Crear cuenta", clase="boton boton-bloque") }}
+{% endblock %}
