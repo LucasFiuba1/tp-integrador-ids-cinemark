@@ -64,3 +64,20 @@ def listar_salas():
     return jsonify(salas.listar_salas(local_id))
 
 
+@admin_bp.post("/salas")
+def crear_sala():
+    datos = request.get_json(silent=True) or {}
+    local_id = datos.get("local_id")
+    nombre = datos.get("nombre")
+    filas = datos.get("filas")
+    columnas = datos.get("columnas")
+    mensaje = salas.validar_salas(nombre, filas, columnas)
+    if mensaje:
+        return respuesta_error(400, "DATOS_INVALIDOS", mensaje)
+    if locales.obtener_local(local_id) is None:
+        return respuesta_error(404, "NO_ENCONTRADO", "El local no existe.")
+    try:
+        sala = salas.crear_sala(local_id, nombre, filas, columnas)
+    except pymysql.err.IntegrityError:
+        return respuesta_error(409, "SALA_DUPLICADA", "Ya existe una sala con ese nombre en el local.")
+    return jsonify(sala), 201
