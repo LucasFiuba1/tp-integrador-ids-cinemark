@@ -1,5 +1,5 @@
 -- Cine Paradiso: creación de la base de datos.
--- Ejecutar: mysql -u <usuario> -p < src/backend/sql/schema.sql
+-- Ejecutar: mysql -u <usuario> -p < src/backend/db/schema.sql
 -- Re-ejecutable: borra y vuelve a crear todas las tablas.
 -- Todas las fechas y horas se guardan en un único campo DATETIME.
 

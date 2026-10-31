@@ -1,6 +1,6 @@
 # Modelo de datos
 
-Base MySQL `cine_paradiso`. El script de creación es [`src/backend/sql/schema.sql`](../src/backend/sql/schema.sql) y la carga inicial [`src/backend/sql/seed.sql`](../src/backend/sql/seed.sql).
+Base MySQL `cine_paradiso`. El script de creación es [`src/backend/db/schema.sql`](../src/backend/db/schema.sql) y la carga inicial [`src/backend/db/seed.sql`](../src/backend/db/seed.sql).
 
 Convenciones:
 
