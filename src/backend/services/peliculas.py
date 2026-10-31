@@ -92,3 +92,46 @@ def importar(datos):
         # Otro admin la importó justo antes (tmdb_id es UNIQUE)
         raise ErrorApi(409, "PELICULA_DUPLICADA", "Esa película ya fue importada.")
     return obtener(nuevo_id)
+
+
+def modificar(pelicula_id, datos):
+    """Actualiza los campos enviados; los que no vienen quedan como estaban."""
+    actual = obtener(pelicula_id)
+
+    titulo = datos.get("titulo", actual["titulo"])
+    sinopsis = datos.get("sinopsis", actual["sinopsis"])
+    poster_url = datos.get("poster_url", actual["poster_url"])
+    duracion_min = datos.get("duracion_min", actual["duracion_min"])
+    clasificacion = datos.get("clasificacion", actual["clasificacion"])
+    genero = datos.get("genero", actual["genero"])
+
+    if type(titulo) is not str or titulo.strip() == "" or len(titulo) > 200:
+        raise _invalido("titulo debe ser un texto de hasta 200 caracteres.")
+    if type(genero) is not str or genero.strip() == "" or len(genero) > 50:
+        raise _invalido("genero debe ser un texto de hasta 50 caracteres.")
+    if type(duracion_min) is not int or duracion_min <= 0:
+        raise _invalido("duracion_min debe ser un entero positivo.")
+    if clasificacion is not None and (type(clasificacion) is not str or len(clasificacion) > 10):
+        raise _invalido("clasificacion debe ser un texto de hasta 10 caracteres.")
+    if poster_url is not None and (type(poster_url) is not str or len(poster_url) > 300):
+        raise _invalido("poster_url debe ser un texto de hasta 300 caracteres.")
+    if sinopsis is not None and type(sinopsis) is not str:
+        raise _invalido("sinopsis debe ser un texto.")
+
+    if "disponible_desde" in datos:
+        desde = _leer_fecha(datos["disponible_desde"], "disponible_desde")
+    else:
+        desde = datetime.fromisoformat(actual["disponible_desde"])
+    if "disponible_hasta" in datos:
+        hasta = _leer_fecha(datos["disponible_hasta"], "disponible_hasta")
+    else:
+        hasta = datetime.fromisoformat(actual["disponible_hasta"])
+    _validar_periodo(desde, hasta)
+
+    ejecutar(
+        "UPDATE peliculas SET titulo = %s, sinopsis = %s, poster_url = %s, duracion_min = %s, "
+        "clasificacion = %s, genero = %s, disponible_desde = %s, disponible_hasta = %s "
+        "WHERE id = %s",
+        (titulo, sinopsis, poster_url, duracion_min, clasificacion, genero, desde, hasta, pelicula_id),
+    )
+    return obtener(pelicula_id)

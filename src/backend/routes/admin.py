@@ -40,3 +40,9 @@ def importar_pelicula():
 @requiere_rol("admin")
 def obtener_pelicula(pelicula_id):
     return jsonify(peliculas.obtener(pelicula_id))
+
+
+@admin_bp.put("/peliculas/<int:pelicula_id>")
+@requiere_rol("admin")
+def modificar_pelicula(pelicula_id):
+    return jsonify(peliculas.modificar(pelicula_id, _cuerpo_json()))
