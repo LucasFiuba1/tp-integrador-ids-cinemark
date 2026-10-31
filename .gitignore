@@ -8,6 +8,10 @@ __pycache__/
 # Configuración local (nunca subir secretos)
 .env
 
+# Configuración personal de Claude Code
+.claude/settings.local.json
+CLAUDE.local.md
+
 # Editores / SO
 .vscode/
 .idea/
