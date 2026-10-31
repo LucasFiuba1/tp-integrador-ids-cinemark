@@ -1,14 +1,5 @@
-/* Cine Paradiso: sala a oscuras, marquesina dorada, telón rojo. Mobile-first. */
-:root {
-  --noche: #14213d;      /* fondo de sala */
-  --butaca: #1f2f54;     /* superficies */
-  --marquesina: #e9b44c; /* acción principal */
-  --telon: #9e2a2b;      /* ocupado / error */
-  --pantalla: #f2f4f8;   /* texto principal */
-  --tenue: #a7b0c4;      /* texto secundario */
-  --titulos: "Big Shoulders Display", "Arial Narrow", sans-serif;
-  --texto: "Source Sans 3", "Segoe UI", sans-serif;
-}
+/* Cine Paradiso: estilos base y componentes. Mobile-first.
+   Solo usa los tokens de tokens.css (colores, tipografía, espaciados, radios). */
 
 * { box-sizing: border-box; }
 
@@ -17,71 +8,134 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--noche);
-  color: var(--pantalla);
-  font: 1rem/1.55 var(--texto);
+  background: var(--color-fondo);
+  color: var(--color-texto);
+  font: var(--peso-normal) var(--texto-md)/var(--interlineado) var(--fuente-texto);
 }
 
-a { color: var(--marquesina); }
-a:focus-visible, button:focus-visible, input:focus-visible {
-  outline: 3px solid var(--marquesina);
+a { color: var(--color-texto); }
+a:hover { color: var(--color-primario); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--color-foco);
   outline-offset: 2px;
 }
 
-h1, h2, h3 { font-family: var(--titulos); font-weight: 800; line-height: 1.1; margin: 0 0 .5em; }
-h1 { font-size: clamp(2rem, 7vw, 3.5rem); }
+h1, h2, h3 {
+  margin: 0 0 var(--espacio-3);
+  font-family: var(--fuente-titulos);
+  font-weight: var(--peso-negrita);
+  line-height: var(--interlineado-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+}
+h1 { font-size: var(--texto-2xl); }
+h2 { font-size: var(--texto-xl); }
+h3 { font-size: var(--texto-lg); }
 
+/* Header */
 .marquesina {
   display: flex;
   flex-wrap: wrap;
-  gap: .75rem 1.5rem;
+  gap: var(--espacio-3) var(--espacio-5);
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
-  border-bottom: 4px solid var(--marquesina);
+  min-height: var(--alto-header);
+  padding: var(--espacio-3) var(--espacio-4);
+  background: var(--color-fondo);
+  border-bottom: var(--borde-fino);
 }
 
 .marca {
-  font: 800 1.75rem/1 var(--titulos);
-  color: var(--marquesina);
+  font: var(--peso-negrita) var(--texto-xl)/1 var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+  color: var(--color-texto);
   text-decoration: none;
 }
 
-.menu { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
-.menu a { color: var(--pantalla); text-decoration: none; }
+.menu { display: flex; flex-wrap: wrap; gap: var(--espacio-4); align-items: center; }
+.menu a {
+  font: var(--peso-medio) var(--texto-sm) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+  text-decoration: none;
+}
 
-.contenido { flex: 1; width: 100%; max-width: 72rem; margin: 0 auto; padding: 1.5rem 1.25rem; }
-.portada { max-width: 40rem; padding: 2rem 0; }
-.portada p, .estado { color: var(--tenue); }
+/* Contenido */
+.contenido {
+  flex: 1;
+  width: 100%;
+  max-width: var(--ancho-contenido);
+  margin: 0 auto;
+  padding: var(--espacio-5) var(--espacio-4);
+}
+.portada { max-width: 40rem; padding: var(--espacio-6) 0; }
+.portada p, .estado { color: var(--color-texto-secundario); }
 
+/* Botones */
 .boton {
   display: inline-block;
-  padding: .7rem 1.2rem;
-  border: 0;
-  border-radius: 6px;
-  background: var(--marquesina);
-  color: var(--noche);
-  font: 600 1rem var(--texto);
-  cursor: pointer;
+  padding: var(--espacio-3) var(--espacio-5);
+  border: 1px solid var(--color-texto);
+  border-radius: var(--radio-sm);
+  background: var(--color-texto);
+  color: var(--color-texto-invertido);
+  font: var(--peso-medio) var(--texto-sm)/1 var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
   text-decoration: none;
+  cursor: pointer;
+  transition: background var(--transicion), color var(--transicion);
 }
-.boton-secundario { background: transparent; color: var(--marquesina); border: 2px solid var(--marquesina); }
+.boton:hover { background: var(--color-superficie); color: var(--color-texto); }
+.boton-secundario { background: transparent; color: var(--color-texto); }
+.boton-secundario:hover { background: var(--color-texto); color: var(--color-texto-invertido); }
 
-.campo { display: grid; gap: .3rem; margin-bottom: 1rem; }
+/* Campos */
+.campo { display: grid; gap: var(--espacio-1); margin-bottom: var(--espacio-4); }
+.campo span {
+  font: var(--peso-medio) var(--texto-xs) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+  color: var(--color-texto-tenue);
+}
 .campo input {
-  padding: .65rem .8rem;
-  border: 1px solid var(--tenue);
-  border-radius: 6px;
-  background: var(--butaca);
-  color: var(--pantalla);
+  padding: var(--espacio-3);
+  border: var(--borde-fino);
+  border-radius: var(--radio-sm);
+  background: var(--color-superficie);
+  color: var(--color-texto);
   font: inherit;
 }
+.campo input::placeholder { color: var(--color-texto-tenue); }
 
-.aviso { padding: .75rem 1rem; border-radius: 6px; background: var(--butaca); border-left: 4px solid var(--marquesina); }
-.aviso-error { border-left-color: var(--telon); }
+/* Avisos (mensajes flash) */
+.aviso {
+  padding: var(--espacio-3) var(--espacio-4);
+  border-radius: var(--radio-sm);
+  background: var(--color-panel);
+  border-left: 3px solid var(--color-texto-tenue);
+}
+.aviso-error { border-left-color: var(--color-error); }
+.aviso-exito { border-left-color: var(--color-exito); }
 
-.pie { padding: 1.25rem; color: var(--tenue); font-size: .9rem; text-align: center; }
+/* Footer */
+.pie {
+  padding: var(--espacio-5) var(--espacio-4);
+  border-top: var(--borde-fino);
+  color: var(--color-texto-secundario);
+  font-size: var(--texto-sm);
+  text-align: center;
+}
 
+/* Tablet */
 @media (min-width: 48rem) {
-  .contenido { padding: 2.5rem 2rem; }
+  .marquesina { padding: var(--espacio-3) var(--espacio-6); }
+  .contenido { padding: var(--espacio-6); }
+}
+
+/* Desktop */
+@media (min-width: 64rem) {
+  h1 { font-size: var(--texto-3xl); }
+  .contenido { padding: var(--espacio-7) var(--espacio-6); }
 }
