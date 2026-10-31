@@ -1,0 +1,29 @@
+{# Tarjeta común de Ingresar y Crear cuenta (Figma D7, D8 y M7): pestañas, título, bajada, formulario y nota.
+   Cada pantalla define el título, la bajada, la acción del formulario y sus campos. #}
+{% extends "base.html" %}
+
+{% block contenido %}
+  <section class="auth">
+    <div class="panel tarjeta-auth">
+      <nav class="pestanas" aria-label="Cuenta">
+        {% for endpoint, texto in [("publico.ingresar", "Ingresar"), ("publico.registro", "Crear cuenta")] %}
+          <a href="{{ url_for(endpoint) }}" {% if endpoint == request.endpoint %}aria-current="page"{% endif %}>{{ texto }}</a>
+        {% endfor %}
+      </nav>
+
+      <h1>{% block titulo_tarjeta %}{% endblock %}</h1>
+      <p class="auth-bajada">{% block bajada %}{% endblock %}</p>
+
+      {% if errores %}
+        <p class="aviso aviso-error" role="alert">Revisá los datos marcados para continuar.</p>
+      {% endif %}
+
+      {# novalidate: los errores los valida la ruta y se muestran con el estilo del sitio, no con el globo del navegador. #}
+      <form method="post" action="{{ url_for(request.endpoint) }}" class="auth-formulario" novalidate>
+        {% block campos %}{% endblock %}
+      </form>
+
+      <p class="auth-nota">Necesitás una cuenta para comprar entradas. La cartelera es pública.</p>
+    </div>
+  </section>
+{% endblock %}

@@ -90,6 +90,7 @@ h3 { font-size: var(--texto-lg); }
 .boton:hover { background: var(--color-superficie); color: var(--color-texto); }
 .boton-secundario { background: transparent; color: var(--color-texto); }
 .boton-secundario:hover { background: var(--color-texto); color: var(--color-texto-invertido); }
+.boton-bloque { display: block; width: 100%; text-align: center; }
 
 /* Campos */
 .campo { display: grid; gap: var(--espacio-1); margin-bottom: var(--espacio-4); }
@@ -108,6 +109,11 @@ h3 { font-size: var(--texto-lg); }
   font: inherit;
 }
 .campo input::placeholder { color: var(--color-texto-tenue); }
+/* Campo con error de validación: borde y mensaje en --color-error; el mensaje en texto lo distingue sin color */
+.campo-invalido span { color: var(--color-error-texto); }
+.campo-invalido input { border-color: var(--color-error); }
+.campo-invalido input:focus-visible { outline-color: var(--color-error); }
+.campo-mensaje { color: var(--color-error-texto); font-size: var(--texto-xs); }
 
 /* Avisos (mensajes flash) */
 .aviso {
@@ -321,6 +327,27 @@ h3 { font-size: var(--texto-lg); }
 .barra-relleno { display: block; height: 100%; background: var(--color-texto); }
 .barra-destacada .barra-relleno { background: var(--color-primario); }
 
+/* Ingresar y Crear cuenta: tarjeta centrada con pestañas */
+.auth { display: flex; justify-content: center; padding: var(--espacio-2) 0; }
+.tarjeta-auth { width: 100%; max-width: var(--ancho-formulario); margin: 0; padding: var(--espacio-5); }
+.pestanas { display: flex; gap: var(--espacio-5); margin-bottom: var(--espacio-5); }
+.pestanas a {
+  padding-bottom: var(--espacio-2);
+  border-bottom: 2px solid transparent;
+  color: var(--color-texto-secundario);
+  font: var(--peso-medio) var(--texto-sm) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.pestanas a:hover { color: var(--color-texto); }
+.pestanas a[aria-current="page"] { border-bottom-color: var(--color-primario); color: var(--color-texto); }
+.tarjeta-auth h1 { font-size: var(--texto-2xl); }
+.auth-bajada { margin: 0 0 var(--espacio-5); color: var(--color-texto-secundario); font-size: var(--texto-sm); }
+.auth-formulario .boton-bloque { margin-top: var(--espacio-2); }
+.tarjeta-auth .aviso { margin: 0 0 var(--espacio-4); font-size: var(--texto-sm); }
+.auth-nota { margin: var(--espacio-4) 0 0; color: var(--color-texto-tenue); font-size: var(--texto-xs); }
+
 /* Tablet */
 @media (min-width: 48rem) {
   .marquesina { padding: var(--espacio-3) var(--espacio-6); }
@@ -328,6 +355,8 @@ h3 { font-size: var(--texto-lg); }
   .contenido-admin { padding: 0; }
   .admin-principal { padding: var(--espacio-6); }
   .barra { grid-template-columns: minmax(0, 10rem) 1fr minmax(var(--espacio-7), auto); }
+  .auth { padding: var(--espacio-7) 0; }
+  .tarjeta-auth { padding: var(--espacio-6); }
 
   .tabla thead { display: table-header-group; }
   .tabla tr { display: table-row; padding: 0; }

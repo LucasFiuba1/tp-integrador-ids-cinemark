@@ -21,6 +21,7 @@
   --color-primario-hover: #c42c24;
   --color-exito: #3fb27f;            /* confirmación, variaciones positivas */
   --color-error: var(--color-primario);
+  --color-error-texto: #ff6b61;      /* mensajes de error en texto chico: contraste 6:1 sobre el panel (AA) */
   --color-foco: #ffffff;
 
   /* Tipografía */
@@ -61,6 +62,7 @@
   --ancho-contenido: 72rem;  /* 1152 px: contenido central del desktop de 1440 px */
   --alto-header: 4.5rem;     /* 72 px */
   --ancho-sidebar: 16rem;    /* 256 px: sidebar del backoffice */
+  --ancho-formulario: 26rem; /* 416 px: tarjeta de ingresar y crear cuenta */
   --transicion: 150ms ease;
 }
 

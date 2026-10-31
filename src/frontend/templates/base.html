@@ -23,7 +23,7 @@
       {% if session.get('token') %}
         <a href="#">Mi perfil</a>
       {% else %}
-        <a class="boton boton-secundario" href="#">Ingresar</a>
+        <a class="boton boton-secundario" href="{{ url_for('publico.ingresar') }}">Ingresar</a>
       {% endif %}
     </nav>
   </header>
