@@ -348,6 +348,66 @@ h3 { font-size: var(--texto-lg); }
 .tarjeta-auth .aviso { margin: 0 0 var(--espacio-4); font-size: var(--texto-sm); }
 .auth-nota { margin: var(--espacio-4) 0 0; color: var(--color-texto-tenue); font-size: var(--texto-xs); }
 
+/* Validar ingreso (backoffice): lector + resultado; en desktop van lado a lado */
+.validar { display: grid; gap: var(--espacio-4); margin-bottom: var(--espacio-5); }
+.validar .panel { margin-bottom: 0; }
+.validar-lector h2 { text-align: center; }
+.visor-qr {
+  display: grid;
+  place-items: center;
+  width: 80%;
+  aspect-ratio: 4 / 3;
+  margin: 0 auto var(--espacio-3);
+  border-radius: var(--radio-md);
+  background: var(--color-fondo);
+}
+.visor-marco {
+  display: grid;
+  place-items: center;
+  width: 50%;
+  aspect-ratio: 1;
+  border: 2px solid var(--color-primario);
+  border-radius: var(--radio-md);
+  color: var(--color-texto-secundario);
+  font: var(--peso-medio) var(--texto-xs) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+}
+.validar-separador { margin: 0 0 var(--espacio-3); color: var(--color-texto-tenue); font-size: var(--texto-xs); text-align: center; }
+.validar-formulario { display: grid; gap: var(--espacio-2); }
+.validar-formulario .campo { margin-bottom: 0; }
+.validar-formulario .boton { width: 100%; }
+
+.resultado-validacion { border: 1px solid var(--color-borde); }
+.resultado-valido { border-color: var(--color-exito); }
+.resultado-invalido { border-color: var(--color-error); }
+.panel .resultado-titulo { display: flex; gap: var(--espacio-3); align-items: center; font-size: var(--texto-lg); }
+.resultado-valido .resultado-titulo { color: var(--color-exito); }
+.resultado-invalido .resultado-titulo { color: var(--color-error-texto); }
+.resultado-icono {
+  display: inline-grid;
+  place-items: center;
+  width: var(--espacio-6);
+  height: var(--espacio-6);
+  flex-shrink: 0;
+  border-radius: var(--radio-redondo);
+}
+.resultado-valido .resultado-icono { background: var(--color-exito); color: var(--color-texto-invertido); }
+.resultado-invalido .resultado-icono { background: var(--color-error); color: var(--color-texto); }
+.resultado-datos { margin: 0 0 var(--espacio-4); font-size: var(--texto-sm); }
+.resultado-datos div {
+  display: flex;
+  gap: var(--espacio-3);
+  justify-content: space-between;
+  padding: var(--espacio-1) 0;
+}
+.resultado-datos dt { color: var(--color-texto-secundario); }
+.resultado-datos dd { margin: 0; font-weight: var(--peso-medio); text-align: right; }
+.resultado-motivo { margin: 0 0 var(--espacio-3); }
+.resultado-nota { margin: var(--espacio-3) 0 0; color: var(--color-texto-secundario); font-size: var(--texto-xs); }
+.badge-valida { color: var(--color-exito); }
+.badge-ya_utilizada, .badge-qr_invalido, .badge-otra_funcion, .badge-fuera_de_fecha { color: var(--color-error); }
+
 /* Tablet */
 @media (min-width: 48rem) {
   .marquesina { padding: var(--espacio-3) var(--espacio-6); }
@@ -356,6 +416,8 @@ h3 { font-size: var(--texto-lg); }
   .admin-principal { padding: var(--espacio-6); }
   .barra { grid-template-columns: minmax(0, 10rem) 1fr minmax(var(--espacio-7), auto); }
   .auth { padding: var(--espacio-7) 0; }
+  .validar-formulario { grid-template-columns: 1fr auto; align-items: start; }
+  .validar-formulario .boton { width: auto; margin-top: var(--espacio-5); }
   .tarjeta-auth { padding: var(--espacio-6); }
 
   .tabla thead { display: table-header-group; }
@@ -398,4 +460,5 @@ h3 { font-size: var(--texto-lg); }
   .admin-usuario { display: flex; margin-top: auto; padding: var(--espacio-5); }
   .admin-principal { padding: var(--espacio-6) var(--espacio-7); }
   .kpi-valor { font-size: var(--texto-3xl); }
+  .validar { grid-template-columns: 1fr 1fr; align-items: start; }
 }
