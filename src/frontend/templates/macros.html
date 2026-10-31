@@ -1,9 +1,17 @@
 {# Macros reutilizables para no repetir HTML entre pantallas. #}
 
-{% macro campo(nombre, etiqueta, tipo='text', valor='', requerido=true) %}
-  <label class="campo">
+{# Campo de formulario con su label. autocompletar es el valor de autocomplete (ej. "email", "current-password").
+   error es el mensaje de validación que devolvió la ruta: marca el campo y lo muestra debajo. #}
+{% macro campo(nombre, etiqueta, tipo='text', valor='', requerido=true, placeholder='', autocompletar='', minimo=none, error='') %}
+  <label class="campo{% if error %} campo-invalido{% endif %}">
     <span>{{ etiqueta }}</span>
-    <input type="{{ tipo }}" name="{{ nombre }}" value="{{ valor }}" {% if requerido %}required{% endif %}>
+    <input type="{{ tipo }}" name="{{ nombre }}" value="{{ valor }}"
+      {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}
+      {%- if autocompletar %} autocomplete="{{ autocompletar }}"{% endif %}
+      {%- if minimo %} minlength="{{ minimo }}"{% endif %}
+      {%- if requerido %} required{% endif %}
+      {%- if error %} aria-invalid="true" aria-describedby="error-{{ nombre }}"{% endif %}>
+    {% if error %}<small class="campo-mensaje" id="error-{{ nombre }}">{{ error }}</small>{% endif %}
   </label>
 {% endmacro %}
 

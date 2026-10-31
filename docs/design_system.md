@@ -25,7 +25,8 @@ sobre `estilos.css`.
 | `--color-primario` | `#e0332a` | Botón rojo, butaca seleccionada, badge "Estreno", barra destacada, temporizador. |
 | `--color-primario-hover` | `#c42c24` | Hover del botón rojo. |
 | `--color-exito` | `#3fb27f` | Compra confirmada, variaciones positivas en dashboards. |
-| `--color-error` | = primario | Mensajes de error y variaciones negativas. |
+| `--color-error` | = primario | Bordes de campos con error, variaciones negativas. |
+| `--color-error-texto` | `#ff6b61` | Mensajes de error en texto chico (contraste 6:1 sobre `--color-panel`; el primario da 3,8:1). |
 | `--color-foco` | `#ffffff` | Contorno de foco visible (accesibilidad). |
 
 Butacas: libre (`--color-superficie` con borde `--color-texto-tenue`), seleccionada (`--color-primario`),
@@ -61,6 +62,7 @@ Pesos: `--peso-normal` (400), `--peso-medio` (500), `--peso-negrita` (700). Inte
 | `--ancho-contenido` | 1152 px (contenido central en desktop 1440) |
 | `--alto-header` | 72 px |
 | `--ancho-sidebar` | 256 px (backoffice) |
+| `--ancho-formulario` | 416 px (tarjeta de ingresar y crear cuenta) |
 | `--transicion` | 150 ms para hover |
 
 ## Breakpoints (mobile-first)
