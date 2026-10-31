@@ -50,10 +50,12 @@
 
 {# Tabla del backoffice dentro de un panel.
    columnas: [{"clave": "titulo", "titulo": "Título"}, {"clave": "estado", "titulo": "Estado", "tipo": "estado"}]
-     tipo "estado" muestra un badge (con "textos": {valor: leyenda} opcional); "hora" y "fecha_hora" formatean ISO.
-   filas: lista de dicts con "id" (y "activa" si admite baja lógica).
-   acciones: {"editar": "backoffice.editar_x", "baja": "backoffice.baja_x"}, endpoints que reciben id.
-   A las filas con activa = false no se les ofrece la baja. #}
+     tipo "estado" muestra un badge (con "textos": {valor: leyenda} opcional); "activo" hace lo mismo con un booleano
+     (true -> activa, false -> inactiva); "hora" y "fecha_hora" formatean ISO y "precio" muestra $6.500.
+   filas: lista de dicts con "id" (y "activa" o "activo" si admite baja lógica).
+   acciones: {"editar": "backoffice.editar_x", "baja": "backoffice.baja_x"}, endpoints que reciben id;
+     "texto_baja" cambia la leyenda del botón de baja (por defecto "Dar de baja").
+   A las filas con activa / activo = false no se les ofrece la baja. #}
 {% macro tabla(columnas, filas, acciones={}, vacio='Todavía no hay registros.') %}
   {% if filas %}
     <div class="panel panel-tabla">
@@ -70,7 +72,9 @@
               {% for columna in columnas %}
                 <td data-etiqueta="{{ columna.titulo }}">
                   {% set valor = fila[columna.clave] %}
-                  {% if columna.tipo == "estado" %}{{ badge_estado(valor, (columna.textos or {}).get(valor, '')) }}
+                  {% if columna.tipo == "activo" %}{% set valor = "activa" if valor else "inactiva" %}{% endif %}
+                  {% if columna.tipo in ("estado", "activo") %}{{ badge_estado(valor, (columna.textos or {}).get(valor, '')) }}
+                  {% elif columna.tipo == "precio" %}{{ valor | precio }}
                   {% elif columna.tipo == "hora" %}{{ valor | hora }}
                   {% elif columna.tipo == "fecha_hora" %}{{ valor | fecha_hora }}
                   {% else %}{{ valor }}{% endif %}
@@ -81,9 +85,9 @@
                   {% if acciones.editar %}
                     <a class="accion-texto" href="{{ url_for(acciones.editar, id=fila.id) }}">Editar</a>
                   {% endif %}
-                  {% if acciones.baja and fila.activa is not sameas false %}
+                  {% if acciones.baja and fila.activa is not sameas false and fila.activo is not sameas false %}
                     <form method="post" action="{{ url_for(acciones.baja, id=fila.id) }}">
-                      <button type="submit" class="accion-texto accion-peligro">Dar de baja</button>
+                      <button type="submit" class="accion-texto accion-peligro">{{ acciones.texto_baja or "Dar de baja" }}</button>
                     </form>
                   {% endif %}
                 </td>
