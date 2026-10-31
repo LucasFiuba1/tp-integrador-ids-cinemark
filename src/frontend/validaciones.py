@@ -10,6 +10,8 @@ MAXIMO_EMAIL = 150
 MAXIMO_NOMBRE = 100
 MINIMO_PASSWORD = 8
 MAXIMO_CODIGO_QR = 500
+MAXIMO_DESCRIPCION = 255
+MAXIMO_PRECIO = 99_999_999.99  # DECIMAL(10, 2)
 
 
 def leer_formulario(formulario, *campos):
@@ -68,3 +70,32 @@ def validar_codigo_qr(datos):
     if len(codigo) > MAXIMO_CODIGO_QR:
         return {"codigo": "El código es demasiado largo; revisá que sea el de la entrada."}
     return {}
+
+
+def _error_precio(texto):
+    if not texto:
+        return "Ingresá el precio."
+    try:
+        precio = float(texto.replace(",", "."))
+    except ValueError:
+        return "El precio tiene que ser un número, por ejemplo 2500."
+    if not 0 < precio <= MAXIMO_PRECIO:
+        return "El precio tiene que ser mayor a $0 y menor a $100.000.000."
+    return None
+
+
+def validar_servicio(datos):
+    nombre = datos["nombre"]
+    if not nombre:
+        error_nombre = "Ingresá el nombre del servicio."
+    elif len(nombre) > MAXIMO_NOMBRE:
+        error_nombre = f"El nombre puede tener hasta {MAXIMO_NOMBRE} caracteres."
+    else:
+        error_nombre = None
+
+    return _sin_vacios({
+        "nombre": error_nombre,
+        "descripcion": None if len(datos["descripcion"]) <= MAXIMO_DESCRIPCION
+        else f"La descripción puede tener hasta {MAXIMO_DESCRIPCION} caracteres.",
+        "precio": _error_precio(datos["precio"]),
+    })
