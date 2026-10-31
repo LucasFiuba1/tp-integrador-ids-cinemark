@@ -86,8 +86,8 @@ Al implementar compras, reservas y permisos, agregar sus pruebas en `tests/`.
 ## Flujo de trabajo
 
 - `main`: versiones entregables. `develop`: integración.
-- Una rama por tarea desde `develop`: `feature/SCRUM-XX-descripcion`.
-- Commits con la clave de la tarea: `SCRUM-XX: descripción del cambio`.
+- Una rama por tarea desde `develop`: `SCRUM-XXX/descripcion`.
+- Commits con la clave de la tarea: `SCRUM-XXX: descripcion` (mismo formato para el título de los PRs).
 - Merge a `develop` por Pull Request con la revisión de otra persona.
 
 ## Documentación
