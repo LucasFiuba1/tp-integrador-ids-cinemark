@@ -1,7 +1,7 @@
 {# Validar ingreso (Figma B6 desktop y M2 mobile): lector + código manual, resultado de la validación e historial.
    resultado es la respuesta de POST /api/admin/ingresos/validar (none hasta que se envía un código). #}
 {% extends "backoffice/base_admin.html" %}
-{% from "macros.html" import cabecera_pagina, campo, boton, tabla %}
+{% from "macros.html" import cabecera_pagina, campo, boton, tabla, datos %}
 
 {% block titulo %}Validar ingreso · Backoffice · Cine Paradiso{% endblock %}
 
@@ -28,18 +28,14 @@
         <p class="resultado-nota">Escaneá o ingresá el código de una entrada para ver si puede pasar.</p>
       {% elif estado == "valido" %}
         <h2 id="titulo-resultado" class="resultado-titulo"><span class="resultado-icono" aria-hidden="true">✓</span>Entrada válida</h2>
-        <dl class="resultado-datos">
-          {% for etiqueta, valor in [
-            ("Película", resultado.pelicula),
-            ("Función", resultado.funcion | fecha_hora),
-            ("Local y sala", resultado.local ~ " · " ~ resultado.sala),
-            ("Butaca" if resultado.butacas | length == 1 else "Butacas", resultado.butacas | join(", ")),
-            ("Titular", resultado.titular),
-            ("Compra", "#" ~ resultado.compra_id),
-          ] %}
-            <div><dt>{{ etiqueta }}</dt><dd>{{ valor }}</dd></div>
-          {% endfor %}
-        </dl>
+        {{ datos([
+          ("Película", resultado.pelicula),
+          ("Función", resultado.funcion | fecha_hora),
+          ("Local y sala", resultado.local ~ " · " ~ resultado.sala),
+          ("Butaca" if resultado.butacas | length == 1 else "Butacas", resultado.butacas | join(", ")),
+          ("Titular", resultado.titular),
+          ("Compra", "#" ~ resultado.compra_id),
+        ], "resultado-datos") }}
         <form method="post" action="{{ url_for('backoffice.confirmar_ingreso') }}">
           <input type="hidden" name="compra_id" value="{{ resultado.compra_id }}">
           {{ boton("Confirmar ingreso", clase="boton boton-bloque") }}

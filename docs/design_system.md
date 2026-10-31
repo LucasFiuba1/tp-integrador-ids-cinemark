@@ -63,6 +63,7 @@ Pesos: `--peso-normal` (400), `--peso-medio` (500), `--peso-negrita` (700). Inte
 | `--alto-header` | 72 px |
 | `--ancho-sidebar` | 256 px (backoffice) |
 | `--ancho-formulario` | 416 px (tarjeta de ingresar y crear cuenta) |
+| `--ancho-ticket` | 640 px (compra confirmada) |
 | `--transicion` | 150 ms para hover |
 
 ## Breakpoints (mobile-first)
@@ -99,6 +100,16 @@ Filtros de Jinja (`src/frontend/filtros.py`): `fecha_hora` (`2026-10-24T19:30:00
 
 Clases sueltas: `.panel` (tarjeta oscura para gráficos y formularios, con `h2`), `.accion-texto` / `.accion-peligro`
 (acciones sin caja), `.avatar`, `.estado-vacio` y `.visualmente-oculto`.
+
+## Componentes de la compra y comunes
+
+| Macro (`macros.html`) | Uso |
+|---|---|
+| `pasos_compra(actual)` | Pasos Función → Butacas → Servicios → Pago; los anteriores a `actual` (1 a 4) llevan ✓ en rojo y el actual va en blanco con `aria-current="step"`. |
+| `resumen_compra(compra)` | Panel lateral con póster, función, detalle de entradas y servicios, total y vencimiento de la reserva. `compra` tiene la forma de `GET /api/compras/<id>`; se usa con `{% call resumen_compra(compra) %}` y el botón de la pantalla va adentro. |
+| `datos(filas, clase='')` | Lista `<dl>` etiqueta → valor en dos columnas; `filas` es una lista de tuplas. La usan validar ingreso, el resumen y el ticket. |
+| `casilla(nombre, etiqueta, valor='', error='')` | Checkbox con su texto (aceptar términos), con el mismo manejo de error que `campo`. |
+| `boton(..., formulario='')` | `formulario` es el `id` del `<form>` que envía el botón cuando queda fuera de él (resumen del pago). |
 
 ## Ejemplo
 
