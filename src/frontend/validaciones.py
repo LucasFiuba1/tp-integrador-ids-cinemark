@@ -9,6 +9,7 @@ PATRON_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MAXIMO_EMAIL = 150
 MAXIMO_NOMBRE = 100
 MINIMO_PASSWORD = 8
+MAXIMO_CODIGO_QR = 500
 
 
 def leer_formulario(formulario, *campos):
@@ -58,3 +59,12 @@ def validar_registro(datos):
         "password": error_password,
         "repetir_password": None if datos["repetir_password"] == password else "Las contraseñas no coinciden.",
     })
+
+
+def validar_codigo_qr(datos):
+    codigo = datos["codigo"]
+    if not codigo:
+        return {"codigo": "Ingresá o escaneá el código de la entrada."}
+    if len(codigo) > MAXIMO_CODIGO_QR:
+        return {"codigo": "El código es demasiado largo; revisá que sea el de la entrada."}
+    return {}

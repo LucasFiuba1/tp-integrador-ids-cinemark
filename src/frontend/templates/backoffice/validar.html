@@ -1,0 +1,65 @@
+{# Validar ingreso (Figma B6 desktop y M2 mobile): lector + código manual, resultado de la validación e historial.
+   resultado es la respuesta de POST /api/admin/ingresos/validar (none hasta que se envía un código). #}
+{% extends "backoffice/base_admin.html" %}
+{% from "macros.html" import cabecera_pagina, campo, boton, tabla %}
+
+{% block titulo %}Validar ingreso · Backoffice · Cine Paradiso{% endblock %}
+
+{% block admin %}
+  {{ cabecera_pagina("Validar ingreso", bajada="Escaneá el QR de la entrada para habilitar el acceso a la sala.") }}
+
+  <div class="validar">
+    <section class="panel validar-lector" aria-labelledby="titulo-lector">
+      <h2 id="titulo-lector">Escanear código</h2>
+      {# El lector de QR USB escribe el código en el campo enfocado, como un teclado; el visor es la guía visual. #}
+      <div class="visor-qr" aria-hidden="true"><span class="visor-marco">Apuntá al QR</span></div>
+      <p class="validar-separador">o ingresá el código manualmente</p>
+      <form method="post" action="{{ url_for('backoffice.validar') }}" class="validar-formulario" novalidate>
+        {{ campo("codigo", "Código de la entrada", valor=formulario.codigo, placeholder="CP-1042-D5",
+                 autocompletar="off", error=errores.codigo, enfocar=true) }}
+        {{ boton("Validar") }}
+      </form>
+    </section>
+
+    {% set estado = "vacio" if resultado is none else ("valido" if resultado.valido else "invalido") %}
+    <section class="panel resultado-validacion resultado-{{ estado }}" aria-live="polite" aria-labelledby="titulo-resultado">
+      {% if estado == "vacio" %}
+        <h2 id="titulo-resultado" class="resultado-titulo">Sin código</h2>
+        <p class="resultado-nota">Escaneá o ingresá el código de una entrada para ver si puede pasar.</p>
+      {% elif estado == "valido" %}
+        <h2 id="titulo-resultado" class="resultado-titulo"><span class="resultado-icono" aria-hidden="true">✓</span>Entrada válida</h2>
+        <dl class="resultado-datos">
+          {% for etiqueta, valor in [
+            ("Película", resultado.pelicula),
+            ("Función", resultado.funcion | fecha_hora),
+            ("Local y sala", resultado.local ~ " · " ~ resultado.sala),
+            ("Butaca" if resultado.butacas | length == 1 else "Butacas", resultado.butacas | join(", ")),
+            ("Titular", resultado.titular),
+            ("Compra", "#" ~ resultado.compra_id),
+          ] %}
+            <div><dt>{{ etiqueta }}</dt><dd>{{ valor }}</dd></div>
+          {% endfor %}
+        </dl>
+        <form method="post" action="{{ url_for('backoffice.confirmar_ingreso') }}">
+          <input type="hidden" name="compra_id" value="{{ resultado.compra_id }}">
+          {{ boton("Confirmar ingreso", clase="boton boton-bloque") }}
+        </form>
+        <p class="resultado-nota">Al confirmar, la película se suma a las vistas del usuario y el QR queda usado.</p>
+      {% else %}
+        <h2 id="titulo-resultado" class="resultado-titulo"><span class="resultado-icono" aria-hidden="true">✕</span>Entrada inválida</h2>
+        <p class="resultado-motivo">{{ resultado.mensaje }}</p>
+        <p class="resultado-nota">No habilites el ingreso. Si la persona tiene otra entrada, validá ese código.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <h2 class="visualmente-oculto">Últimos ingresos</h2>
+  {{ tabla([
+       {"clave": "hora", "titulo": "Hora", "tipo": "hora"},
+       {"clave": "pelicula", "titulo": "Película"},
+       {"clave": "butacas", "titulo": "Butaca"},
+       {"clave": "resultado", "titulo": "Resultado", "tipo": "estado",
+        "textos": {"valida": "Válida", "ya_utilizada": "Ya usada", "cancelada": "Cancelada", "qr_invalido": "Inválida",
+                   "otra_funcion": "Otra función", "fuera_de_fecha": "Fuera de fecha"}},
+     ], historial, vacio="Todavía no hubo ingresos en esta jornada.") }}
+{% endblock %}
