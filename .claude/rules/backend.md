@@ -37,7 +37,8 @@ Seguir el patrón de `routes/admin.py` + `services/peliculas.py`, que es la refe
 
 ## Seguridad
 
-- Contraseñas con `werkzeug.security.generate_password_hash` / `check_password_hash`.
+- Contraseñas con `werkzeug.security.generate_password_hash(password, method="pbkdf2:sha256")` / `check_password_hash`.
+  No usar el método por defecto (`scrypt`): el Python de macOS no trae `hashlib.scrypt` y el login se cae.
 - El usuario actual sale de `g.usuario`, nunca del cuerpo del request. Verificar que una compra sea del usuario.
 - Tokens de QR y de cancelación firmados con `itsdangerous` y `SECRET_KEY` (igual que `auth.py`).
 - No exponer `password_hash`, trazas ni mensajes internos en las respuestas.

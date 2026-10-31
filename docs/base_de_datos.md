@@ -112,7 +112,7 @@ erDiagram
 
 | Tabla | Para qué sirve |
 |---|---|
-| `usuarios` | Clientes y administradores. Contraseña con hash; email único. |
+| `usuarios` | Clientes y administradores. Contraseña con hash `pbkdf2:sha256`; email único. |
 | `locales` | Los 3 centros de Cine Paradiso. |
 | `salas` | Salas de cada local. La capacidad es `filas × columnas`. |
 | `butacas` | Asientos de cada sala, identificados por fila (A, B, C…) y número. |
@@ -134,4 +134,5 @@ erDiagram
 | QR único y de un solo uso | `compras.token_qr` es único; `compras.utilizada_en` registra el ingreso. |
 | Películas vistas del cliente | Compras con `utilizada_en` no nulo. |
 | Dashboards | Se calculan con `GROUP BY` sobre `entradas`, `funciones`, `peliculas.genero` y `compras`. |
+| Entrada de la misma función que su compra | `compras` tiene `UNIQUE (id, funcion_id)` y `entradas` una FK compuesta `(compra_id, funcion_id)` hacia ese par: la base rechaza una entrada de otra función. |
 | Precio histórico | `entradas.precio` y `compra_servicios.precio_unitario` guardan el precio al momento de comprar. |
