@@ -1,11 +1,24 @@
-"""Pruebas de los templates maquetados de ingresar y crear cuenta (SCRUM-88)."""
+"""Pruebas de las pantallas de ingresar, crear cuenta y cerrar sesión (SCRUM-88, SCRUM-46)."""
+from unittest.mock import patch
+
 import pytest
+import requests
 
 from src.frontend.validaciones import leer_formulario, validar_login, validar_registro
 
 REGISTRO_VALIDO = {"nombre": "Ana Pérez", "email": "ana@mail.com", "password": "secreta123",
                    "repetir_password": "secreta123"}
 EMAIL_INVALIDO = "Ingresá un email válido, por ejemplo nombre@mail.com."
+
+
+@pytest.fixture
+def llamar():
+    with patch("src.frontend.routes.publico.llamar") as llamar:
+        yield llamar
+
+
+def error_backend(status, codigo, mensaje):
+    return {"status": status, "codigo": codigo, "mensaje": mensaje}
 
 
 # --- pantallas ---
@@ -58,15 +71,87 @@ def test_registro_con_errores_conserva_nombre_y_email(cliente_frontend):
     assert 'value="corta"' not in html
 
 
-@pytest.mark.parametrize("ruta, datos", [
-    ("/ingresar", {"email": "ana@mail.com", "password": "x"}),
-    ("/registro", REGISTRO_VALIDO),
-])
-def test_envio_valido_avisa_que_no_esta_habilitado(cliente_frontend, ruta, datos):
-    respuesta = cliente_frontend.post(ruta, data=datos, follow_redirects=True)
-    assert respuesta.status_code == 200
-    assert respuesta.request.path == ruta
-    assert "todavía no están habilitados" in respuesta.get_data(as_text=True)
+# --- envío al backend (SCRUM-46) ---
+def test_ingresar_como_cliente_guarda_la_sesion_y_va_a_la_cartelera(cliente_frontend, llamar):
+    llamar.return_value = ({"token": "t0k3n", "rol": "cliente", "nombre": "Ana"}, None)
+    respuesta = cliente_frontend.post("/ingresar", data={"email": " ana@mail.com", "password": "secreta123"})
+    assert respuesta.status_code == 302
+    assert respuesta.headers["Location"] == "/"
+    llamar.assert_called_once_with("POST", "/api/auth/login",
+                                   json={"email": "ana@mail.com", "password": "secreta123"})
+    with cliente_frontend.session_transaction() as sesion:
+        assert dict(sesion) == {"token": "t0k3n", "rol": "cliente", "nombre": "Ana",
+                                "_flashes": [("exito", "¡Hola, Ana!")]}
+
+
+def test_ingresar_como_admin_va_al_backoffice(cliente_frontend, llamar):
+    llamar.return_value = ({"token": "t0k3n", "rol": "admin", "nombre": "Admin"}, None)
+    respuesta = cliente_frontend.post("/ingresar", data={"email": "admin@mail.com", "password": "x"})
+    assert respuesta.headers["Location"] == "/admin/"
+
+
+def test_ingresar_con_credenciales_incorrectas_muestra_el_error_y_conserva_el_email(cliente_frontend, llamar):
+    llamar.return_value = (None, error_backend(401, "CREDENCIALES_INVALIDAS", "El email o la contraseña son incorrectos."))
+    respuesta = cliente_frontend.post("/ingresar", data={"email": "ana@mail.com", "password": "secreta123"})
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 401
+    assert "El email o la contraseña son incorrectos." in html
+    assert 'value="ana@mail.com"' in html
+    assert "secreta123" not in html
+    with cliente_frontend.session_transaction() as sesion:
+        assert "token" not in sesion
+
+
+def test_ingresar_con_el_backend_caido_muestra_un_aviso(cliente_frontend):
+    with patch("src.frontend.api_client.requests.request", side_effect=requests.ConnectionError):
+        respuesta = cliente_frontend.post("/ingresar", data={"email": "ana@mail.com", "password": "x"})
+    assert respuesta.status_code == 503
+    assert "No se pudo conectar con el servidor." in respuesta.get_data(as_text=True)
+
+
+def test_registro_crea_la_cuenta_e_inicia_sesion(cliente_frontend, llamar):
+    llamar.side_effect = [({"id": 7, "rol": "cliente"}, None), ({"token": "t", "rol": "cliente", "nombre": "Ana Pérez"}, None)]
+    respuesta = cliente_frontend.post("/registro", data=REGISTRO_VALIDO)
+    assert respuesta.headers["Location"] == "/"
+    assert llamar.call_args_list[0].args == ("POST", "/api/auth/registro")
+    assert llamar.call_args_list[0].kwargs["json"] == {"nombre": "Ana Pérez", "email": "ana@mail.com",
+                                                       "password": "secreta123"}
+    assert llamar.call_args_list[1].args == ("POST", "/api/auth/login")
+    with cliente_frontend.session_transaction() as sesion:
+        assert sesion["token"] == "t"
+
+
+def test_registro_con_email_repetido_muestra_el_error_sin_iniciar_sesion(cliente_frontend, llamar):
+    llamar.return_value = (None, error_backend(409, "EMAIL_REGISTRADO", "Ya existe una cuenta con ese email."))
+    respuesta = cliente_frontend.post("/registro", data=REGISTRO_VALIDO)
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 409
+    assert "Ya existe una cuenta con ese email." in html
+    assert 'value="Ana Pérez"' in html and 'value="ana@mail.com"' in html
+    assert "secreta123" not in html
+    llamar.assert_called_once()
+
+
+def test_formulario_invalido_no_llama_al_backend(cliente_frontend, llamar):
+    cliente_frontend.post("/ingresar", data={"email": "", "password": ""})
+    llamar.assert_not_called()
+
+
+def test_salir_limpia_la_sesion(cliente_frontend):
+    with cliente_frontend.session_transaction() as sesion:
+        sesion.update(token="t", rol="cliente", nombre="Ana")
+    respuesta = cliente_frontend.post("/salir", follow_redirects=True)
+    assert "Cerraste la sesión." in respuesta.get_data(as_text=True)
+    with cliente_frontend.session_transaction() as sesion:
+        assert "token" not in sesion
+
+
+def test_header_con_sesion_muestra_salir(cliente_frontend, backend_ok):
+    with cliente_frontend.session_transaction() as sesion:
+        sesion.update(token="t", rol="cliente", nombre="Ana")
+    html = cliente_frontend.get("/").get_data(as_text=True)
+    assert '<form method="post" action="/salir">' in html
+    assert 'href="/ingresar">Ingresar</a>' not in html
 
 
 def test_header_enlaza_a_ingresar(cliente_frontend, backend_ok):

@@ -44,13 +44,6 @@ def inicio():
     return redirect(url_for("backoffice.dashboards"))
 
 
-@backoffice_bp.post("/salir")
-def salir():
-    session.clear()
-    flash("Cerraste la sesión.", "exito")
-    return redirect(url_for("publico.inicio"))
-
-
 # Dashboards maquetados (SCRUM-121) con datos de ejemplo que tienen la forma de las respuestas de
 # GET /api/admin/dashboards/{ocupacion,ventas-genero,franjas-horarias,cancelaciones}. SCRUM-77 reemplaza
 # _dashboards_ejemplo por un llamar(...) a cada endpoint con los filtros desde / hasta; el resumen de los KPI sale

@@ -53,11 +53,11 @@ def test_sidebar_muestra_el_nombre_del_admin(cliente_frontend):
         sesion.update(rol="admin", nombre="Lucía")
     html = cliente_frontend.get("/admin/funciones").get_data(as_text=True)
     assert "Lucía" in html
-    assert '<form method="post" action="/admin/salir">' in html
+    assert '<form method="post" action="/salir">' in html
 
 
 def test_cerrar_sesion_limpia_la_sesion_y_redirige(cliente_admin):
-    respuesta = cliente_admin.post("/admin/salir")
+    respuesta = cliente_admin.post("/salir")
     assert respuesta.status_code == 302
     assert respuesta.headers["Location"] == "/"
     assert cliente_admin.get("/admin/dashboards").status_code == 302
