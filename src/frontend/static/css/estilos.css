@@ -462,3 +462,89 @@ h3 { font-size: var(--texto-lg); }
   .kpi-valor { font-size: var(--texto-3xl); }
   .validar { grid-template-columns: 1fr 1fr; align-items: start; }
 }
+
+/* SCRUM-118: Locales y salas */
+
+.locales-lista {
+    display: flex;
+    flex-direction: column;
+    gap: var(--espacio-4);
+}
+
+.local-tarjeta {
+    padding: var(--espacio-4);
+}
+
+.local-cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--espacio-4);
+}
+
+.local-acciones {
+    display: flex;
+    gap: var(--espacio-3);
+}
+
+.salas-lista {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--espacio-3);
+    margin-top: var(--espacio-4);
+}
+
+.sala-tarjeta {
+    margin-bottom: 0;
+    padding: var(--espacio-3);
+    background: var(--color-panel);
+    border-radius: var(--radio-md);
+}
+
+.sala-acciones {
+    display: flex;
+    gap: var(--espacio-3);
+    margin-top: var(--espacio-3);
+}
+
+.sala-agregar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--color-borde);
+}
+
+@media (max-width: 600px) {
+
+    .local-cabecera {
+        flex-direction: column;
+    }
+
+    .local-acciones {
+        flex-wrap: wrap;
+    }
+
+    .salas-lista {
+        grid-template-columns: 1fr;
+    }
+
+    .sala-acciones {
+        flex-wrap: wrap;
+    }
+
+}
+
+.locales-encabezado {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--espacio-4);
+    margin-bottom: var(--espacio-4);
+}
+
+@media (max-width: 600px) {
+    .locales-encabezado {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
