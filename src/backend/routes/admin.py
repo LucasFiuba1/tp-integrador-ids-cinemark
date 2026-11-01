@@ -7,7 +7,7 @@ import pymysql
 from flask import Blueprint, jsonify, request
 
 from src.backend.auth import requiere_rol
-from src.backend.errores import ErrorApi, respuesta_error
+from src.backend.errores import respuesta_error
 from src.backend.routes.comun import cuerpo_json
 from src.backend.services import locales, peliculas, salas
 
@@ -127,13 +127,6 @@ def eliminar_sala(sala_id):
         return respuesta_error(409, "SALA_CON_FUNCIONES", "No se puede dar de baja una sala con funciones futuras.")
     salas.eliminar_sala(sala_id)
     return "", 204
-
-
-def _cuerpo_json():
-    datos = request.get_json(silent=True)
-    if not isinstance(datos, dict):
-        raise ErrorApi(400, "DATOS_INVALIDOS", "El cuerpo debe ser un objeto JSON.")
-    return datos
 
 
 @admin_bp.get("/tmdb/buscar")
