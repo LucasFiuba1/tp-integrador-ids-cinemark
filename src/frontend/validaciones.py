@@ -35,6 +35,14 @@ def _error_email(email):
     return None
 
 
+def _error_texto(valor, mensaje_vacio, maximo=MAXIMO_NOMBRE):
+    if not valor:
+        return mensaje_vacio
+    if len(valor) > maximo:
+        return f"El nombre puede tener hasta {maximo} caracteres."
+    return None
+
+
 def _sin_vacios(errores):
     return {campo: mensaje for campo, mensaje in errores.items() if mensaje}
 
@@ -47,23 +55,12 @@ def validar_login(datos):
 
 
 def validar_registro(datos):
-    nombre, password = datos["nombre"], datos["password"]
-    if not nombre:
-        error_nombre = "Ingresá tu nombre."
-    elif len(nombre) > MAXIMO_NOMBRE:
-        error_nombre = f"El nombre puede tener hasta {MAXIMO_NOMBRE} caracteres."
-    else:
-        error_nombre = None
-
-    if len(password) < MINIMO_PASSWORD:
-        error_password = f"La contraseña debe tener al menos {MINIMO_PASSWORD} caracteres."
-    else:
-        error_password = None
-
+    password = datos["password"]
     return _sin_vacios({
-        "nombre": error_nombre,
+        "nombre": _error_texto(datos["nombre"], "Ingresá tu nombre."),
         "email": _error_email(datos["email"]),
-        "password": error_password,
+        "password": None if len(password) >= MINIMO_PASSWORD
+        else f"La contraseña debe tener al menos {MINIMO_PASSWORD} caracteres.",
         "repetir_password": None if datos["repetir_password"] == password else "Las contraseñas no coinciden.",
     })
 
@@ -89,16 +86,8 @@ def _error_vencimiento(vencimiento, hoy):
 
 def validar_pago(datos, hoy=None):
     """Datos de la tarjeta del pago simulado. hoy se recibe para poder probar el vencimiento con una fecha fija."""
-    titular = datos["titular"]
-    if not titular:
-        error_titular = "Ingresá el nombre del titular como figura en la tarjeta."
-    elif len(titular) > MAXIMO_NOMBRE:
-        error_titular = f"El nombre puede tener hasta {MAXIMO_NOMBRE} caracteres."
-    else:
-        error_titular = None
-
     return _sin_vacios({
-        "titular": error_titular,
+        "titular": _error_texto(datos["titular"], "Ingresá el nombre del titular como figura en la tarjeta."),
         "numero": _error_numero_tarjeta(datos["numero"]),
         "vencimiento": _error_vencimiento(datos["vencimiento"], hoy or date.today()),
         "codigo_seguridad": None if PATRON_CODIGO_SEGURIDAD.match(datos["codigo_seguridad"])
@@ -129,16 +118,8 @@ def _error_precio(texto):
 
 
 def validar_servicio(datos):
-    nombre = datos["nombre"]
-    if not nombre:
-        error_nombre = "Ingresá el nombre del servicio."
-    elif len(nombre) > MAXIMO_NOMBRE:
-        error_nombre = f"El nombre puede tener hasta {MAXIMO_NOMBRE} caracteres."
-    else:
-        error_nombre = None
-
     return _sin_vacios({
-        "nombre": error_nombre,
+        "nombre": _error_texto(datos["nombre"], "Ingresá el nombre del servicio."),
         "descripcion": None if len(datos["descripcion"]) <= MAXIMO_DESCRIPCION
         else f"La descripción puede tener hasta {MAXIMO_DESCRIPCION} caracteres.",
         "precio": _error_precio(datos["precio"]),

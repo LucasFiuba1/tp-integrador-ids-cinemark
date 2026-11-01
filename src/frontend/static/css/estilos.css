@@ -327,6 +327,37 @@ h3 { font-size: var(--texto-lg); }
 .barra-relleno { display: block; height: 100%; background: var(--color-texto); }
 .barra-destacada .barra-relleno { background: var(--color-primario); }
 
+/* Gráfico de columnas de los dashboards: el alto de cada columna llega calculado desde la macro columnas() */
+.columnas { display: flex; gap: var(--espacio-2); margin: 0; padding: 0; list-style: none; }
+.columna { flex: 1; min-width: 0; text-align: center; }
+.columna-pista {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--espacio-1);
+  height: var(--alto-grafico);
+}
+.columna-valor { color: var(--color-texto-secundario); font: var(--texto-xs) var(--fuente-titulos); }
+.columna-relleno {
+  border-radius: var(--radio-sm) var(--radio-sm) 0 0;
+  background: var(--color-superficie-alta);
+}
+.columna-destacada .columna-relleno { background: var(--color-primario); }
+.columna-destacada .columna-valor { color: var(--color-texto); }
+.columna-etiqueta {
+  display: block;
+  margin-top: var(--espacio-2);
+  color: var(--color-texto-tenue);
+  font: var(--peso-medio) var(--texto-xs) var(--fuente-titulos);
+  text-transform: uppercase;
+}
+
+/* Dashboards: KPI arriba y paneles en una columna; en desktop, dos filas con un panel ancho y uno angosto */
+.dashboards { display: grid; gap: var(--espacio-4); }
+.dashboards .panel { margin-bottom: 0; }
+.dashboards h2 { margin-bottom: var(--espacio-4); }
+.panel-nota { margin: var(--espacio-2) 0 0; color: var(--color-texto-tenue); font-size: var(--texto-xs); }
+
 /* Ingresar y Crear cuenta: tarjeta centrada con pestañas */
 .auth { display: flex; justify-content: center; padding: var(--espacio-2) 0; }
 .tarjeta-auth { width: 100%; max-width: var(--ancho-formulario); margin: 0; padding: var(--espacio-5); }
@@ -358,6 +389,109 @@ h3 { font-size: var(--texto-lg); }
 }
 .datos dt { color: var(--color-texto-secundario); }
 .datos dd { margin: 0; font-weight: var(--peso-medio); text-align: right; }
+
+
+/* Servicios de la compra */
+
+.servicios-lista {
+  display: grid;
+  gap: var(--espacio-3);
+  min-width: 0;
+}
+
+.servicio-tarjeta {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  overflow: hidden;
+  border-radius: var(--radio-md);
+  background: var(--color-panel);
+}
+
+.servicio-imagen {
+  display: grid;
+  place-items: center;
+  min-height: 110px;
+  font-family: var(--fuente-titulos);
+  font-size: var(--texto-xl);
+  font-weight: var(--peso-negrita);
+  color: var(--color-texto);
+}
+
+.servicio-imagen-1 {
+  background: linear-gradient(
+    var(--color-primario),
+    var(--color-panel)
+  );
+}
+
+.servicio-imagen-2 {
+  background: linear-gradient(
+    var(--color-superficie-alta),
+    var(--color-panel)
+  );
+}
+
+.servicio-imagen-3 {
+  background: linear-gradient(
+    var(--color-superficie),
+    var(--color-panel)
+  );
+}
+
+.servicio-imagen-4 {
+  background: linear-gradient(
+    var(--color-primario),
+    var(--color-superficie)
+  );
+}
+
+.servicio-informacion {
+  flex: 1;
+  min-width: 0;
+  padding: var(--espacio-3);
+}
+
+.servicio-informacion h2 {
+  margin-bottom: var(--espacio-2);
+  font-size: var(--texto-md);
+}
+
+.servicio-informacion p {
+  margin: 0 0 var(--espacio-2);
+  color: var(--color-texto-secundario);
+  font-size: var(--texto-sm);
+}
+
+.servicio-informacion .servicio-precio {
+  margin: 0;
+  color: var(--color-texto);
+  font-weight: var(--peso-negrita);
+}
+
+.servicio-cantidad {
+  display: flex;
+  gap: var(--espacio-3);
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 var(--espacio-3) var(--espacio-3);
+}
+
+.servicio-cantidad button {
+  width: var(--espacio-6);
+  height: var(--espacio-6);
+  border: var(--borde-fino);
+  border-radius: var(--radio-sm);
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  font: inherit;
+}
+
+.servicio-cantidad button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 /* Compra: pasos, casilla de términos, checkout con resumen lateral y compra confirmada */
 .paso, .resumen-total, .ticket-numero {
@@ -450,7 +584,7 @@ h3 { font-size: var(--texto-lg); }
 }
 .resumen-vence strong { color: var(--color-error-texto); font: var(--peso-negrita) var(--texto-md) var(--fuente-titulos); }
 
-.confirmada { max-width: var(--ancho-ticket); margin: 0 auto; }
+.confirmada, .cancelar { max-width: var(--ancho-ticket); margin: 0 auto; }
 .confirmada-cabecera { margin-bottom: var(--espacio-5); text-align: center; }
 .confirmada-cabecera h1 { margin-bottom: 0; }
 .confirmada-icono {
@@ -479,6 +613,9 @@ h3 { font-size: var(--texto-lg); }
 .ticket-numero { margin: 0; color: var(--color-texto-tenue); font-size: var(--texto-xs); }
 .confirmada-acciones { display: grid; gap: var(--espacio-3); margin-bottom: var(--espacio-5); text-align: center; }
 .confirmada-nota { border-left-color: var(--color-primario); color: var(--color-texto-secundario); font-size: var(--texto-xs); }
+
+/* Cancelar compra: reusa la cabecera, el ticket (sin QR) y las acciones de la compra confirmada */
+.cancelar-aviso { margin: 0 0 var(--espacio-5); color: var(--color-texto-secundario); font-size: var(--texto-xs); }
 
 /* Validar ingreso (backoffice): lector + resultado; en desktop van lado a lado */
 .validar { display: grid; gap: var(--espacio-4); margin-bottom: var(--espacio-5); }
@@ -551,6 +688,7 @@ h3 { font-size: var(--texto-lg); }
   .tarjeta-auth { padding: var(--espacio-6); }
   .paso + .paso::before { content: ""; width: var(--espacio-6); border-top: var(--borde-fino); }
   .ticket { grid-template-columns: 2fr 3fr; align-items: center; padding: var(--espacio-5); }
+  .cancelar .ticket { grid-template-columns: 1fr; }
   .ticket-qr { width: 100%; }
   .ticket h2 { text-align: left; }
   .confirmada-acciones { display: flex; justify-content: center; }
@@ -597,6 +735,7 @@ h3 { font-size: var(--texto-lg); }
   .paso + .paso::before { width: var(--espacio-7); }
   .admin-principal { padding: var(--espacio-6) var(--espacio-7); }
   .kpi-valor { font-size: var(--texto-3xl); }
+  .dashboards { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
   .validar { grid-template-columns: 1fr 1fr; align-items: start; }
   .formulario-linea { grid-template-columns: 1fr 1fr 1fr auto; align-items: start; }
   .formulario-linea-acciones { margin-top: var(--espacio-5); }
@@ -687,4 +826,18 @@ h3 { font-size: var(--texto-lg); }
         flex-direction: column;
         align-items: stretch;
     }
+}
+
+/* Servicios: dos columnas en pantallas grandes */
+
+@media (min-width: 48rem) {
+  .servicios-lista {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Servicio seleccionado de ejemplo */
+
+.servicio-tarjeta:first-child {
+  border: 1px solid var(--color-primario);
 }

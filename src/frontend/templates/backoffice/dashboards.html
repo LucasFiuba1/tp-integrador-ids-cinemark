@@ -1,0 +1,70 @@
+{# Dashboards (Figma B1 desktop y M1 mobile): KPI de la semana y los cuatro tableros del enunciado.
+   franjas_horarias, ocupacion, ventas_genero y cancelaciones tienen la forma de las respuestas de
+   GET /api/admin/dashboards/<tablero>; resumen trae los totales y la variación contra la semana anterior. #}
+{% extends "backoffice/base_admin.html" %}
+{% from "macros.html" import cabecera_pagina, tarjeta_kpi, barra, columnas %}
+
+{% block titulo %}Dashboards · Backoffice · Cine Paradiso{% endblock %}
+
+{# Tablero sin datos en el período (ej. una semana sin ventas). #}
+{% macro sin_datos() %}<p class="estado-vacio">Todavía no hay datos para este período.</p>{% endmacro %}
+
+{# Variación contra la semana anterior: ▲ / ▼ con el número sin signo. #}
+{% macro variacion(valor, sufijo) %}{{ "▲" if valor >= 0 else "▼" }} {{ valor | abs | numero }}{{ sufijo }} vs. semana anterior{% endmacro %}
+
+{% block admin %}
+  {{ cabecera_pagina("Dashboards", bajada="Resumen de ventas y ocupación · últimos 7 días") }}
+
+  <div class="kpis">
+    {{ tarjeta_kpi("Entradas vendidas", resumen.entradas | numero, variacion(resumen.entradas_variacion, "%"),
+                   "positivo" if resumen.entradas_variacion >= 0 else "negativo") }}
+    {{ tarjeta_kpi("Ingresos", resumen.monto | precio, variacion(resumen.monto_variacion, "%"),
+                   "positivo" if resumen.monto_variacion >= 0 else "negativo") }}
+    {{ tarjeta_kpi("Ocupación promedio", resumen.ocupacion | numero ~ "%", variacion(resumen.ocupacion_variacion, " pts"),
+                   "positivo" if resumen.ocupacion_variacion >= 0 else "negativo") }}
+    {# Que suban las cancelaciones es malo: el tono va al revés que en el resto. #}
+    {{ tarjeta_kpi("Compras canceladas", resumen.cancelaciones | numero ~ "%",
+                   variacion(resumen.cancelaciones_variacion, " pts"),
+                   "negativo" if resumen.cancelaciones_variacion > 0 else "positivo") }}
+  </div>
+
+  <div class="dashboards">
+    <section class="panel" aria-labelledby="titulo-franjas">
+      <h2 id="titulo-franjas">Entradas por franja horaria</h2>
+      {{ columnas(franjas_horarias, "franja", "entradas", "Entradas vendidas por franja horaria")
+         if franjas_horarias else sin_datos() }}
+    </section>
+
+    <section class="panel" aria-labelledby="titulo-ocupacion">
+      <h2 id="titulo-ocupacion">Ocupación por película</h2>
+      {% for fila in ocupacion %}
+        {{ barra(fila.pelicula, fila.ocupacion, sufijo="%", destacada=loop.first) }}
+      {% else %}
+        {{ sin_datos() }}
+      {% endfor %}
+      <p class="panel-nota">Butacas vendidas sobre la capacidad de sus funciones.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="titulo-generos">
+      <h2 id="titulo-generos">Ventas por género</h2>
+      {% set maximo_entradas = ventas_genero | map(attribute="entradas") | max if ventas_genero else 0 %}
+      {% for fila in ventas_genero %}
+        {{ barra(fila.genero, fila.entradas, maximo=maximo_entradas, destacada=loop.first) }}
+      {% else %}
+        {{ sin_datos() }}
+      {% endfor %}
+      <p class="panel-nota">Entradas vendidas por género de la película.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="titulo-cancelaciones">
+      <h2 id="titulo-cancelaciones">Cancelaciones por película</h2>
+      {% set maximo_porcentaje = cancelaciones | map(attribute="porcentaje") | max if cancelaciones else 0 %}
+      {% for fila in cancelaciones %}
+        {{ barra(fila.pelicula, fila.porcentaje, maximo=maximo_porcentaje, sufijo="%", destacada=loop.first) }}
+      {% else %}
+        {{ sin_datos() }}
+      {% endfor %}
+      <p class="panel-nota">Porcentaje de compras canceladas sobre las vendidas.</p>
+    </section>
+  </div>
+{% endblock %}

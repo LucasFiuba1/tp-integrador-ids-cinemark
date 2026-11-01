@@ -24,7 +24,7 @@ src/
     routes/         blueprints: público y backoffice
     templates/      base.html, macros y páginas
     static/css/     estilos responsive
-  tests/              pruebas automatizadas con unittest
+  tests/              pruebas automatizadas con pytest
 docs/
   endpoints.md      listado de endpoints con ejemplos
   base_de_datos.md  diagrama entidad-relación y reglas del negocio en la base
@@ -68,7 +68,7 @@ Usuario administrador de prueba: `admin@cineparadiso.com` / `admin1234`.
 Desde la raíz, con el entorno virtual activado:
 
 ```bash
-python -m unittest discover -s src/tests -v
+python -m pytest src/tests -v
 ```
 
 Las pruebas iniciales verifican la API de salud, el formato de errores y la
@@ -79,6 +79,7 @@ Al implementar compras, reservas y permisos, agregar sus pruebas en `tests/`.
 
 - El frontend se comunica con el backend **solo desde Python con `requests`**. Prohibido usar `fetch`, `axios` o `XMLHttpRequest` en el navegador.
 - **Sin ORM**: todas las consultas son SQL explícito y parametrizado (`src/backend/db.py`).
+- **Sin programación orientada a objetos**: ni en la app ni en las pruebas (`class`, `self`, herencia, `@dataclass`); solo funciones, `dict` y listas.
 - Las rutas manejan HTTP; los casos de uso van en `src/backend/services/`, en módulos por funcionalidad (por ejemplo, `compras.py`). Las operaciones atómicas usan una misma `transaccion()`.
 - Fechas y horas en un único campo `DATETIME`.
 - Sin variables globales ni código repetido: usar `create_app()`, macros de Jinja y los helpers comunes.

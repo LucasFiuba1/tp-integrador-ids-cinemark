@@ -26,7 +26,7 @@ Backend Flask (`src/backend`) con un blueprint por módulo, JSON de entrada y sa
 | App factory | `src/backend/app.py` | `create_app()`, registra blueprints y manejadores de error. |
 | Acceso a datos | `src/backend/db.py` | `consultar`, `consultar_uno`, `ejecutar`, `transaccion()`; SQL parametrizado, sin ORM. |
 | Seguridad | `src/backend/auth.py` | Token firmado (`generar_token`) y `@requiere_rol("admin")` / `@requiere_rol("cliente", "admin")`. |
-| Errores | `src/backend/errores.py` | `ErrorApi(status, codigo, mensaje)` → JSON uniforme. |
+| Errores | `src/backend/errores.py` | `error_api(status, codigo, mensaje)` → JSON uniforme. |
 | Cliente TMDB | `src/backend/services/tmdb.py` | Búsqueda y detalle de películas (duración, género, clasificación, póster). |
 
 ### Endpoints

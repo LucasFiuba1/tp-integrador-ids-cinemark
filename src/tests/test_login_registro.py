@@ -1,119 +1,195 @@
-"""Pruebas de los templates maquetados de ingresar y crear cuenta (SCRUM-88)."""
-import unittest
-from unittest.mock import Mock, patch
+"""Pruebas de las pantallas de ingresar, crear cuenta y cerrar sesión (SCRUM-88, SCRUM-46)."""
+from unittest.mock import patch
 
-from src.frontend.app import create_app as crear_frontend
+import pytest
+import requests
+
 from src.frontend.validaciones import leer_formulario, validar_login, validar_registro
 
 REGISTRO_VALIDO = {"nombre": "Ana Pérez", "email": "ana@mail.com", "password": "secreta123",
                    "repetir_password": "secreta123"}
+EMAIL_INVALIDO = "Ingresá un email válido, por ejemplo nombre@mail.com."
 
 
-class LoginRegistroTest(unittest.TestCase):
-    def setUp(self):
-        app = crear_frontend()
-        app.config.update(TESTING=True, SECRET_KEY="pruebas", BACKEND_URL="http://api.test")
-        self.cliente = app.test_client()
-
-    def test_ingresar_muestra_el_formulario_con_la_pestana_activa(self):
-        respuesta = self.cliente.get("/ingresar")
-        html = respuesta.get_data(as_text=True)
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertIn("¡Hola de nuevo!", html)
-        self.assertIn('<form method="post" action="/ingresar"', html)
-        self.assertIn('href="/ingresar" aria-current="page"', html)
-        self.assertIn('name="email" value="" placeholder="tu@email.com" autocomplete="email" required', html)
-        self.assertIn('type="password" name="password"', html)
-
-    def test_registro_muestra_los_cuatro_campos(self):
-        respuesta = self.cliente.get("/registro")
-        html = respuesta.get_data(as_text=True)
-        self.assertEqual(respuesta.status_code, 200)
-        self.assertIn("Creá tu cuenta", html)
-        self.assertIn('href="/registro" aria-current="page"', html)
-        for nombre in ("nombre", "email", "password", "repetir_password"):
-            with self.subTest(nombre=nombre):
-                self.assertIn(f'name="{nombre}"', html)
-        self.assertEqual(html.count('minlength="8"'), 2)
-
-    def test_formularios_desactivan_la_validacion_del_navegador(self):
-        for ruta in ("/ingresar", "/registro"):
-            with self.subTest(ruta=ruta):
-                self.assertIn('class="auth-formulario" novalidate>', self.cliente.get(ruta).get_data(as_text=True))
-
-    def test_ingresar_con_email_invalido_muestra_el_error_en_el_campo(self):
-        respuesta = self.cliente.post("/ingresar", data={"email": "4r", "password": "secreta123"})
-        html = respuesta.get_data(as_text=True)
-        self.assertEqual(respuesta.status_code, 400)
-        self.assertIn('<label class="campo campo-invalido">', html)
-        self.assertIn('value="4r"', html)
-        self.assertIn('aria-invalid="true" aria-describedby="error-email"', html)
-        self.assertIn('id="error-email">Ingresá un email válido, por ejemplo nombre@mail.com.</small>', html)
-        self.assertIn("Revisá los datos marcados", html)
-        self.assertNotIn("secreta123", html)
-
-    def test_registro_con_errores_conserva_nombre_y_email(self):
-        datos = dict(REGISTRO_VALIDO, password="corta", repetir_password="otra")
-        html = self.cliente.post("/registro", data=datos).get_data(as_text=True)
-        self.assertIn('value="Ana Pérez"', html)
-        self.assertIn('value="ana@mail.com"', html)
-        self.assertIn("al menos 8 caracteres", html)
-        self.assertIn("Las contraseñas no coinciden.", html)
-        self.assertNotIn('value="corta"', html)
-
-    def test_envio_valido_avisa_que_no_esta_habilitado(self):
-        casos = (("/ingresar", {"email": "ana@mail.com", "password": "x"}), ("/registro", REGISTRO_VALIDO))
-        for ruta, datos in casos:
-            with self.subTest(ruta=ruta):
-                respuesta = self.cliente.post(ruta, data=datos, follow_redirects=True)
-                self.assertEqual(respuesta.status_code, 200)
-                self.assertEqual(respuesta.request.path, ruta)
-                self.assertIn("todavía no están habilitados", respuesta.get_data(as_text=True))
-
-    def test_header_enlaza_a_ingresar(self):
-        with patch("src.frontend.api_client.requests.request") as peticion:
-            peticion.return_value = Mock(ok=True, content=b"{}")
-            peticion.return_value.json.return_value = {"estado": "ok"}
-            html = self.cliente.get("/").get_data(as_text=True)
-        self.assertIn('class="boton boton-secundario" href="/ingresar">Ingresar</a>', html)
+@pytest.fixture
+def llamar():
+    with patch("src.frontend.routes.publico.llamar") as llamar:
+        yield llamar
 
 
-class ValidacionesTest(unittest.TestCase):
-    def test_leer_formulario_recorta_espacios_salvo_en_contrasenas(self):
-        datos = leer_formulario({"email": "  ana@mail.com ", "password": " clave "}, "email", "password", "nombre")
-        self.assertEqual(datos, {"email": "ana@mail.com", "password": " clave ", "nombre": ""})
-
-    def test_login_valido_no_tiene_errores(self):
-        self.assertEqual(validar_login({"email": "ana@mail.com", "password": "x"}), {})
-
-    def test_login_invalido(self):
-        casos = (
-            ({"email": "", "password": ""}, {"email": "Ingresá tu email.", "password": "Ingresá tu contraseña."}),
-            ({"email": "ana", "password": "x"}, {"email": "Ingresá un email válido, por ejemplo nombre@mail.com."}),
-            ({"email": "ana@mail", "password": "x"}, {"email": "Ingresá un email válido, por ejemplo nombre@mail.com."}),
-            ({"email": "a@" + "m" * 150 + ".com", "password": "x"},
-             {"email": "Ingresá un email válido, por ejemplo nombre@mail.com."}),
-        )
-        for datos, esperado in casos:
-            with self.subTest(datos=datos):
-                self.assertEqual(validar_login(datos), esperado)
-
-    def test_registro_valido_no_tiene_errores(self):
-        self.assertEqual(validar_registro(REGISTRO_VALIDO), {})
-
-    def test_registro_invalido(self):
-        casos = (
-            ({"nombre": ""}, "nombre", "Ingresá tu nombre."),
-            ({"nombre": "a" * 101}, "nombre", "El nombre puede tener hasta 100 caracteres."),
-            ({"email": "ana.mail.com"}, "email", "Ingresá un email válido, por ejemplo nombre@mail.com."),
-            ({"password": "1234567", "repetir_password": "1234567"}, "password",
-             "La contraseña debe tener al menos 8 caracteres."),
-            ({"repetir_password": "otra-clave"}, "repetir_password", "Las contraseñas no coinciden."),
-        )
-        for cambios, campo, mensaje in casos:
-            with self.subTest(campo=campo, cambios=cambios):
-                self.assertEqual(validar_registro(dict(REGISTRO_VALIDO, **cambios)), {campo: mensaje})
+def error_backend(status, codigo, mensaje):
+    return {"status": status, "codigo": codigo, "mensaje": mensaje}
 
 
-if __name__ == "__main__":
-    unittest.main()
+# --- pantallas ---
+def test_ingresar_muestra_el_formulario_con_la_pestana_activa(cliente_frontend):
+    respuesta = cliente_frontend.get("/ingresar")
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 200
+    assert "¡Hola de nuevo!" in html
+    assert '<form method="post" action="/ingresar"' in html
+    assert 'href="/ingresar" aria-current="page"' in html
+    assert 'name="email" value="" placeholder="tu@email.com" autocomplete="email" required' in html
+    assert 'type="password" name="password"' in html
+
+
+def test_registro_muestra_los_cuatro_campos(cliente_frontend):
+    respuesta = cliente_frontend.get("/registro")
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 200
+    assert "Creá tu cuenta" in html
+    assert 'href="/registro" aria-current="page"' in html
+    for nombre in ("nombre", "email", "password", "repetir_password"):
+        assert f'name="{nombre}"' in html
+    assert html.count('minlength="8"') == 2
+
+
+@pytest.mark.parametrize("ruta", ["/ingresar", "/registro"])
+def test_formularios_desactivan_la_validacion_del_navegador(cliente_frontend, ruta):
+    assert 'class="auth-formulario" novalidate>' in cliente_frontend.get(ruta).get_data(as_text=True)
+
+
+def test_ingresar_con_email_invalido_muestra_el_error_en_el_campo(cliente_frontend):
+    respuesta = cliente_frontend.post("/ingresar", data={"email": "4r", "password": "secreta123"})
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 400
+    assert '<label class="campo campo-invalido">' in html
+    assert 'value="4r"' in html
+    assert 'aria-invalid="true" aria-describedby="error-email"' in html
+    assert f'id="error-email">{EMAIL_INVALIDO}</small>' in html
+    assert "Revisá los datos marcados" in html
+    assert "secreta123" not in html
+
+
+def test_registro_con_errores_conserva_nombre_y_email(cliente_frontend):
+    datos = dict(REGISTRO_VALIDO, password="corta", repetir_password="otra")
+    html = cliente_frontend.post("/registro", data=datos).get_data(as_text=True)
+    assert 'value="Ana Pérez"' in html
+    assert 'value="ana@mail.com"' in html
+    assert "al menos 8 caracteres" in html
+    assert "Las contraseñas no coinciden." in html
+    assert 'value="corta"' not in html
+
+
+# --- envío al backend (SCRUM-46) ---
+def test_ingresar_como_cliente_guarda_la_sesion_y_va_a_la_cartelera(cliente_frontend, llamar):
+    llamar.return_value = ({"token": "t0k3n", "rol": "cliente", "nombre": "Ana"}, None)
+    respuesta = cliente_frontend.post("/ingresar", data={"email": " ana@mail.com", "password": "secreta123"})
+    assert respuesta.status_code == 302
+    assert respuesta.headers["Location"] == "/"
+    llamar.assert_called_once_with("POST", "/api/auth/login",
+                                   json={"email": "ana@mail.com", "password": "secreta123"})
+    with cliente_frontend.session_transaction() as sesion:
+        assert dict(sesion) == {"token": "t0k3n", "rol": "cliente", "nombre": "Ana",
+                                "_flashes": [("exito", "¡Hola, Ana!")]}
+
+
+def test_ingresar_como_admin_va_al_backoffice(cliente_frontend, llamar):
+    llamar.return_value = ({"token": "t0k3n", "rol": "admin", "nombre": "Admin"}, None)
+    respuesta = cliente_frontend.post("/ingresar", data={"email": "admin@mail.com", "password": "x"})
+    assert respuesta.headers["Location"] == "/admin/"
+
+
+def test_ingresar_con_credenciales_incorrectas_muestra_el_error_y_conserva_el_email(cliente_frontend, llamar):
+    llamar.return_value = (None, error_backend(401, "CREDENCIALES_INVALIDAS", "El email o la contraseña son incorrectos."))
+    respuesta = cliente_frontend.post("/ingresar", data={"email": "ana@mail.com", "password": "secreta123"})
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 401
+    assert "El email o la contraseña son incorrectos." in html
+    assert 'value="ana@mail.com"' in html
+    assert "secreta123" not in html
+    with cliente_frontend.session_transaction() as sesion:
+        assert "token" not in sesion
+
+
+def test_ingresar_con_el_backend_caido_muestra_un_aviso(cliente_frontend):
+    with patch("src.frontend.api_client.requests.request", side_effect=requests.ConnectionError):
+        respuesta = cliente_frontend.post("/ingresar", data={"email": "ana@mail.com", "password": "x"})
+    assert respuesta.status_code == 503
+    assert "No se pudo conectar con el servidor." in respuesta.get_data(as_text=True)
+
+
+def test_registro_crea_la_cuenta_e_inicia_sesion(cliente_frontend, llamar):
+    llamar.side_effect = [({"id": 7, "rol": "cliente"}, None), ({"token": "t", "rol": "cliente", "nombre": "Ana Pérez"}, None)]
+    respuesta = cliente_frontend.post("/registro", data=REGISTRO_VALIDO)
+    assert respuesta.headers["Location"] == "/"
+    assert llamar.call_args_list[0].args == ("POST", "/api/auth/registro")
+    assert llamar.call_args_list[0].kwargs["json"] == {"nombre": "Ana Pérez", "email": "ana@mail.com",
+                                                       "password": "secreta123"}
+    assert llamar.call_args_list[1].args == ("POST", "/api/auth/login")
+    with cliente_frontend.session_transaction() as sesion:
+        assert sesion["token"] == "t"
+
+
+def test_registro_con_email_repetido_muestra_el_error_sin_iniciar_sesion(cliente_frontend, llamar):
+    llamar.return_value = (None, error_backend(409, "EMAIL_REGISTRADO", "Ya existe una cuenta con ese email."))
+    respuesta = cliente_frontend.post("/registro", data=REGISTRO_VALIDO)
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 409
+    assert "Ya existe una cuenta con ese email." in html
+    assert 'value="Ana Pérez"' in html and 'value="ana@mail.com"' in html
+    assert "secreta123" not in html
+    llamar.assert_called_once()
+
+
+def test_formulario_invalido_no_llama_al_backend(cliente_frontend, llamar):
+    cliente_frontend.post("/ingresar", data={"email": "", "password": ""})
+    llamar.assert_not_called()
+
+
+def test_salir_limpia_la_sesion(cliente_frontend):
+    with cliente_frontend.session_transaction() as sesion:
+        sesion.update(token="t", rol="cliente", nombre="Ana")
+    respuesta = cliente_frontend.post("/salir", follow_redirects=True)
+    assert "Cerraste la sesión." in respuesta.get_data(as_text=True)
+    with cliente_frontend.session_transaction() as sesion:
+        assert "token" not in sesion
+
+
+def test_header_con_sesion_muestra_salir(cliente_frontend, backend_ok):
+    with cliente_frontend.session_transaction() as sesion:
+        sesion.update(token="t", rol="cliente", nombre="Ana")
+    html = cliente_frontend.get("/").get_data(as_text=True)
+    assert '<form method="post" action="/salir">' in html
+    assert 'href="/ingresar">Ingresar</a>' not in html
+
+
+def test_header_enlaza_a_ingresar(cliente_frontend, backend_ok):
+    html = cliente_frontend.get("/").get_data(as_text=True)
+    assert 'class="boton boton-secundario" href="/ingresar">Ingresar</a>' in html
+
+
+# --- validaciones ---
+def test_leer_formulario_recorta_espacios_salvo_en_contrasenas():
+    datos = leer_formulario({"email": "  ana@mail.com ", "password": " clave "}, "email", "password", "nombre")
+    assert datos == {"email": "ana@mail.com", "password": " clave ", "nombre": ""}
+
+
+def test_login_valido_no_tiene_errores():
+    assert validar_login({"email": "ana@mail.com", "password": "x"}) == {}
+
+
+@pytest.mark.parametrize("datos, esperado", [
+    ({"email": "", "password": ""}, {"email": "Ingresá tu email.", "password": "Ingresá tu contraseña."}),
+    ({"email": "ana", "password": "x"}, {"email": EMAIL_INVALIDO}),
+    ({"email": "ana@mail", "password": "x"}, {"email": EMAIL_INVALIDO}),
+    ({"email": "a@" + "m" * 150 + ".com", "password": "x"}, {"email": EMAIL_INVALIDO}),
+])
+def test_login_invalido(datos, esperado):
+    assert validar_login(datos) == esperado
+
+
+def test_registro_valido_no_tiene_errores():
+    assert validar_registro(REGISTRO_VALIDO) == {}
+
+
+@pytest.mark.parametrize("cambios, campo, mensaje", [
+    ({"nombre": ""}, "nombre", "Ingresá tu nombre."),
+    ({"nombre": "a" * 101}, "nombre", "El nombre puede tener hasta 100 caracteres."),
+    ({"email": "ana.mail.com"}, "email", EMAIL_INVALIDO),
+    ({"password": "1234567", "repetir_password": "1234567"}, "password",
+     "La contraseña debe tener al menos 8 caracteres."),
+    ({"repetir_password": "otra-clave"}, "repetir_password", "Las contraseñas no coinciden."),
+])
+def test_registro_invalido(cambios, campo, mensaje):
+    assert validar_registro(dict(REGISTRO_VALIDO, **cambios)) == {campo: mensaje}

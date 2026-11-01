@@ -2,7 +2,7 @@
 import requests
 from flask import current_app
 
-from src.backend.errores import ErrorApi
+from src.backend.errores import error_api
 
 URL_BASE = "https://api.themoviedb.org/3"
 URL_POSTER = "https://image.tmdb.org/t/p/w500"
@@ -12,16 +12,16 @@ PAISES_CLASIFICACION = ("AR", "US")
 def _get(ruta, **params):
     clave = current_app.config["TMDB_API_KEY"]
     if not clave:
-        raise ErrorApi(502, "TMDB_NO_DISPONIBLE", "Falta configurar TMDB_API_KEY.")
+        error_api(502, "TMDB_NO_DISPONIBLE", "Falta configurar TMDB_API_KEY.")
     params.update(api_key=clave, language="es-AR")
     try:
         respuesta = requests.get(f"{URL_BASE}{ruta}", params=params, timeout=5)
     except requests.RequestException:
-        raise ErrorApi(502, "TMDB_NO_DISPONIBLE", "No se pudo consultar TMDB.")
+        error_api(502, "TMDB_NO_DISPONIBLE", "No se pudo consultar TMDB.")
     if respuesta.status_code == 404:
-        raise ErrorApi(404, "TMDB_NO_ENCONTRADA", "La película no existe en TMDB.")
+        error_api(404, "TMDB_NO_ENCONTRADA", "La película no existe en TMDB.")
     if not respuesta.ok:
-        raise ErrorApi(502, "TMDB_NO_DISPONIBLE", "TMDB devolvió un error.")
+        error_api(502, "TMDB_NO_DISPONIBLE", "TMDB devolvió un error.")
     return respuesta.json()
 
 
@@ -32,16 +32,16 @@ def _poster(path):
 def buscar(texto):
     """Devuelve una lista de {tmdb_id, titulo, sinopsis, poster_url, fecha_estreno}."""
     datos = _get("/search/movie", query=texto)
-    resultado = []
-    for p in datos.get("results", []):
-        resultado.append({
+    return [
+        {
             "tmdb_id": p["id"],
             "titulo": p.get("title", ""),
             "sinopsis": p.get("overview", ""),
             "poster_url": _poster(p.get("poster_path")),
             "fecha_estreno": p.get("release_date") or None,
-        })
-    return resultado
+        }
+        for p in datos.get("results", [])
+    ]
 
 
 def _clasificacion(release_dates):
@@ -57,9 +57,6 @@ def _clasificacion(release_dates):
 def detalle(tmdb_id):
     """Devuelve los datos de la película tal como se guardan en la tabla peliculas."""
     p = _get(f"/movie/{tmdb_id}", append_to_response="release_dates")
-    nombres_generos = []
-    for genero in p.get("genres", []):
-        nombres_generos.append(genero["name"])
     return {
         "tmdb_id": p["id"],
         "titulo": p.get("title", ""),
@@ -67,5 +64,5 @@ def detalle(tmdb_id):
         "poster_url": _poster(p.get("poster_path")),
         "duracion_min": p.get("runtime") or 0,
         "clasificacion": _clasificacion(p.get("release_dates", {})),
-        "genero": ", ".join(nombres_generos),
+        "genero": ", ".join(genero["name"] for genero in p.get("genres", [])),
     }
