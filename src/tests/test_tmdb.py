@@ -5,8 +5,8 @@ from unittest.mock import Mock, patch
 import requests
 
 from src.backend.app import create_app
-from src.backend.errores import ErrorApi
 from src.backend.services import tmdb
+from werkzeug.exceptions import HTTPException
 
 BUSQUEDA = {
     "results": [
@@ -44,10 +44,11 @@ class TmdbTest(unittest.TestCase):
         self.app = app
 
     def assertErrorApi(self, status, codigo, funcion, *args):
-        with self.assertRaises(ErrorApi) as error:
+        with self.assertRaises(HTTPException) as error:
             funcion(*args)
-        self.assertEqual(error.exception.status, status)
-        self.assertEqual(error.exception.codigo, codigo)
+        respuesta = error.exception.get_response()
+        self.assertEqual(respuesta.status_code, status)
+        self.assertEqual(respuesta.get_json()["error"]["codigo"], codigo)
 
     # --- búsqueda ---
     @patch("src.backend.services.tmdb.requests.get")

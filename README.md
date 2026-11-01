@@ -68,7 +68,7 @@ Usuario administrador de prueba: `admin@cineparadiso.com` / `admin1234`.
 Desde la raíz, con el entorno virtual activado:
 
 ```bash
-python -m unittest discover -s src/tests -v
+python -m pytest src/tests -v
 ```
 
 Las pruebas iniciales verifican la API de salud, el formato de errores y la

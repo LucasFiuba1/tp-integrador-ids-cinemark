@@ -4,7 +4,7 @@ from datetime import datetime
 import pymysql
 
 from src.backend.db import consultar, consultar_uno, ejecutar
-from src.backend.errores import ErrorApi
+from src.backend.errores import error_api
 from src.backend.services import tmdb
 
 COLUMNAS = (
@@ -14,19 +14,19 @@ COLUMNAS = (
 
 
 def _invalido(mensaje):
-    return ErrorApi(400, "DATOS_INVALIDOS", mensaje)
+    error_api(400, "DATOS_INVALIDOS", mensaje)
 
 
 def _leer_fecha(texto, campo):
     try:
         return datetime.fromisoformat(texto)
     except (TypeError, ValueError):
-        raise _invalido(campo + " debe tener formato YYYY-MM-DDTHH:MM:SS.")
+        _invalido(campo + " debe tener formato YYYY-MM-DDTHH:MM:SS.")
 
 
 def _validar_periodo(desde, hasta):
     if hasta <= desde:
-        raise _invalido("disponible_hasta debe ser posterior a disponible_desde.")
+        _invalido("disponible_hasta debe ser posterior a disponible_desde.")
 
 
 def _a_json(fila):
@@ -39,7 +39,7 @@ def _a_json(fila):
 
 def buscar_en_tmdb(texto):
     if texto is None or texto.strip() == "":
-        raise _invalido("Falta el parámetro q.")
+        _invalido("Falta el parámetro q.")
     return tmdb.buscar(texto.strip())
 
 
@@ -54,24 +54,24 @@ def listar():
 def obtener(pelicula_id):
     fila = consultar_uno("SELECT " + COLUMNAS + " FROM peliculas WHERE id = %s", (pelicula_id,))
     if fila is None:
-        raise ErrorApi(404, "NO_ENCONTRADO", "La película no existe.")
+        error_api(404, "NO_ENCONTRADO", "La película no existe.")
     return _a_json(fila)
 
 
 def importar(datos):
     tmdb_id = datos.get("tmdb_id")
     if type(tmdb_id) is not int or tmdb_id <= 0:
-        raise _invalido("tmdb_id debe ser un entero positivo.")
+        _invalido("tmdb_id debe ser un entero positivo.")
     desde = _leer_fecha(datos.get("disponible_desde"), "disponible_desde")
     hasta = _leer_fecha(datos.get("disponible_hasta"), "disponible_hasta")
     _validar_periodo(desde, hasta)
 
     if consultar_uno("SELECT id FROM peliculas WHERE tmdb_id = %s", (tmdb_id,)) is not None:
-        raise ErrorApi(409, "PELICULA_DUPLICADA", "Esa película ya fue importada.")
+        error_api(409, "PELICULA_DUPLICADA", "Esa película ya fue importada.")
 
     pelicula = tmdb.detalle(tmdb_id)
     if pelicula["duracion_min"] <= 0 or pelicula["genero"] == "":
-        raise ErrorApi(409, "PELICULA_INCOMPLETA", "TMDB no tiene duración o género de esta película.")
+        error_api(409, "PELICULA_INCOMPLETA", "TMDB no tiene duración o género de esta película.")
 
     clasificacion = pelicula["clasificacion"]
     if clasificacion is not None:
@@ -90,7 +90,7 @@ def importar(datos):
         )
     except pymysql.err.IntegrityError:
         # Otro admin la importó justo antes (tmdb_id es UNIQUE)
-        raise ErrorApi(409, "PELICULA_DUPLICADA", "Esa película ya fue importada.")
+        error_api(409, "PELICULA_DUPLICADA", "Esa película ya fue importada.")
     return obtener(nuevo_id)
 
 
@@ -106,17 +106,17 @@ def modificar(pelicula_id, datos):
     genero = datos.get("genero", actual["genero"])
 
     if type(titulo) is not str or titulo.strip() == "" or len(titulo) > 200:
-        raise _invalido("titulo debe ser un texto de hasta 200 caracteres.")
+        _invalido("titulo debe ser un texto de hasta 200 caracteres.")
     if type(genero) is not str or genero.strip() == "" or len(genero) > 50:
-        raise _invalido("genero debe ser un texto de hasta 50 caracteres.")
+        _invalido("genero debe ser un texto de hasta 50 caracteres.")
     if type(duracion_min) is not int or duracion_min <= 0:
-        raise _invalido("duracion_min debe ser un entero positivo.")
+        _invalido("duracion_min debe ser un entero positivo.")
     if clasificacion is not None and (type(clasificacion) is not str or len(clasificacion) > 10):
-        raise _invalido("clasificacion debe ser un texto de hasta 10 caracteres.")
+        _invalido("clasificacion debe ser un texto de hasta 10 caracteres.")
     if poster_url is not None and (type(poster_url) is not str or len(poster_url) > 300):
-        raise _invalido("poster_url debe ser un texto de hasta 300 caracteres.")
+        _invalido("poster_url debe ser un texto de hasta 300 caracteres.")
     if sinopsis is not None and type(sinopsis) is not str:
-        raise _invalido("sinopsis debe ser un texto.")
+        _invalido("sinopsis debe ser un texto.")
 
     if "disponible_desde" in datos:
         desde = _leer_fecha(datos["disponible_desde"], "disponible_desde")

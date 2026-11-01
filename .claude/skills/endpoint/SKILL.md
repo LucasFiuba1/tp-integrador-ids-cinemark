@@ -16,7 +16,7 @@ Referencia del patrón: `src/backend/routes/admin.py`, `src/backend/services/pel
    SQL parametrizado, `transaccion()` si hay más de una sentencia, fechas a ISO.
 4. **Ruta** en el blueprint del módulo: decorador de verbo + `@requiere_rol(...)`, sin lógica.
 5. **Pruebas** en `src/tests/test_<funcionalidad>.py`: feliz, 401, 403, 400 (subTest), 404, cada 409.
-6. **Verificar**: `python -m unittest discover -s src/tests -v` en verde.
+6. **Verificar**: `python -m pytest src/tests -v` en verde.
 7. Si hay MySQL levantado, probar a mano con `curl` (login para obtener el token) y mostrar request/response.
 
 Checklist final: sin ORM · SQL con `%s` · verbo correcto · endpoint protegido · sin código repetido ·
