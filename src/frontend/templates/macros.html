@@ -182,3 +182,34 @@
     {{ caller() }}
   </aside>
 {% endmacro %}
+
+{# Selector para usar dentro de un formulario GET. Cada opcion tiene "valor" y "texto". #}
+{% macro filtro(nombre, etiqueta, opciones, seleccionado='') %}
+  <label class="filtro">
+    <span>{{ etiqueta }}</span>
+    <select name="{{ nombre }}">
+      {% for opcion in opciones %}
+        <option value="{{ opcion.valor }}"{% if opcion.valor|string == seleccionado|string %} selected{% endif %}>
+          {{ opcion.texto }}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+{% endmacro %}
+
+{# Funcion debe incluir id, fecha_hora, sala y habilitada; idioma y formato son opcionales.
+   El llamador calcula habilitada como falso si la funcion empezo o no tiene butacas libres. #}
+{% macro chip_funcion(funcion) %}
+  {% set habilitada = funcion.habilitada | default(false) and funcion.id is defined %}
+  {% set sala = funcion.sala if funcion.sala is defined else funcion.nombre_sala | default('') %}
+  {% if habilitada %}
+    <a class="chip-funcion" href="{{ url_for('publico.butacas', funcion_id=funcion.id) }}">
+  {% else %}
+    <span class="chip-funcion chip-funcion-deshabilitada" aria-disabled="true">
+  {% endif %}
+    <strong>{{ funcion.fecha_hora | hora }}</strong>
+    {% if funcion.formato is defined and funcion.formato %}<span>{{ funcion.formato }}</span>{% endif %}
+    {% if funcion.idioma is defined and funcion.idioma %}<span>{{ funcion.idioma }}</span>{% endif %}
+    {% if sala %}<span>{{ sala }}</span>{% endif %}
+  {% if habilitada %}</a>{% else %}</span>{% endif %}
+{% endmacro %}

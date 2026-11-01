@@ -82,6 +82,48 @@ class ValidarIngresoTest(unittest.TestCase):
 
 
 class FiltrosYMacrosTest(unittest.TestCase):
+    def test_filtro_renderiza_opciones_seleccionadas_en_formulario_get(self):
+        app = crear_frontend()
+        opciones = [{"valor": "", "texto": "Todos"}, {"valor": "1", "texto": "Centro"}]
+        with app.test_request_context("/"):
+            html = render_template_string(
+                '{% from "macros.html" import filtro %}'
+                '<form method="get">{{ filtro("local_id", "Sucursal", opciones, "1") }}</form>',
+                opciones=opciones,
+            )
+        self.assertIn('<form method="get">', html)
+        self.assertIn('<select name="local_id">', html)
+        self.assertIn('<option value="1" selected>', html)
+        self.assertIn("Centro", html)
+
+    def test_chip_habilitado_enlaza_a_la_seleccion_de_butacas(self):
+        app = crear_frontend()
+        funcion = {
+            "id": 12, "fecha_hora": "2026-11-10T20:30:00", "sala": "Sala 1",
+            "formato": "2D", "idioma": "Castellano", "habilitada": True,
+        }
+        with app.test_request_context("/"):
+            html = render_template_string(
+                '{% from "macros.html" import chip_funcion %}{{ chip_funcion(funcion) }}',
+                funcion=funcion,
+            )
+        self.assertIn('href="/funciones/12/butacas"', html)
+        for dato in ("20:30", "2D", "Castellano", "Sala 1"):
+            with self.subTest(dato=dato):
+                self.assertIn(dato, html)
+
+    def test_chip_deshabilitado_no_ofrece_enlace(self):
+        app = crear_frontend()
+        funcion = {"id": 12, "fecha_hora": "2026-11-10T20:30:00", "sala": "Sala 1", "habilitada": False}
+        with app.test_request_context("/"):
+            html = render_template_string(
+                '{% from "macros.html" import chip_funcion %}{{ chip_funcion(funcion) }}',
+                funcion=funcion,
+            )
+        self.assertIn('aria-disabled="true"', html)
+        self.assertNotIn("<a ", html)
+        self.assertIn("Sala 1", html)
+
     def test_filtros_de_fecha_formatean_iso_y_toleran_valores_raros(self):
         self.assertEqual(fecha_hora("2026-10-24T19:30:00"), "24/10 · 19:30")
         self.assertEqual(hora("2026-10-24T19:30:00"), "19:30")
