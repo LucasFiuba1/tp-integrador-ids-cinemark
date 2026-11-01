@@ -55,7 +55,13 @@ POST /api/auth/login
 { "token": "eyJ1c2VyX2lkIjo3fQ...", "rol": "cliente", "nombre": "Ana Pérez" }
 ```
 
-Errores: 400 datos inválidos · 409 email ya registrado · 401 credenciales incorrectas.
+Reglas: el email se guarda en minúsculas y sin espacios; la contraseña (8 a 128 caracteres) se guarda con hash
+`pbkdf2:sha256`. Todo registro nuevo es rol `cliente` (los admin se cargan desde `seed.sql`; un `rol` en el cuerpo
+se ignora).
+
+Errores: 400 `DATOS_INVALIDOS` (campo faltante, email sin formato válido, nombre de más de 100 caracteres,
+contraseña fuera de rango) · 409 `EMAIL_REGISTRADO` · 401 `CREDENCIALES_INVALIDAS` (mismo mensaje si falla el
+email o la contraseña).
 
 ## Cartelera (público)
 
