@@ -19,7 +19,40 @@ SECCIONES = (
 
 # Secciones que ya tienen su vista; el resto muestra la pantalla provisoria. Al implementar una
 # (SCRUM-53, 55, 57, 72, 74, 77), agregar su endpoint acá y definir la vista con ese mismo endpoint.
-SECCIONES_IMPLEMENTADAS = ("dashboards", "servicios", "validar")
+SECCIONES_IMPLEMENTADAS = ("dashboards", "locales", "servicios", "validar")
+
+def _locales_ejemplo():
+    return [
+        {
+            "id": 1,
+            "nombre": "Paradiso Centro",
+            "direccion": "Av. Corrientes 1234, CABA",
+            "activa": True,
+            "salas": [
+                {"id": 1, "nombre": "Sala 1", "capacidad": 132, "activa": True},
+                {"id": 2, "nombre": "Sala 2", "capacidad": 132, "activa": True},
+            ]
+        },
+        {
+            "id": 2,
+            "nombre": "Paradiso Belgrano",
+            "direccion": "Av. Cabildo 5678, CABA",
+            "activa": True,
+            "salas": [
+                {"id": 3, "nombre": "Sala 1", "capacidad": 96, "activa": True},
+                {"id": 4, "nombre": "Sala 2", "capacidad": 96, "activa": True},
+            ]
+        },
+        {
+            "id": 3,
+            "nombre": "Paradiso Palermo",
+            "direccion": "Av. Santa Fe 4321, CABA",
+            "activa": True,
+            "salas": [
+                {"id": 5, "nombre": "Sala VIP", "capacidad": 36, "activa": True},
+            ]
+        }
+    ]
 
 
 def requiere_admin(vista):
@@ -31,6 +64,17 @@ def requiere_admin(vista):
             return redirect(url_for("publico.inicio"))
         return vista(*args, **kwargs)
     return envoltura
+
+@backoffice_bp.get("/locales")
+@requiere_admin
+def locales():
+    return render_template(
+        "backoffice/locales.html",
+        locales=_locales_ejemplo()
+    )
+
+
+
 
 
 @backoffice_bp.context_processor

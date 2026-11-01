@@ -121,6 +121,76 @@
   </div>
 {% endmacro %}
 
+{% macro sala_tarjeta(sala) %}
+    <div class="panel sala-tarjeta">
+
+        <h3>{{ sala.nombre }}</h3>
+
+        <p>{{ sala.capacidad }} butacas</p>
+
+        {{ badge_estado("activa" if sala.activa else "inactiva") }}
+
+        <div class="sala-acciones">
+
+            <button type="button" class="accion-texto" disabled>
+                Editar
+            </button>
+
+            <button type="button" class="accion-texto accion-peligro" disabled>
+                Quitar
+            </button>
+
+        </div>
+
+    </div>
+{% endmacro %}
+
+
+{% macro local_tarjeta(local) %}
+    <section class="panel local-tarjeta">
+
+        <div class="local-cabecera">
+
+            <div>
+                <h2>{{ local.nombre }}</h2>
+                <p>{{ local.direccion }}</p>
+                {{ badge_estado("activa" if local.activa else "inactiva") }}
+            </div>
+
+            <div class="local-acciones">
+
+                <button type="button" class="accion-texto" disabled>
+                    Editar local
+                </button>
+
+                <button type="button" class="accion-texto accion-peligro" disabled>
+                    Eliminar
+                </button>
+
+            </div>
+
+        </div>
+
+        <div class="salas-lista">
+
+            {% for sala in local.salas %}
+                {{ sala_tarjeta(sala) }}
+            {% endfor %}
+
+            <div class="panel sala-tarjeta sala-agregar">
+
+                <button type="button" class="accion-texto" disabled>
+                    + Agregar sala
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+{% endmacro %}
+
+
 {# Gráfico de columnas de los dashboards (ej. entradas por franja horaria). filas: lista de diccionarios tal como
    los devuelve la API; clave_etiqueta y clave_valor dicen qué dato va debajo y cuál define el alto.
    El alto de cada columna es valor / máximo (menos el lugar del número, que va arriba) y la más alta se destaca
