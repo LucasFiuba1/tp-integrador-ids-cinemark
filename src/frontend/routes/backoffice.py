@@ -19,7 +19,7 @@ SECCIONES = (
 
 # Secciones que ya tienen su vista; el resto muestra la pantalla provisoria. Al implementar una
 # (SCRUM-53, 55, 57, 72, 74, 77), agregar su endpoint acá y definir la vista con ese mismo endpoint.
-SECCIONES_IMPLEMENTADAS = ("servicios", "validar")
+SECCIONES_IMPLEMENTADAS = ("servicios", "validar", "peliculas")
 
 
 def requiere_admin(vista):
@@ -72,6 +72,29 @@ def _historial_ejemplo():
         {"hora": "2026-10-24T18:58:00", "pelicula": "La noche del telón", "butacas": "C2", "resultado": "cancelada"},
     ]
 
+def _peliculas_ejemplo():
+    return [
+        {"id": 1, "titulo": "La noche del telón", "genero": "Drama", "duracion_min": 108, "clasificacion": "R-13", "activa": True,},
+        {"id": 2, "titulo": "Último tren a Lisboa", "genero": "Suspenso", "duracion_min": 112, "clasificacion": "R-13", "activa": True,},
+        {"id": 3, "titulo": "Pequeños gigantes","genero": "Animación", "duracion_min": 95, "clasificacion": "ATP", "activa": False,},
+    ]
+
+@backoffice_bp.get("/peliculas")
+@requiere_admin
+def peliculas():
+    peliculas = _peliculas_ejemplo()
+    return render_template("backoffice/peliculas.html", peliculas=peliculas)
+
+@backoffice_bp.get("/peliculas/<int:id>/editar")
+@requiere_admin
+def editar_pelicula(id):
+    return redirect(url_for("backoffice.peliculas"))
+
+
+@backoffice_bp.post("/peliculas/<int:id>/baja")
+@requiere_admin
+def baja_pelicula(id):
+    return redirect(url_for("backoffice.peliculas"))
 
 @backoffice_bp.route("/validar", methods=["GET", "POST"])
 @requiere_admin
