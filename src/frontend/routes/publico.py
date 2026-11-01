@@ -1,8 +1,8 @@
 """Páginas para el cliente: cartelera, compra y perfil."""
-from flask import Blueprint, flash, redirect, render_template, request
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from src.frontend.api_client import ErrorBackend, llamar
-from src.frontend.validaciones import leer_formulario, validar_login, validar_registro
+from src.frontend.validaciones import leer_formulario, validar_login, validar_pago, validar_registro
 
 publico_bp = Blueprint("publico", __name__)
 
@@ -39,3 +39,41 @@ def registro():
     return _pantalla_cuenta(
         "auth/registro.html", ("nombre", "email", "password", "repetir_password"), validar_registro
     )
+
+
+# Pago y compra confirmada maquetados (SCRUM-114) con una compra de ejemplo que tiene la forma de la respuesta de
+# GET /api/compras/<id>. SCRUM-68 reemplaza _compra_ejemplo por llamar(...) y el POST por /api/compras/<id>/confirmar.
+CAMPOS_PAGO = ("titular", "numero", "vencimiento", "codigo_seguridad", "acepto")
+# QR de ejemplo (codifica CP-1042-D5): PNG de 23 x 23 px que la pantalla agranda sin suavizar.
+QR_EJEMPLO = (
+    "iVBORw0KGgoAAAANSUhEUgAAABcAAAAXAQAAAADIUekNAAAAZ0lEQVR42gFcAKP/Af8A/wMBExoCPvT4BOTwxAIARAACABQAAL76+gMh7TAA"
+    "/5P+AIgE7gHTq/ACAb1EAgsTiAQDHCwCHRvoAwEynwI+3fQC5PPEAgBq9AQAzc8CHOPIAyH7vAH/AP8IeCMEJ5FRrwAAAABJRU5ErkJggg=="
+)
+
+
+def _compra_ejemplo(compra_id, confirmada=False):
+    return {
+        "id": compra_id, "estado": "confirmada" if confirmada else "pendiente", "vence_en": "2026-10-24T19:05:00",
+        "pelicula": "La noche del telón", "poster_url": None, "local": "Paradiso Centro", "sala": "Sala 1",
+        "funcion": "2026-10-24T19:30:00", "butacas": ["D5", "D6", "D7"], "subtotal_entradas": 16500,
+        "servicios": [{"nombre": "Combo pochoclos grande", "cantidad": 1, "subtotal": 6500}], "total": 23000,
+        "email": "lucas@email.com", "qr_png_base64": QR_EJEMPLO if confirmada else None,
+    }
+
+
+@publico_bp.route("/compras/<int:compra_id>/pago", methods=["GET", "POST"])
+def pago(compra_id):
+    formulario = leer_formulario(request.form, *CAMPOS_PAGO)
+    errores = validar_pago(formulario) if request.method == "POST" else {}
+    if request.method == "POST" and not errores:
+        return redirect(url_for("publico.compra_confirmada", compra_id=compra_id))
+    # Los datos sensibles de la tarjeta no se devuelven a la página, como la contraseña en el login.
+    formulario.update(numero="", codigo_seguridad="")
+    pagina = render_template("compra/pago.html", compra=_compra_ejemplo(compra_id), formulario=formulario,
+                             errores=errores)
+    return pagina, 400 if errores else 200
+
+
+@publico_bp.get("/compras/<int:compra_id>/confirmada")
+def compra_confirmada(compra_id):
+    return render_template("compra/confirmada.html", compra=_compra_ejemplo(compra_id, confirmada=True))

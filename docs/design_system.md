@@ -63,6 +63,7 @@ Pesos: `--peso-normal` (400), `--peso-medio` (500), `--peso-negrita` (700). Inte
 | `--alto-header` | 72 px |
 | `--ancho-sidebar` | 256 px (backoffice) |
 | `--ancho-formulario` | 416 px (tarjeta de ingresar y crear cuenta) |
+| `--ancho-ticket` | 640 px (compra confirmada) |
 | `--transicion` | 150 ms para hover |
 
 ## Breakpoints (mobile-first)
@@ -89,16 +90,28 @@ flash se muestran dentro del panel principal. Las vistas se protegen con `@requi
 | Macro (`macros.html`) | Uso |
 |---|---|
 | `cabecera_pagina(titulo, accion=none, bajada='')` | `h1`, bajada opcional y botón blanco: `accion={"texto": "Importar de TMDB", "url": url_for(...)}`. |
-| `tabla(columnas, filas, acciones={}, vacio=...)` | Tabla dentro de un `.panel`. Columnas `{"clave", "titulo", "tipo"}`: `tipo: "estado"` muestra un badge (con `"textos": {valor: leyenda}` opcional) y `"hora"` / `"fecha_hora"` formatean fechas ISO. Acciones `{"editar": endpoint, "baja": endpoint}` que reciben `id`: "Editar" es un link y "Dar de baja" un `<form method="post">` en rojo, que no se ofrece si `fila.activa` es `false`. Sin filas muestra `vacio`. En mobile cada fila se apila con la etiqueta de cada dato. |
+| `tabla(columnas, filas, acciones={}, vacio=...)` | Tabla dentro de un `.panel`. Columnas `{"clave", "titulo", "tipo"}`: `tipo: "estado"` muestra un badge (con `"textos": {valor: leyenda}` opcional), `"activo"` hace lo mismo a partir de un booleano (`true` → `activa`, `false` → `inactiva`), `"precio"` muestra `$6.500` y `"hora"` / `"fecha_hora"` formatean fechas ISO. Acciones `{"editar": endpoint, "baja": endpoint}` que reciben `id`: "Editar" es un link y "Dar de baja" un `<form method="post">` en rojo (`"texto_baja"` cambia la leyenda, ej. "Quitar"), que no se ofrece si `fila.activa` o `fila.activo` es `false`. Sin filas muestra `vacio`. En mobile cada fila se apila con la etiqueta de cada dato. |
 | `badge_estado(estado, texto='')` | Palabra en mayúscula con borde: `activa` (verde), `inactiva` (gris, borde punteado), `cancelada` (rojo), `utilizada` (blanco). Se distingue por el texto, no solo por el color; `texto` cambia la leyenda (ej. "En cartelera"). |
 | `tarjeta_kpi(titulo, valor, detalle='', tono='')` | Indicador de los dashboards; agrupar en `<div class="kpis">` (2 por fila en mobile, 4 en desktop). `tono` `positivo`/`negativo` colorea el detalle. |
 | `barra(etiqueta, valor, maximo=100, sufijo='', destacada=false)` | Fila etiqueta / pista / valor; ancho `valor / maximo` con tope 100 %. Relleno blanco y `destacada` en `--color-primario`. |
 
-Filtros de Jinja (`src/frontend/filtros.py`): `fecha_hora` (`2026-10-24T19:30:00` → `24/10 · 19:30`) y `hora`
-(`19:30`). Si el valor no es una fecha ISO lo muestran tal cual.
+Filtros de Jinja (`src/frontend/filtros.py`): `fecha_hora` (`2026-10-24T19:30:00` → `24/10 · 19:30`), `hora`
+(`19:30`) y `precio` (`6500` → `$6.500`, `6500.5` → `$6.500,50`). Si el valor no tiene el formato esperado lo muestran tal cual.
 
-Clases sueltas: `.panel` (tarjeta oscura para gráficos y formularios, con `h2`), `.accion-texto` / `.accion-peligro`
+Clases sueltas: `.panel` (tarjeta oscura para gráficos y formularios, con `h2`), `.formulario-linea` (formulario de
+alta/edición de los ABM: campos apilados en mobile y en una fila con el botón en desktop, acciones en
+`.formulario-linea-acciones`), `.accion-texto` / `.accion-peligro`
 (acciones sin caja), `.avatar`, `.estado-vacio` y `.visualmente-oculto`.
+
+## Componentes de la compra y comunes
+
+| Macro (`macros.html`) | Uso |
+|---|---|
+| `pasos_compra(actual)` | Pasos Función → Butacas → Servicios → Pago; los anteriores a `actual` (1 a 4) llevan ✓ en rojo y el actual va en blanco con `aria-current="step"`. |
+| `resumen_compra(compra)` | Panel lateral con póster, función, detalle de entradas y servicios, total y vencimiento de la reserva. `compra` tiene la forma de `GET /api/compras/<id>`; se usa con `{% call resumen_compra(compra) %}` y el botón de la pantalla va adentro. |
+| `datos(filas, clase='')` | Lista `<dl>` etiqueta → valor en dos columnas; `filas` es una lista de tuplas. La usan validar ingreso, el resumen y el ticket. |
+| `casilla(nombre, etiqueta, valor='', error='')` | Checkbox con su texto (aceptar términos), con el mismo manejo de error que `campo`. |
+| `boton(..., formulario='')` | `formulario` es el `id` del `<form>` que envía el botón cuando queda fuera de él (resumen del pago). |
 
 ## Ejemplo
 

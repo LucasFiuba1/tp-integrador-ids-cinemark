@@ -3,7 +3,7 @@ from functools import wraps
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
-from src.frontend.validaciones import leer_formulario, validar_codigo_qr
+from src.frontend.validaciones import leer_formulario, validar_codigo_qr, validar_servicio
 
 backoffice_bp = Blueprint("backoffice", __name__, url_prefix="/admin")
 
@@ -19,7 +19,8 @@ SECCIONES = (
 
 # Secciones que ya tienen su vista; el resto muestra la pantalla provisoria. Al implementar una
 # (SCRUM-53, 55, 57, 72, 74, 77), agregar su endpoint acá y definir la vista con ese mismo endpoint.
-SECCIONES_IMPLEMENTADAS = ("validar", "locales")
+
+SECCIONES_IMPLEMENTADAS = ("servicios","validar", "locales")
 
 def _locales_ejemplo():
     return [
@@ -138,6 +139,71 @@ def confirmar_ingreso():
     else:
         flash("No se pudo confirmar el ingreso. Volvé a validar el código.", "error")
     return redirect(url_for("backoffice.validar"))
+
+
+# ABM de servicios maquetado (SCRUM-120) con datos de ejemplo que tienen la forma de la respuesta de
+# GET /api/admin/servicios. SCRUM-72 reemplaza _servicios_ejemplo y los flash de "guardado" por llamar(...).
+CAMPOS_SERVICIO = ("nombre", "descripcion", "precio")
+
+
+def _servicios_ejemplo():
+    return [
+        {"id": 1, "nombre": "Combo pochoclos grande", "descripcion": "Pochoclos grandes y gaseosa de 500 ml",
+         "precio": 6500.00, "activo": True},
+        {"id": 2, "nombre": "Gaseosa", "descripcion": "Gaseosa de 500 ml", "precio": 2500.00, "activo": True},
+        {"id": 3, "nombre": "Estacionamiento", "descripcion": "Estacionamiento durante la función",
+         "precio": 3000.00, "activo": True},
+        {"id": 4, "nombre": "Acceso VIP", "descripcion": "Butaca reclinable y servicio en sala",
+         "precio": 8000.00, "activo": False},
+    ]
+
+
+def _precio_para_campo(precio):
+    """6500.0 o "6500.00" (DECIMAL serializado) -> "6500" para el input numérico; 6500.5 -> "6500.5"."""
+    return f"{float(precio):.2f}".rstrip("0").rstrip(".")
+
+
+def _abm_servicios(servicio=None):
+    """Listado + formulario de alta (servicio=None) o de edición. En POST valida y, si está bien, vuelve al listado."""
+    if request.method == "POST":
+        formulario = leer_formulario(request.form, *CAMPOS_SERVICIO)
+        errores = validar_servicio(formulario)
+        if not errores:
+            flash(f"Guardaste el servicio {formulario['nombre']}.", "exito")
+            return redirect(url_for("backoffice.servicios"))
+    else:
+        formulario = {campo: (servicio or {}).get(campo, "") for campo in CAMPOS_SERVICIO}
+        if servicio:
+            formulario["precio"] = _precio_para_campo(servicio["precio"])
+        errores = {}
+    pagina = render_template(
+        "backoffice/servicios.html",
+        servicios=_servicios_ejemplo(), servicio=servicio, formulario=formulario, errores=errores,
+    )
+    return pagina, 400 if errores else 200
+
+
+@backoffice_bp.route("/servicios", methods=["GET", "POST"])
+@requiere_admin
+def servicios():
+    return _abm_servicios()
+
+
+@backoffice_bp.route("/servicios/<int:id>", methods=["GET", "POST"])
+@requiere_admin
+def editar_servicio(id):
+    servicio = next((s for s in _servicios_ejemplo() if s["id"] == id), None)
+    if servicio is None:
+        flash("Ese servicio no existe.", "error")
+        return redirect(url_for("backoffice.servicios"))
+    return _abm_servicios(servicio)
+
+
+@backoffice_bp.post("/servicios/<int:id>/baja")
+@requiere_admin
+def baja_servicio(id):
+    flash("Quitaste el servicio: ya no se ofrece en las compras nuevas.", "exito")
+    return redirect(url_for("backoffice.servicios"))
 
 
 def _pantalla_pendiente(titulo):

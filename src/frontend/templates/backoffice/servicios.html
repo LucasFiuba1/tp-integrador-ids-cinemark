@@ -1,0 +1,35 @@
+{# ABM de servicios (Figma B5): listado con estado y acciones, y abajo el formulario de alta o de edición.
+   servicios es la respuesta de GET /api/admin/servicios; servicio es el que se edita (none al dar de alta). #}
+{% extends "backoffice/base_admin.html" %}
+{% from "macros.html" import cabecera_pagina, campo, boton, tabla %}
+
+{% block titulo %}Servicios · Backoffice · Cine Paradiso{% endblock %}
+
+{% block admin %}
+  {{ cabecera_pagina("Servicios", bajada="Combos, estacionamiento y accesos extra",
+                     accion={"texto": "Nuevo servicio", "url": url_for("backoffice.servicios") ~ "#formulario-servicio"}) }}
+
+  {{ tabla([
+       {"clave": "nombre", "titulo": "Servicio"},
+       {"clave": "descripcion", "titulo": "Descripción"},
+       {"clave": "precio", "titulo": "Precio", "tipo": "precio"},
+       {"clave": "activo", "titulo": "Estado", "tipo": "activo", "textos": {"activa": "Activo", "inactiva": "Inactivo"}},
+     ], servicios,
+     acciones={"editar": "backoffice.editar_servicio", "baja": "backoffice.baja_servicio", "texto_baja": "Quitar"},
+     vacio="Todavía no hay servicios. Cargá el primero con el formulario de abajo.") }}
+
+  <section class="panel" id="formulario-servicio" aria-labelledby="titulo-formulario-servicio">
+    <h2 id="titulo-formulario-servicio">{{ "Editar " ~ servicio.nombre if servicio else "Nuevo servicio" }}</h2>
+    {% set destino = url_for("backoffice.editar_servicio", id=servicio.id) if servicio else url_for("backoffice.servicios") %}
+    <form method="post" action="{{ destino }}" class="formulario-linea" novalidate>
+      {{ campo("nombre", "Nombre", valor=formulario.nombre, placeholder="Ej: Combo familiar", error=errores.nombre) }}
+      {{ campo("descripcion", "Descripción", valor=formulario.descripcion, placeholder="Descripción corta",
+               requerido=false, error=errores.descripcion) }}
+      {{ campo("precio", "Precio", tipo="number", valor=formulario.precio, placeholder="$0", error=errores.precio) }}
+      <div class="formulario-linea-acciones">
+        {{ boton("Guardar") }}
+        {% if servicio %}<a class="accion-texto" href="{{ url_for('backoffice.servicios') }}">Cancelar</a>{% endif %}
+      </div>
+    </form>
+  </section>
+{% endblock %}
