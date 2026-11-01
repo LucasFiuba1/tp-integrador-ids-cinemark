@@ -1,0 +1,39 @@
+{# Cancelar compra (Figma D11 desktop y M11 mobile): datos de la compra, qué pasa al cancelar y confirmación.
+   Se llega desde Mi perfil o desde el botón del email. compra tiene la forma de GET /api/compras/<id>;
+   cancelable es false si faltan menos de 2 horas para la función. #}
+{% extends "base.html" %}
+{% from "macros.html" import detalle_compra, boton %}
+
+{% block titulo %}Cancelar compra · Cine Paradiso{% endblock %}
+
+{% block contenido %}
+  <section class="cancelar">
+    <header class="confirmada-cabecera">
+      <h1>Cancelar compra</h1>
+      <p class="cabecera-bajada">Revisá los datos antes de confirmar la cancelación.</p>
+    </header>
+
+    <article class="panel ticket" aria-labelledby="titulo-ticket">
+      {{ detalle_compra(compra) }}
+    </article>
+
+    {% if compra.cancelable %}
+      <p class="aviso aviso-error cancelar-aviso">
+        Si cancelás se liberan {{ "la butaca" if compra.butacas | length == 1 else "las butacas" }}
+        {{ compra.butacas | join(", ") }}, el QR de ingreso deja de ser válido y se anula el pago simulado de
+        {{ compra.total | precio }}. Esta acción no se puede deshacer.
+      </p>
+      <form class="confirmada-acciones" method="post"
+        action="{{ url_for('publico.cancelar_compra', compra_id=compra.id) }}">
+        {{ boton("Sí, cancelar compra") }}
+        {# Mi perfil todavía no tiene pantalla (igual que en base.html): volver lleva a la cartelera. #}
+        <a class="boton boton-secundario" href="{{ url_for('publico.inicio') }}">No, volver</a>
+      </form>
+    {% else %}
+      <p class="aviso aviso-error cancelar-aviso">No se puede cancelar: faltan menos de 2 horas para la función.</p>
+      <div class="confirmada-acciones">
+        <a class="boton boton-secundario" href="{{ url_for('publico.inicio') }}">Volver</a>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

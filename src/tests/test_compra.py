@@ -1,9 +1,12 @@
-"""Pruebas de los templates maquetados de pago y compra confirmada (SCRUM-114)."""
+"""Pruebas de los templates maquetados de pago, compra confirmada (SCRUM-114) y cancelación (SCRUM-115)."""
+import unittest
 from datetime import date
+from unittest.mock import patch
 
 import pytest
 
 from src.frontend.filtros import precio
+from src.frontend.routes import publico
 from src.frontend.validaciones import validar_pago
 
 PAGO_VALIDO = {"titular": "Lucas Berardi", "numero": "4242 4242 4242 4242", "vencimiento": "12/28",

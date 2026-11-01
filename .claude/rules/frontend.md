@@ -65,6 +65,7 @@ con el `nodeId`). Desktop 1440 px (D/B) y mobile 390 px (M).
 | Ingresar | `26:652` | `26:2112` |
 | Crear cuenta | `26:713` | `26:2171` |
 | Mi perfil | `26:781` | `26:2237` |
+| Cancelar compra | `167:1027` | `169:1064` |
 | Email de confirmación (640 px) | `26:950` | |
 | Backoffice: Dashboards | `29:1027` | `29:1846` |
 | Backoffice: Películas | `29:1175` | |
