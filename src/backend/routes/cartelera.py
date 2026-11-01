@@ -7,6 +7,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from ..db import consultar
+from ..services import funciones
 
 cartelera_bp = Blueprint("cartelera", __name__, url_prefix="/api")
 
@@ -114,3 +115,13 @@ def obtener_pelicula(id):
     pelicula["funciones"] = resultados_funciones
 
     return jsonify(pelicula), 200
+
+
+@cartelera_bp.get("/funciones/<int:funcion_id>")
+def obtener_funcion(funcion_id):
+    return jsonify(funciones.obtener(funcion_id))
+
+
+@cartelera_bp.get("/funciones/<int:funcion_id>/butacas")
+def obtener_butacas(funcion_id):
+    return jsonify(funciones.obtener_butacas(funcion_id))
