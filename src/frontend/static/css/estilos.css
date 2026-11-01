@@ -327,6 +327,37 @@ h3 { font-size: var(--texto-lg); }
 .barra-relleno { display: block; height: 100%; background: var(--color-texto); }
 .barra-destacada .barra-relleno { background: var(--color-primario); }
 
+/* Gráfico de columnas de los dashboards: el alto de cada columna llega calculado desde la macro columnas() */
+.columnas { display: flex; gap: var(--espacio-2); margin: 0; padding: 0; list-style: none; }
+.columna { flex: 1; min-width: 0; text-align: center; }
+.columna-pista {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--espacio-1);
+  height: var(--alto-grafico);
+}
+.columna-valor { color: var(--color-texto-secundario); font: var(--texto-xs) var(--fuente-titulos); }
+.columna-relleno {
+  border-radius: var(--radio-sm) var(--radio-sm) 0 0;
+  background: var(--color-superficie-alta);
+}
+.columna-destacada .columna-relleno { background: var(--color-primario); }
+.columna-destacada .columna-valor { color: var(--color-texto); }
+.columna-etiqueta {
+  display: block;
+  margin-top: var(--espacio-2);
+  color: var(--color-texto-tenue);
+  font: var(--peso-medio) var(--texto-xs) var(--fuente-titulos);
+  text-transform: uppercase;
+}
+
+/* Dashboards: KPI arriba y paneles en una columna; en desktop, dos filas con un panel ancho y uno angosto */
+.dashboards { display: grid; gap: var(--espacio-4); }
+.dashboards .panel { margin-bottom: 0; }
+.dashboards h2 { margin-bottom: var(--espacio-4); }
+.panel-nota { margin: var(--espacio-2) 0 0; color: var(--color-texto-tenue); font-size: var(--texto-xs); }
+
 /* Ingresar y Crear cuenta: tarjeta centrada con pestañas */
 .auth { display: flex; justify-content: center; padding: var(--espacio-2) 0; }
 .tarjeta-auth { width: 100%; max-width: var(--ancho-formulario); margin: 0; padding: var(--espacio-5); }
@@ -601,6 +632,7 @@ h3 { font-size: var(--texto-lg); }
   .paso + .paso::before { width: var(--espacio-7); }
   .admin-principal { padding: var(--espacio-6) var(--espacio-7); }
   .kpi-valor { font-size: var(--texto-3xl); }
+  .dashboards { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
   .validar { grid-template-columns: 1fr 1fr; align-items: start; }
   .formulario-linea { grid-template-columns: 1fr 1fr 1fr auto; align-items: start; }
   .formulario-linea-acciones { margin-top: var(--espacio-5); }

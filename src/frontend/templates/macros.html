@@ -117,8 +117,30 @@
   <div class="barra{% if destacada %} barra-destacada{% endif %}">
     <span class="barra-etiqueta">{{ etiqueta }}</span>
     <span class="barra-pista"><span class="barra-relleno" style="width: {{ porcentaje | round(1) }}%"></span></span>
-    <span class="barra-valor">{{ valor }}{{ sufijo }}</span>
+    <span class="barra-valor">{{ valor | numero }}{{ sufijo }}</span>
   </div>
+{% endmacro %}
+
+{# Gráfico de columnas de los dashboards (ej. entradas por franja horaria). filas: lista de diccionarios tal como
+   los devuelve la API; clave_etiqueta y clave_valor dicen qué dato va debajo y cuál define el alto.
+   El alto de cada columna es valor / máximo (menos el lugar del número, que va arriba) y la más alta se destaca
+   en rojo. #}
+{% macro columnas(filas, clave_etiqueta, clave_valor, titulo) %}
+  {% set maximo = filas | map(attribute=clave_valor) | max if filas else 0 %}
+  <ol class="columnas" aria-label="{{ titulo }}">
+    {% for fila in filas %}
+      {% set etiqueta = fila[clave_etiqueta] %}
+      {% set valor = fila[clave_valor] %}
+      {% set alto = valor / maximo * 100 if maximo else 0 %}
+      <li class="columna{% if valor == maximo %} columna-destacada{% endif %}">
+        <span class="columna-pista">
+          <span class="columna-valor">{{ valor | numero }}</span>
+          <span class="columna-relleno" style="height: calc({{ alto | round(1) }}% - var(--espacio-5))"></span>
+        </span>
+        <span class="columna-etiqueta">{{ etiqueta }}</span>
+      </li>
+    {% endfor %}
+  </ol>
 {% endmacro %}
 
 {# Casilla de verificación con su texto (ej. aceptar términos). Se marca si valor no está vacío. #}

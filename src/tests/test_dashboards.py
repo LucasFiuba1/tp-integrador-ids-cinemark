@@ -1,4 +1,6 @@
 """Pruebas del template maquetado de dashboards del backoffice (SCRUM-121)."""
+import unittest
+from src.frontend.app import create_app as crear_frontend
 from unittest.mock import patch
 
 from src.frontend.filtros import numero
