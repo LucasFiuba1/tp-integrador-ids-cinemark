@@ -155,21 +155,27 @@
   </ol>
 {% endmacro %}
 
+{# Póster, título y función de una compra (resumen lateral y cancelación). id_titulo es el id del <h2>, para que el
+   panel que lo contiene lo use en aria-labelledby. #}
+{% macro pelicula_compra(compra, id_titulo) %}
+  <div class="resumen-pelicula">
+    {% if compra.poster_url %}
+      <img class="resumen-poster" src="{{ compra.poster_url }}" alt="Póster de {{ compra.pelicula }}">
+    {% else %}
+      <span class="resumen-poster" aria-hidden="true"></span>
+    {% endif %}
+    <div>
+      <h2 id="{{ id_titulo }}">{{ compra.pelicula }}</h2>
+      <p class="resumen-funcion">{{ compra.local }} · {{ compra.sala }}<br>{{ compra.funcion | fecha_hora }}</p>
+    </div>
+  </div>
+{% endmacro %}
+
 {# Resumen lateral de la compra (servicios y pago): película, función, detalle de precios, total y vencimiento
    de la reserva. compra tiene la forma de GET /api/compras/<id>; el botón de la pantalla va en el caller(). #}
 {% macro resumen_compra(compra) %}
   <aside class="panel resumen" aria-labelledby="titulo-resumen">
-    <div class="resumen-pelicula">
-      {% if compra.poster_url %}
-        <img class="resumen-poster" src="{{ compra.poster_url }}" alt="Póster de {{ compra.pelicula }}">
-      {% else %}
-        <span class="resumen-poster" aria-hidden="true"></span>
-      {% endif %}
-      <div>
-        <h2 id="titulo-resumen">{{ compra.pelicula }}</h2>
-        <p class="resumen-funcion">{{ compra.local }} · {{ compra.sala }}<br>{{ compra.funcion | fecha_hora }}</p>
-      </div>
-    </div>
+    {{ pelicula_compra(compra, "titulo-resumen") }}
     {% set cantidad = compra.butacas | length %}
     {% set detalle = namespace(filas=[(cantidad ~ (" entrada" if cantidad == 1 else " entradas"),
                                        compra.subtotal_entradas | precio)]) %}

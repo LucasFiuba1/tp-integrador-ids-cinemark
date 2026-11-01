@@ -1,9 +1,11 @@
-"""Pruebas de los templates maquetados de pago y compra confirmada (SCRUM-114)."""
+"""Pruebas de los templates maquetados de pago, compra confirmada (SCRUM-114) y cancelación (SCRUM-115)."""
 import unittest
 from datetime import date
+from unittest.mock import patch
 
 from src.frontend.app import create_app as crear_frontend
 from src.frontend.filtros import precio
+from src.frontend.routes import publico
 from src.frontend.validaciones import validar_pago
 
 PAGO_VALIDO = {"titular": "Lucas Berardi", "numero": "4242 4242 4242 4242", "vencimiento": "12/28",
@@ -60,6 +62,40 @@ class PagoTest(unittest.TestCase):
         self.assertIn("<strong>$23.000</strong>", html)
         self.assertIn("lucas@email.com", html)
         self.assertIn('href="/">Volver a cartelera</a>', html)
+
+
+class CancelarCompraTest(unittest.TestCase):
+    def setUp(self):
+        app = crear_frontend()
+        app.config.update(TESTING=True, SECRET_KEY="pruebas", BACKEND_URL="http://api.test")
+        self.cliente = app.test_client()
+
+    def test_muestra_la_compra_y_pide_confirmacion(self):
+        respuesta = self.cliente.get("/compras/1042/cancelar")
+        html = respuesta.get_data(as_text=True)
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn('<span class="badge badge-confirmada">Confirmada</span>', html)
+        for dato in ("D5, D6, D7", "Combo pochoclos grande × 1", "#1042"):
+            with self.subTest(dato=dato):
+                self.assertIn(f"<dd>{dato}</dd>", html)
+        self.assertIn("Se liberan las butacas", html)
+        self.assertIn('method="post"\n        action="/compras/1042/cancelar"', html)
+        self.assertIn(">Sí, cancelar compra</button>", html)
+
+    def test_fuera_de_plazo_no_ofrece_cancelar(self):
+        compra = dict(publico._compra_ejemplo(1042, confirmada=True), cancelable=False)
+        with patch.object(publico, "_compra_ejemplo", return_value=compra):
+            html = self.cliente.get("/compras/1042/cancelar").get_data(as_text=True)
+        self.assertIn("No se puede cancelar: faltan menos de 2 horas", html)
+        self.assertNotIn("<form", html)
+
+    def test_confirmar_redirige_a_la_cartelera_con_aviso(self):
+        respuesta = self.cliente.post("/compras/1042/cancelar")
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertEqual(respuesta.headers["Location"], "/")
+        with self.cliente.session_transaction() as sesion:
+            self.assertIn(("exito", "Cancelaste la compra #1042. Liberamos las butacas y el QR ya no es válido."),
+                          sesion["_flashes"])
 
 
 class ValidarPagoTest(unittest.TestCase):

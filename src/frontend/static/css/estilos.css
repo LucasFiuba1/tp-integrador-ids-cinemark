@@ -290,7 +290,7 @@ h3 { font-size: var(--texto-lg); }
   line-height: 1;
   white-space: nowrap;
 }
-.badge-activa { color: var(--color-exito); }
+.badge-activa, .badge-confirmada { color: var(--color-exito); }
 .badge-inactiva { color: var(--color-texto-tenue); border-style: dashed; }
 .badge-cancelada { color: var(--color-error); }
 .badge-utilizada { color: var(--color-texto); }
@@ -450,7 +450,7 @@ h3 { font-size: var(--texto-lg); }
 }
 .resumen-vence strong { color: var(--color-error-texto); font: var(--peso-negrita) var(--texto-md) var(--fuente-titulos); }
 
-.confirmada { max-width: var(--ancho-ticket); margin: 0 auto; }
+.confirmada, .cancelar { max-width: var(--ancho-ticket); margin: 0 auto; }
 .confirmada-cabecera { margin-bottom: var(--espacio-5); text-align: center; }
 .confirmada-cabecera h1 { margin-bottom: 0; }
 .confirmada-icono {
@@ -479,6 +479,13 @@ h3 { font-size: var(--texto-lg); }
 .ticket-numero { margin: 0; color: var(--color-texto-tenue); font-size: var(--texto-xs); }
 .confirmada-acciones { display: grid; gap: var(--espacio-3); margin-bottom: var(--espacio-5); text-align: center; }
 .confirmada-nota { border-left-color: var(--color-primario); color: var(--color-texto-secundario); font-size: var(--texto-xs); }
+
+/* Cancelar compra: avisa qué pasa al cancelar y pide confirmación */
+.cancelar .resumen-total { margin-bottom: 0; }
+.cancelar-aviso { margin-bottom: var(--espacio-5); font-size: var(--texto-sm); }
+.cancelar-aviso p { margin: 0; }
+.cancelar-aviso ul { margin: var(--espacio-2) 0; padding-left: var(--espacio-5); color: var(--color-texto-secundario); }
+.cancelar-acciones { display: grid; gap: var(--espacio-3); text-align: center; }
 
 /* Validar ingreso (backoffice): lector + resultado; en desktop van lado a lado */
 .validar { display: grid; gap: var(--espacio-4); margin-bottom: var(--espacio-5); }
@@ -554,6 +561,7 @@ h3 { font-size: var(--texto-lg); }
   .ticket-qr { width: 100%; }
   .ticket h2 { text-align: left; }
   .confirmada-acciones { display: flex; justify-content: center; }
+  .cancelar-acciones { display: flex; justify-content: flex-end; }
 
   .tabla thead { display: table-header-group; }
   .tabla tr { display: table-row; padding: 0; }
