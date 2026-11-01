@@ -1,7 +1,8 @@
 """Páginas para el cliente: cartelera, compra y perfil."""
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from werkzeug.exceptions import HTTPException
 
-from src.frontend.api_client import ErrorBackend, llamar
+from src.frontend.api_client import llamar
 from src.frontend.validaciones import leer_formulario, validar_login, validar_pago, validar_registro
 
 publico_bp = Blueprint("publico", __name__)
@@ -11,8 +12,9 @@ publico_bp = Blueprint("publico", __name__)
 def inicio():
     try:
         estado_api = llamar("GET", "/api/salud").get("estado")
-    except ErrorBackend as error:
-        estado_api = error.mensaje
+    except HTTPException as error:
+        detalle = error.get_response().get_json().get("error", {})
+        estado_api = detalle.get("mensaje", "No se pudo consultar la API.")
     return render_template("inicio.html", estado_api=estado_api)
 
 
@@ -25,8 +27,32 @@ def _pantalla_cuenta(template, campos, validar):
     errores = validar(formulario)
     if errores:
         return render_template(template, formulario=formulario, errores=errores), 400
-    flash("El ingreso y el registro todavía no están habilitados.", "error")
-    return redirect(request.path)
+    try:
+        if template == "auth/login.html":
+            respuesta = llamar("POST", "/api/auth/login", json=formulario)
+            session["token"] = respuesta["token"]
+            session["rol"] = respuesta["rol"]
+            session["nombre"] = respuesta["nombre"]
+            flash(f"¡Hola, {respuesta['nombre']}!", "exito")
+            return redirect(url_for("backoffice.inicio") if respuesta["rol"] == "admin"
+                            else url_for("publico.inicio"))
+        llamar("POST", "/api/auth/registro", json={
+            "nombre": formulario["nombre"], "email": formulario["email"], "password": formulario["password"],
+        })
+        flash("Tu cuenta fue creada. Ya podés iniciar sesión.", "exito")
+        return redirect(url_for("publico.ingresar"))
+    except HTTPException as error:
+        detalle = error.get_response().get_json().get("error", {})
+        if error.code == 401 and template == "auth/login.html":
+            formulario["password"] = ""
+            flash(detalle.get("mensaje", "No se pudo iniciar sesión."), "error")
+            return render_template(template, formulario=formulario, errores={}), 401
+        if error.code == 401:
+            session.clear()
+            return redirect(url_for("publico.ingresar"))
+        formulario["password"] = ""
+        flash(detalle.get("mensaje", "No se pudo procesar la solicitud."), "error")
+        return render_template(template, formulario=formulario, errores={}), error.code
 
 
 @publico_bp.route("/ingresar", methods=["GET", "POST"])
@@ -39,6 +65,53 @@ def registro():
     return _pantalla_cuenta(
         "auth/registro.html", ("nombre", "email", "password", "repetir_password"), validar_registro
     )
+
+
+@publico_bp.route("/funciones/<int:funcion_id>/butacas", methods=["GET", "POST"])
+def butacas(funcion_id):
+    seleccionadas = []
+    error_formulario = ""
+    datos_invalidos = False
+    if request.method == "POST":
+        if not session.get("token"):
+            flash("Ingresá para reservar tus butacas.", "error")
+            return redirect(url_for("publico.ingresar"))
+        valores = request.form.getlist("butaca_ids")
+        if not valores or any(not valor.isdigit() or int(valor) <= 0 for valor in valores):
+            seleccionadas = [int(valor) for valor in valores if valor.isdigit() and int(valor) > 0]
+            error_formulario = "Elegí al menos una butaca libre."
+            datos_invalidos = True
+        else:
+            seleccionadas = [int(valor) for valor in valores]
+            try:
+                compra = llamar(
+                    "POST", "/api/compras",
+                    json={"funcion_id": funcion_id, "butaca_ids": seleccionadas},
+                )
+                flash("Reservamos tus butacas por 10 minutos.", "exito")
+                return redirect(url_for("publico.pago", compra_id=compra["id"]))
+            except HTTPException as error:
+                detalle = error.get_response().get_json().get("error", {})
+                if error.code == 401:
+                    session.clear()
+                    flash(detalle.get("mensaje", "Tenés que iniciar sesión."), "error")
+                    return redirect(url_for("publico.ingresar"))
+                error_formulario = detalle.get("mensaje", "No se pudo reservar las butacas.")
+    try:
+        funcion = llamar("GET", f"/api/funciones/{funcion_id}")
+        mapa = llamar("GET", f"/api/funciones/{funcion_id}/butacas")
+    except HTTPException as error:
+        detalle = error.get_response().get_json().get("error", {})
+        if error.code == 401:
+            session.clear()
+            flash(detalle.get("mensaje", "Tenés que iniciar sesión."), "error")
+            return redirect(url_for("publico.ingresar"))
+        flash(detalle.get("mensaje", "No se pudo cargar la función."), "error")
+        return redirect(url_for("publico.inicio"))
+    return render_template(
+        "compra/butacas.html", funcion=funcion, mapa=mapa, seleccionadas=seleccionadas,
+        error=error_formulario,
+    ), 400 if datos_invalidos else 200
 
 
 # Pago y compra confirmada maquetados (SCRUM-114) con una compra de ejemplo que tiene la forma de la respuesta de

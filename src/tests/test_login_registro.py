@@ -1,6 +1,6 @@
 """Pruebas de los templates maquetados de ingresar y crear cuenta (SCRUM-88)."""
 import unittest
-from unittest.mock import Mock, patch
+from flask import render_template
 
 from src.frontend.app import create_app as crear_frontend
 from src.frontend.validaciones import leer_formulario, validar_login, validar_registro
@@ -13,6 +13,7 @@ class LoginRegistroTest(unittest.TestCase):
     def setUp(self):
         app = crear_frontend()
         app.config.update(TESTING=True, SECRET_KEY="pruebas", BACKEND_URL="http://api.test")
+        self.app = app
         self.cliente = app.test_client()
 
     def test_ingresar_muestra_el_formulario_con_la_pestana_activa(self):
@@ -61,20 +62,9 @@ class LoginRegistroTest(unittest.TestCase):
         self.assertIn("Las contraseñas no coinciden.", html)
         self.assertNotIn('value="corta"', html)
 
-    def test_envio_valido_avisa_que_no_esta_habilitado(self):
-        casos = (("/ingresar", {"email": "ana@mail.com", "password": "x"}), ("/registro", REGISTRO_VALIDO))
-        for ruta, datos in casos:
-            with self.subTest(ruta=ruta):
-                respuesta = self.cliente.post(ruta, data=datos, follow_redirects=True)
-                self.assertEqual(respuesta.status_code, 200)
-                self.assertEqual(respuesta.request.path, ruta)
-                self.assertIn("todavía no están habilitados", respuesta.get_data(as_text=True))
-
     def test_header_enlaza_a_ingresar(self):
-        with patch("src.frontend.api_client.requests.request") as peticion:
-            peticion.return_value = Mock(ok=True, content=b"{}")
-            peticion.return_value.json.return_value = {"estado": "ok"}
-            html = self.cliente.get("/").get_data(as_text=True)
+        with self.app.test_request_context("/"):
+            html = render_template("base.html")
         self.assertIn('class="boton boton-secundario" href="/ingresar">Ingresar</a>', html)
 
 
