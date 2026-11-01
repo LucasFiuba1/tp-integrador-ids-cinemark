@@ -17,3 +17,8 @@ def obtener_cartelera():
 @cartelera_bp.get("/peliculas/<int:pelicula_id>")
 def obtener_pelicula(pelicula_id):
     return jsonify(cartelera.obtener_pelicula(pelicula_id))
+
+
+@cartelera_bp.get("/funciones/<int:funcion_id>/butacas")
+def obtener_butacas(funcion_id):
+    return jsonify(cartelera.mapa_de_butacas(funcion_id))
