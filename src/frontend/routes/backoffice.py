@@ -19,7 +19,7 @@ SECCIONES = (
 
 # Secciones que ya tienen su vista; el resto muestra la pantalla provisoria. Al implementar una
 # (SCRUM-53, 55, 57, 72, 74, 77), agregar su endpoint acá y definir la vista con ese mismo endpoint.
-SECCIONES_IMPLEMENTADAS = ("servicios", "validar")
+SECCIONES_IMPLEMENTADAS = ("dashboards", "servicios", "validar")
 
 
 def requiere_admin(vista):
@@ -49,6 +49,46 @@ def salir():
     session.clear()
     flash("Cerraste la sesión.", "exito")
     return redirect(url_for("publico.inicio"))
+
+
+# Dashboards maquetados (SCRUM-121) con datos de ejemplo que tienen la forma de las respuestas de
+# GET /api/admin/dashboards/{ocupacion,ventas-genero,franjas-horarias,cancelaciones}. SCRUM-77 reemplaza
+# _dashboards_ejemplo por un llamar(...) a cada endpoint con los filtros desde / hasta; el resumen de los KPI sale
+# de esas mismas respuestas (entradas, monto, ocupación y porcentaje de cancelación).
+def _dashboards_ejemplo():
+    return {
+        "resumen": {
+            "entradas": 1742, "entradas_variacion": 12, "monto": 4820000.00, "monto_variacion": 8,
+            "ocupacion": 68, "ocupacion_variacion": -3, "cancelaciones": 4.2, "cancelaciones_variacion": 0.6,
+        },
+        "franjas_horarias": [
+            {"franja": "12 a 15 h", "entradas": 180}, {"franja": "15 a 18 h", "entradas": 310},
+            {"franja": "18 a 21 h", "entradas": 742}, {"franja": "21 a 24 h", "entradas": 510},
+        ],
+        "ocupacion": [
+            {"pelicula": "La noche del telón", "vendidas": 412, "capacidad": 560, "ocupacion": 74},
+            {"pelicula": "Código Medianoche", "vendidas": 330, "capacidad": 500, "ocupacion": 66},
+            {"pelicula": "Pequeños gigantes", "vendidas": 245, "capacidad": 400, "ocupacion": 61},
+            {"pelicula": "El jardín de cristal", "vendidas": 120, "capacidad": 240, "ocupacion": 50},
+        ],
+        "ventas_genero": [
+            {"genero": "Drama", "entradas": 620, "monto": 1705000.00},
+            {"genero": "Ciencia ficción", "entradas": 510, "monto": 1402500.00},
+            {"genero": "Animación", "entradas": 380, "monto": 1045000.00},
+            {"genero": "Comedia", "entradas": 232, "monto": 667500.00},
+        ],
+        "cancelaciones": [
+            {"pelicula": "Código Medianoche", "cancelaciones": 18, "porcentaje": 6.1},
+            {"pelicula": "La noche del telón", "cancelaciones": 14, "porcentaje": 3.4},
+            {"pelicula": "Pequeños gigantes", "cancelaciones": 7, "porcentaje": 2.9},
+        ],
+    }
+
+
+@backoffice_bp.get("/dashboards")
+@requiere_admin
+def dashboards():
+    return render_template("backoffice/dashboards.html", **_dashboards_ejemplo())
 
 
 # Validar ingreso maquetado (SCRUM-122) con datos de ejemplo que tienen la forma de la respuesta de
