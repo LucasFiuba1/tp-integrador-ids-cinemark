@@ -57,6 +57,19 @@ POST /api/auth/login
 
 Errores: 400 datos inválidos · 409 email ya registrado · 401 credenciales incorrectas.
 
+El nombre debe tener hasta 100 caracteres, el email hasta 150 y la contraseña entre 8 y 128 caracteres.
+La contraseña se guarda con hash `pbkdf2:sha256`; nunca se devuelve en las respuestas.
+
+```http
+GET /api/auth/me
+Authorization: Bearer <token>
+
+200 OK
+{ "id": 7, "nombre": "Ana Pérez", "rol": "cliente" }
+```
+
+Errores de `/me`: 401 sin token, token inválido o vencido · 403 si el rol no está habilitado.
+
 ## Cartelera (público)
 
 | Método | Ruta | Rol | Descripción |
@@ -115,6 +128,9 @@ POST /api/compras
 409 Conflict
 { "error": { "codigo": "BUTACA_OCUPADA", "mensaje": "Las butacas D5, D6 ya fueron vendidas." } }
 ```
+
+La función debe estar activa y no haber comenzado; las butacas deben ser únicas y pertenecer a su sala.
+Los errores de entrada devuelven 400 `DATOS_INVALIDOS`; una función inexistente o ya comenzada devuelve 404.
 
 ```http
 PUT /api/compras/88/servicios
