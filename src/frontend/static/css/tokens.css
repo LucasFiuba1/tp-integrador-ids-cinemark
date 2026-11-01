@@ -1,0 +1,73 @@
+/* Tokens de diseño de Cine Paradiso (SCRUM-111).
+   Valores tomados de los mockups de Figma (archivo 3zp9Q3xZzZjXT6pe4ToVkQ).
+   Todos los componentes y pantallas usan estas variables: no escribir colores ni medidas sueltas.
+   Detalle y ejemplos de uso en docs/design_system.md. */
+:root {
+  /* Colores: fondos, de más oscuro a más claro */
+  --color-fondo: #14120f;            /* fondo de página, header y footer */
+  --color-panel: #1f1c19;            /* tarjetas, paneles, sidebar del backoffice */
+  --color-superficie: #2b2723;       /* campos, ítems activos, butaca libre, pista de barras */
+  --color-superficie-alta: #3a3631;  /* butaca ocupada, barras neutras */
+  --color-borde: #3a3631;            /* divisores y bordes de paneles */
+
+  /* Colores: texto */
+  --color-texto: #ffffff;
+  --color-texto-secundario: #b4aca2; /* bajadas, links del footer */
+  --color-texto-tenue: #a19a91;      /* etiquetas, placeholders, borde de butaca libre */
+  --color-texto-invertido: #14120f;  /* texto sobre fondos claros (botón blanco, QR) */
+
+  /* Colores: marca y estados */
+  --color-primario: #e0332a;         /* acción principal, butaca seleccionada, destacado */
+  --color-primario-hover: #c42c24;
+  --color-exito: #3fb27f;            /* confirmación, variaciones positivas */
+  --color-error: var(--color-primario);
+  --color-error-texto: #ff6b61;      /* mensajes de error en texto chico: contraste 6:1 sobre el panel (AA) */
+  --color-foco: #ffffff;
+
+  /* Tipografía */
+  --fuente-titulos: "Oswald", "Arial Narrow", sans-serif;     /* títulos, botones, etiquetas */
+  --fuente-texto: "Roboto", "Segoe UI", Arial, sans-serif;     /* texto corrido */
+  --peso-normal: 400;
+  --peso-medio: 500;
+  --peso-negrita: 700;
+  --texto-xs: .75rem;   /* 12 px: etiquetas en mayúscula, leyendas */
+  --texto-sm: .875rem;  /* 14 px: menú, botones, footer, tablas */
+  --texto-md: 1rem;     /* 16 px: texto base */
+  --texto-lg: 1.25rem;  /* 20 px: títulos de tarjeta */
+  --texto-xl: 1.5rem;   /* 24 px: logo, títulos de sección */
+  --texto-2xl: 2rem;    /* 32 px: título de página en mobile */
+  --texto-3xl: 2.5rem;  /* 40 px: título de página y KPI en desktop */
+  --interlineado: 1.5;
+  --interlineado-titulos: 1.15;
+  --espaciado-letras: .05em; /* títulos y etiquetas en mayúscula */
+
+  /* Espaciados (múltiplos de 4 px) */
+  --espacio-1: .25rem;  /* 4 px */
+  --espacio-2: .5rem;   /* 8 px */
+  --espacio-3: .75rem;  /* 12 px */
+  --espacio-4: 1rem;    /* 16 px */
+  --espacio-5: 1.5rem;  /* 24 px */
+  --espacio-6: 2rem;    /* 32 px */
+  --espacio-7: 3rem;    /* 48 px */
+  --espacio-8: 4rem;    /* 64 px */
+
+  /* Bordes y sombras */
+  --radio-sm: 4px;      /* botones, campos, badges, butacas */
+  --radio-md: 8px;      /* tarjetas y paneles */
+  --radio-redondo: 999px;
+  --borde-fino: 1px solid var(--color-borde);
+  --sombra-panel: 0 8px 24px rgb(0 0 0 / .35);
+
+  /* Layout */
+  --ancho-contenido: 72rem;  /* 1152 px: contenido central del desktop de 1440 px */
+  --alto-header: 4.5rem;     /* 72 px */
+  --ancho-sidebar: 16rem;    /* 256 px: sidebar del backoffice */
+  --ancho-formulario: 26rem; /* 416 px: tarjeta de ingresar y crear cuenta */
+  --ancho-ticket: 40rem;     /* 640 px: compra confirmada */
+  --transicion: 150ms ease;
+}
+
+/* Breakpoints (mobile-first, se usan como valores literales porque CSS no admite variables en @media):
+   tablet  -> @media (min-width: 48rem)  768 px
+   desktop -> @media (min-width: 64rem)  1024 px
+   ancho   -> @media (min-width: 90rem)  1440 px */

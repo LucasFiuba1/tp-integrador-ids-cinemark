@@ -1,0 +1,10 @@
+{# Sección del backoffice que todavía no tiene su pantalla (se reemplaza en su tarea). #}
+{% extends "backoffice/base_admin.html" %}
+{% from "macros.html" import cabecera_pagina %}
+
+{% block titulo %}{{ titulo }} · Backoffice · Cine Paradiso{% endblock %}
+
+{% block admin %}
+  {{ cabecera_pagina(titulo) }}
+  <p class="estado-vacio">Esta sección está en construcción.</p>
+{% endblock %}

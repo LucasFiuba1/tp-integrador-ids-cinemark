@@ -1,0 +1,55 @@
+{# Layout del backoffice (Figma B1–B6, M1–M2): sidebar a toda altura en lugar del header público.
+   Las pantallas de admin extienden este archivo y escriben su contenido en {% block admin %}.
+   En mobile el menú se abre con el checkbox #admin-menu-abierto (sin JS). #}
+{% extends "base.html" %}
+{% from "macros.html" import avisos %}
+
+{% block cabecera %}{% endblock %}
+{% block pie %}{% endblock %}
+{% block clase_contenido %}contenido-admin{% endblock %}
+{% block avisos %}{% endblock %}
+
+{% block contenido %}
+  {% set nombre = session.get("nombre") or "Administrador" %}
+  <div class="admin">
+    <aside class="admin-menu">
+      <input type="checkbox" id="admin-menu-abierto" class="admin-menu-interruptor visualmente-oculto">
+      <div class="admin-menu-cabecera">
+        <label for="admin-menu-abierto" class="admin-menu-boton">
+          <span aria-hidden="true">☰</span><span class="visualmente-oculto">Menú del backoffice</span>
+        </label>
+        <a class="admin-marca" href="{{ url_for('backoffice.inicio') }}">
+          <span class="marca">Cine Paradiso</span>
+          <span class="etiqueta-admin">Backoffice</span>
+        </a>
+        <span class="avatar admin-avatar-mobile" aria-hidden="true">{{ nombre[0] | upper }}</span>
+      </div>
+
+      <nav class="admin-menu-lista" aria-label="Backoffice">
+        <ul>
+          {% for endpoint, texto in secciones_admin %}
+            {% set destino = "backoffice." ~ endpoint %}
+            <li>
+              <a href="{{ url_for(destino) }}" {% if request.endpoint == destino %}aria-current="page"{% endif %}>{{ texto }}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      </nav>
+
+      <div class="admin-usuario">
+        <span class="avatar" aria-hidden="true">{{ nombre[0] | upper }}</span>
+        <span>
+          <span class="admin-usuario-nombre">{{ nombre }}</span>
+          <form method="post" action="{{ url_for('backoffice.salir') }}">
+            <button type="submit" class="accion-texto accion-tenue">Cerrar sesión</button>
+          </form>
+        </span>
+      </div>
+    </aside>
+
+    <section class="admin-principal">
+      {{ avisos() }}
+      {% block admin %}{% endblock %}
+    </section>
+  </div>
+{% endblock %}
