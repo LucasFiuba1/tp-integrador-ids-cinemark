@@ -81,3 +81,36 @@ def crear_sala():
     except pymysql.err.IntegrityError:
         return respuesta_error(409, "SALA_DUPLICADA", "Ya existe una sala con ese nombre en el local.")
     return jsonify(sala), 201
+
+
+@admin_bp.put("/salas/<int:sala_id>")
+def modificar_sala(sala_id):
+    sala = salas.obtener_sala(sala_id)
+    if sala is None:
+        return respuesta_error(404, "NO_ENCONTRADA", "La sala no existe.")
+    datos = request.get_json(silent=True) or {}
+    nombre = datos.get("nombre")
+    filas = datos.get("filas")
+    columnas = datos.get("columnas")
+    mensaje = salas.validar_salas(nombre, filas, columnas)
+    if mensaje:
+        return respuesta_error(400, "DATOS_INVALIDOS", mensaje)
+    se_achica_la_sala = filas < sala["filas"] or columnas < sala["columnas"]
+    if se_achica_la_sala and salas.tiene_funciones_futuras(sala_id):
+        return respuesta_error(409, "SALA_CON_FUNCIONES", "No se puede reducir la capidad de una sala con funciones futuras.")
+    if se_achica_la_sala and salas.hay_entradas_en_butacas_eliminadas(sala_id, filas, columnas):
+        return respuesta_error(409, "BUTACAS_CON_ENTRADAS", "Hay entradas vendidas en las butacas que queres eliminar.")
+    try:
+        res = salas.modificar_sala(sala_id, nombre, filas, columnas, sala)
+    except pymysql.err.IntegrityError:
+        return respuesta_error(409, "SALA_DUPLICADA", "Ya existe una sala con ese nombre en el local.")
+    return jsonify(res)
+
+@admin_bp.delete("/salas/<int:sala_id>")
+def eliminar_sala(sala_id):
+    if salas.obtener_sala(sala_id) is None:
+        return respuesta_error(404, "NO_ENCONTRADA", "La sala no existe.")
+    if salas.tiene_funciones_futuras(sala_id):
+        return respuesta_error(409, "SALA_CON_FUNCIONES", "No se puede dar de baja una sala con funciones futuras.")
+    salas.eliminar_sala(sala_id)
+    return "", 204
