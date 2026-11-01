@@ -137,6 +137,22 @@ def test_formulario_invalido_no_llama_al_backend(cliente_frontend, llamar):
     llamar.assert_not_called()
 
 
+@pytest.mark.parametrize("metodo", ["get", "post"])
+@pytest.mark.parametrize("ruta", ["/ingresar", "/registro"])
+@pytest.mark.parametrize("rol, destino", [("cliente", "/"), ("admin", "/admin/")])
+def test_con_sesion_abierta_ingresar_y_registro_redirigen_al_inicio(cliente_frontend, llamar, metodo, ruta, rol,
+                                                                     destino):
+    with cliente_frontend.session_transaction() as sesion:
+        sesion.update(token="t", rol=rol, nombre="Ana")
+    respuesta = getattr(cliente_frontend, metodo)(ruta, data=REGISTRO_VALIDO)
+    assert respuesta.status_code == 302
+    assert respuesta.headers["Location"] == destino
+    llamar.assert_not_called()
+    with cliente_frontend.session_transaction() as sesion:
+        assert sesion["token"] == "t"
+        assert sesion["_flashes"] == [("error", "Ya iniciaste sesión. Para usar otra cuenta, primero salí.")]
+
+
 def test_salir_limpia_la_sesion(cliente_frontend):
     with cliente_frontend.session_transaction() as sesion:
         sesion.update(token="t", rol="cliente", nombre="Ana")

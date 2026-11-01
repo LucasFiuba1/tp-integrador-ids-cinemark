@@ -30,10 +30,18 @@ def _abrir_sesion(usuario):
     session.clear()
     session.update(token=usuario["token"], rol=usuario["rol"], nombre=usuario["nombre"])
     flash(f"¡Hola, {usuario['nombre']}!", "exito")
-    return redirect(url_for("backoffice.inicio") if usuario["rol"] == "admin" else url_for("publico.inicio"))
+    return _ir_al_inicio(usuario["rol"])
+
+
+def _ir_al_inicio(rol):
+    return redirect(url_for("backoffice.inicio") if rol == "admin" else url_for("publico.inicio"))
 
 
 def _pantalla_cuenta(template, campos, validar, enviar):
+    # Con la sesión abierta no tiene sentido volver a ingresar o crear otra cuenta: primero hay que salir.
+    if session.get("token"):
+        flash("Ya iniciaste sesión. Para usar otra cuenta, primero salí.", "error")
+        return _ir_al_inicio(session.get("rol"))
     formulario = leer_formulario(request.form, *campos)
     if request.method == "GET":
         return render_template(template, formulario=formulario, errores={})

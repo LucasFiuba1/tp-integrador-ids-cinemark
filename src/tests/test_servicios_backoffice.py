@@ -2,7 +2,11 @@
 import pytest
 
 from src.frontend.filtros import precio
-from src.frontend.validaciones import MAXIMO_DESCRIPCION, MAXIMO_NOMBRE, validar_servicio
+from src.frontend.validaciones import (
+    MAXIMO_DESCRIPCION,
+    MAXIMO_NOMBRE,
+    validar_servicio,
+)
 
 SERVICIO_VALIDO = {"nombre": "Combo familiar", "descripcion": "Dos pochoclos y dos gaseosas", "precio": "9500"}
 
