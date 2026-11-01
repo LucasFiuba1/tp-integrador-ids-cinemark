@@ -62,8 +62,8 @@ Errores: 400 datos inválidos · 409 email ya registrado · 401 credenciales inc
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
 | GET | `/api/locales` | 🌐 | Lista de locales. |
-| GET | `/api/cartelera?local_id=&fecha=` | 🌐 | Películas con funciones vigentes. |
-| GET | `/api/peliculas/<id>` | 🌐 | Detalle de la película y sus funciones futuras por local. |
+| GET | `/api/cartelera?local_id=&fecha=` | 🌐 | Películas con funciones vigentes y su próxima función. `fecha` es `YYYY-MM-DD` y `local_id` un entero positivo (si no, 400 `DATOS_INVALIDOS`). |
+| GET | `/api/peliculas/<id>` | 🌐 | Detalle de la película activa y sus funciones futuras por local (404 `NO_ENCONTRADO` si no existe o está dada de baja). |
 | GET | `/api/funciones/<id>` | 🌐 | Detalle de una función (película, sala, local, fecha y hora, precio). |
 | GET | `/api/funciones/<id>/butacas` | 🌐 | Mapa de butacas con su estado y capacidad. |
 | GET | `/api/servicios` | 🌐 | Servicios activos para agregar a una compra. |

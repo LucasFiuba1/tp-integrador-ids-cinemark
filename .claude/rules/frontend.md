@@ -15,11 +15,15 @@ Toda interacción es un `<form method="post">` (o un link `GET`) a una ruta del 
 JS solo se admite para comportamiento local sin red (por ejemplo marcar visualmente butacas elegidas);
 preferir HTML/CSS puro (checkboxes estilizados para las butacas).
 
+**Sin programación orientada a objetos** en Python (lo exige la cátedra): rutas, helpers y validaciones son
+funciones que reciben y devuelven `dict`. Nada de `class`, `self`, herencia, `@dataclass` ni excepciones propias.
+
 ## Rutas
 
 - `routes/publico.py`: cliente. `routes/backoffice.py`: admin, prefijo `/admin`.
-- Toda llamada al backend dentro de `try/except ErrorBackend`: mostrar `flash(error.mensaje, "error")` y volver
-  a la pantalla, nunca un 500. Si `error.status == 401`, limpiar la sesión y redirigir al login.
+- Toda llamada al backend es `datos, error = llamar(...)`. Si `error` no es `None`: mostrar
+  `flash(error["mensaje"], "error")` y volver a la pantalla, nunca un 500. Si `error["status"] == 401`, limpiar la
+  sesión y redirigir al login. No definir clases de excepción propias.
 - La sesión de Flask guarda `token`, `rol` y `nombre` tras el login. Proteger las páginas del backoffice
   verificando `session["rol"] == "admin"` con un decorador común (no repetir el chequeo en cada vista).
 - No acceder a la base desde el frontend ni importar nada de `src.backend`.

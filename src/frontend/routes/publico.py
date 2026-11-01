@@ -1,7 +1,7 @@
 """Páginas para el cliente: cartelera, compra y perfil."""
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-from src.frontend.api_client import ErrorBackend, llamar
+from src.frontend.api_client import llamar
 from src.frontend.validaciones import leer_formulario, validar_login, validar_pago, validar_registro
 
 publico_bp = Blueprint("publico", __name__)
@@ -9,10 +9,8 @@ publico_bp = Blueprint("publico", __name__)
 
 @publico_bp.get("/")
 def inicio():
-    try:
-        estado_api = llamar("GET", "/api/salud").get("estado")
-    except ErrorBackend as error:
-        estado_api = error.mensaje
+    datos, error = llamar("GET", "/api/salud")
+    estado_api = error["mensaje"] if error else datos.get("estado")
     return render_template("inicio.html", estado_api=estado_api)
 
 

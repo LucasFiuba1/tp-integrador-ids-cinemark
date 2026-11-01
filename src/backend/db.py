@@ -23,21 +23,24 @@ def _conectar():
     )
 
 
-def consultar(sql, parametros=None):
-    """Ejecuta un SELECT y devuelve una lista de diccionarios."""
+def _leer(sql, parametros, leer_filas):
     conexion = _conectar()
     try:
         with conexion.cursor() as cursor:
             cursor.execute(sql, parametros or ())
-            return cursor.fetchall()
+            return leer_filas(cursor)
     finally:
         conexion.close()
 
 
+def consultar(sql, parametros=None):
+    """Ejecuta un SELECT y devuelve una lista de diccionarios."""
+    return _leer(sql, parametros, lambda cursor: cursor.fetchall())
+
+
 def consultar_uno(sql, parametros=None):
     """Ejecuta un SELECT y devuelve una sola fila (o None)."""
-    filas = consultar(sql, parametros)
-    return filas[0] if filas else None
+    return _leer(sql, parametros, lambda cursor: cursor.fetchone())
 
 
 def ejecutar(sql, parametros=None):
