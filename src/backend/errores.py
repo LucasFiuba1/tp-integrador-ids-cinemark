@@ -12,8 +12,12 @@ def respuesta_error(status, codigo, mensaje):
 
 
 def error_api(status, codigo, mensaje):
-    """Interrumpe la petición con el formato JSON común de error."""
-    abort(make_response(jsonify({"error": {"codigo": codigo, "mensaje": mensaje}}), status))
+    """Corta el request con un error de negocio en el formato JSON único.
+
+    flask.abort lanza una HTTPException que lleva la respuesta armada adentro;
+    manejar_error_http la devuelve tal cual.
+    """
+    abort(make_response(respuesta_error(status, codigo, mensaje)))
 
 
 MENSAJES_HTTP = {
@@ -31,7 +35,7 @@ def registrar_manejadores(app):
     @app.errorhandler(HTTPException)
     def manejar_error_http(error):
         if error.response is not None:
-            return error.get_response()
+            return error.response
         codigo, mensaje = MENSAJES_HTTP.get(
             error.code, (error.name.upper().replace(" ", "_"), error.description)
         )

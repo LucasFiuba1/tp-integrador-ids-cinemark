@@ -12,10 +12,11 @@ Referencia del patrón: `src/backend/routes/admin.py`, `src/backend/services/pel
    Si no está o difiere, proponer el contrato y actualizar el doc primero.
 2. **SQL**: verificar en `src/backend/db/schema.sql` las columnas y restricciones. Si hace falta cambiar el esquema,
    hacerlo ahí y en `docs/base_de_datos.md`.
-3. **Service** en `src/backend/services/<funcionalidad>.py`: validaciones, reglas de negocio, `ErrorApi`,
-   SQL parametrizado, `transaccion()` si hay más de una sentencia, fechas a ISO.
+3. **Service** en `src/backend/services/<funcionalidad>.py`: validaciones, reglas de negocio, `error_api(...)`,
+   SQL parametrizado, `transaccion()` si hay más de una sentencia, fechas a ISO. Solo funciones y `dict`
+   (sin clases ni POO).
 4. **Ruta** en el blueprint del módulo: decorador de verbo + `@requiere_rol(...)`, sin lógica.
-5. **Pruebas** en `src/tests/test_<funcionalidad>.py`: feliz, 401, 403, 400 (subTest), 404, cada 409.
+5. **Pruebas** en `src/tests/test_<funcionalidad>.py`: feliz, 401, 403, 400 (`@pytest.mark.parametrize`), 404, cada 409.
 6. **Verificar**: `python -m pytest src/tests -v` en verde.
 7. Si hay MySQL levantado, probar a mano con `curl` (login para obtener el token) y mostrar request/response.
 
