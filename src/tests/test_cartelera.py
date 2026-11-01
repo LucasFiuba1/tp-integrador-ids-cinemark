@@ -1,4 +1,4 @@
-"""Pruebas de la cartelera pública y el detalle de películas (SCRUM-20, SCRUM-21) con la base simulada."""
+"""Pruebas de la cartelera pública, el detalle de películas y el mapa de butacas (SCRUM-20, SCRUM-21) con la base simulada."""
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import patch
@@ -60,6 +60,64 @@ def test_detalle_trae_la_pelicula_y_sus_funciones(cliente_backend, consultar):
 def test_detalle_de_pelicula_inexistente_devuelve_404(cliente_backend, consultar):
     with patch("src.backend.services.cartelera.consultar_uno", return_value=None):
         respuesta = cliente_backend.get("/api/peliculas/99")
+    assert respuesta.status_code == 404
+    assert respuesta.get_json()["error"]["codigo"] == "NO_ENCONTRADO"
+    consultar.assert_not_called()
+
+
+# --- mapa de butacas (SCRUM-60) ---
+FUNCION = {"id": 12, "fecha_hora": datetime(2099, 11, 10, 20, 30), "sala": "Sala 1"}
+
+
+def butaca(id, numero, estado):
+    return {"id": id, "fila": "A", "numero": numero, "estado": estado}
+
+
+def pedir_butacas(cliente_backend, consultar, funcion, butacas):
+    consultar.return_value = butacas
+    with patch("src.backend.services.cartelera.consultar_uno", return_value=funcion):
+        return cliente_backend.get("/api/funciones/12/butacas")
+
+
+def test_mapa_de_butacas_es_publico_y_cuenta_las_libres(cliente_backend, consultar):
+    butacas = [butaca(1, 1, "libre"), butaca(2, 2, "ocupada"), butaca(3, 3, "libre")]
+    respuesta = pedir_butacas(cliente_backend, consultar, dict(FUNCION), butacas)
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {
+        "funcion_id": 12, "sala": "Sala 1", "capacidad": 3, "libres": 2, "vendible": True, "butacas": butacas,
+    }
+
+
+def test_butaca_vendida_aparece_ocupada_y_tras_cancelar_aparece_libre(cliente_backend, consultar):
+    vendida = pedir_butacas(cliente_backend, consultar, dict(FUNCION), [butaca(1, 1, "ocupada")])
+    assert vendida.get_json()["butacas"][0]["estado"] == "ocupada"
+    sql = consultar.call_args.args[0]
+    # Solo cuentan entradas vigentes de compras confirmadas o pendientes sin vencer: las canceladas quedan libres.
+    assert "LEFT JOIN entradas" in sql and "entradas.activa = 1" in sql
+    assert "compras.estado = 'confirmada'" in sql and "'cancelada'" not in sql
+    assert consultar.call_args.args[1][1] == 12
+
+    cancelada = pedir_butacas(cliente_backend, consultar, dict(FUNCION), [butaca(1, 1, "libre")])
+    assert cancelada.get_json()["butacas"][0]["estado"] == "libre"
+    assert cancelada.get_json()["libres"] == 1
+
+
+def test_mapa_de_butacas_no_expone_datos_de_compradores(cliente_backend, consultar):
+    pedir_butacas(cliente_backend, consultar, dict(FUNCION), [])
+    sql = consultar.call_args.args[0]
+    assert "usuario" not in sql
+    assert sql.startswith("SELECT butacas.id, butacas.fila, butacas.numero, IF(compras.id IS NULL, 'libre', 'ocupada') AS estado FROM")
+
+
+def test_funcion_ya_iniciada_no_es_vendible(cliente_backend, consultar):
+    iniciada = dict(FUNCION, fecha_hora=datetime(2020, 1, 1, 20, 0))
+    respuesta = pedir_butacas(cliente_backend, consultar, iniciada, [butaca(1, 1, "libre")])
+    assert respuesta.status_code == 200
+    assert respuesta.get_json()["vendible"] is False
+
+
+def test_mapa_de_butacas_de_funcion_inexistente_devuelve_404(cliente_backend, consultar):
+    respuesta = pedir_butacas(cliente_backend, consultar, None, [])
     assert respuesta.status_code == 404
     assert respuesta.get_json()["error"]["codigo"] == "NO_ENCONTRADO"
     consultar.assert_not_called()

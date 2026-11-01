@@ -94,6 +94,10 @@ GET /api/funciones/12/butacas
 }
 ```
 
+Una butaca está `ocupada` si tiene una entrada vigente de una compra `confirmada` o `pendiente` sin vencer;
+las de compras canceladas o vencidas cuentan como libres. No expone datos de los compradores.
+`vendible` es `false` si la función ya empezó. Función inexistente o dada de baja → 404 `NO_ENCONTRADO`.
+
 ## Compras (cliente)
 
 | Método | Ruta | Rol | Descripción |
