@@ -64,6 +64,7 @@ Pesos: `--peso-normal` (400), `--peso-medio` (500), `--peso-negrita` (700). Inte
 | `--ancho-sidebar` | 256 px (backoffice) |
 | `--ancho-formulario` | 416 px (tarjeta de ingresar y crear cuenta) |
 | `--ancho-ticket` | 640 px (compra confirmada) |
+| `--alto-grafico` | 192 px (gráfico de columnas de los dashboards) |
 | `--transicion` | 150 ms para hover |
 
 ## Breakpoints (mobile-first)
@@ -93,10 +94,13 @@ flash se muestran dentro del panel principal. Las vistas se protegen con `@requi
 | `tabla(columnas, filas, acciones={}, vacio=...)` | Tabla dentro de un `.panel`. Columnas `{"clave", "titulo", "tipo"}`: `tipo: "estado"` muestra un badge (con `"textos": {valor: leyenda}` opcional), `"activo"` hace lo mismo a partir de un booleano (`true` → `activa`, `false` → `inactiva`), `"precio"` muestra `$6.500` y `"hora"` / `"fecha_hora"` formatean fechas ISO. Acciones `{"editar": endpoint, "baja": endpoint}` que reciben `id`: "Editar" es un link y "Dar de baja" un `<form method="post">` en rojo (`"texto_baja"` cambia la leyenda, ej. "Quitar"), que no se ofrece si `fila.activa` o `fila.activo` es `false`. Sin filas muestra `vacio`. En mobile cada fila se apila con la etiqueta de cada dato. |
 | `badge_estado(estado, texto='')` | Palabra en mayúscula con borde: `activa` (verde), `inactiva` (gris, borde punteado), `cancelada` (rojo), `utilizada` (blanco). Se distingue por el texto, no solo por el color; `texto` cambia la leyenda (ej. "En cartelera"). |
 | `tarjeta_kpi(titulo, valor, detalle='', tono='')` | Indicador de los dashboards; agrupar en `<div class="kpis">` (2 por fila en mobile, 4 en desktop). `tono` `positivo`/`negativo` colorea el detalle. |
-| `barra(etiqueta, valor, maximo=100, sufijo='', destacada=false)` | Fila etiqueta / pista / valor; ancho `valor / maximo` con tope 100 %. Relleno blanco y `destacada` en `--color-primario`. |
+| `barra(etiqueta, valor, maximo=100, sufijo='', destacada=false)` | Fila etiqueta / pista / valor; ancho `valor / maximo` con tope 100 %. Relleno blanco y `destacada` en `--color-primario`. El valor se muestra con el filtro `numero`. |
+| `filtro(nombre, etiqueta, opciones, seleccionado='')` | Selector para colocar dentro de un `<form method="get">`. Cada opción es `{"valor": ..., "texto": ...}`. |
+| `chip_funcion(funcion)` | Muestra hora, formato, idioma y sala; `formato` e `idioma` son opcionales. La función debe incluir `id`, `fecha_hora`, `sala` y `habilitada`; el llamador marca `habilitada` como falso si ya comenzó o no tiene butacas libres. Enlaza a selección de butacas solo cuando está habilitada. |
+| `columnas(filas, clave_etiqueta, clave_valor, titulo)` | Gráfico de columnas (ej. entradas por franja horaria): `filas` es la lista de diccionarios de la API y las claves indican qué dato va de etiqueta y cuál de valor; el alto es `valor / máximo` dentro de `--alto-grafico` y la más alta va en `--color-primario`; `titulo` es el `aria-label` de la lista. |
 
 Filtros de Jinja (`src/frontend/filtros.py`): `fecha_hora` (`2026-10-24T19:30:00` → `24/10 · 19:30`), `hora`
-(`19:30`) y `precio` (`6500` → `$6.500`, `6500.5` → `$6.500,50`). Si el valor no tiene el formato esperado lo muestran tal cual.
+(`19:30`), `numero` (`1742` → `1.742`, `4.2` → `4,2`) y `precio` (`6500` → `$6.500`, `6500.5` → `$6.500,50`). Si el valor no tiene el formato esperado lo muestran tal cual.
 
 Clases sueltas: `.panel` (tarjeta oscura para gráficos y formularios, con `h2`), `.formulario-linea` (formulario de
 alta/edición de los ABM: campos apilados en mobile y en una fila con el botón en desktop, acciones en

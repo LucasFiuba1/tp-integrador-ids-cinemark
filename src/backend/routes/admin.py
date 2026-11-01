@@ -8,9 +8,11 @@ from flask import Blueprint, jsonify, request
 
 from src.backend.auth import requiere_rol
 from src.backend.errores import ErrorApi, respuesta_error
+from src.backend.routes.comun import cuerpo_json
 from src.backend.services import locales, peliculas, salas
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
+
 
 
 @admin_bp.get("/locales")
@@ -149,7 +151,7 @@ def listar_peliculas():
 @admin_bp.post("/peliculas")
 @requiere_rol("admin")
 def importar_pelicula():
-    return jsonify(peliculas.importar(_cuerpo_json())), 201
+    return jsonify(peliculas.importar(cuerpo_json())), 201
 
 
 @admin_bp.get("/peliculas/<int:pelicula_id>")
@@ -158,10 +160,10 @@ def obtener_pelicula(pelicula_id):
     return jsonify(peliculas.obtener(pelicula_id))
 
 
-@admin_bp.put("/peliculas/<int:pelicula_id>")
+@admin_bp.patch("/peliculas/<int:pelicula_id>")
 @requiere_rol("admin")
 def modificar_pelicula(pelicula_id):
-    return jsonify(peliculas.modificar(pelicula_id, _cuerpo_json()))
+    return jsonify(peliculas.modificar(pelicula_id, cuerpo_json()))
 
 
 @admin_bp.delete("/peliculas/<int:pelicula_id>")
