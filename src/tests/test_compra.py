@@ -74,11 +74,13 @@ class CancelarCompraTest(unittest.TestCase):
         respuesta = self.cliente.get("/compras/1042/cancelar")
         html = respuesta.get_data(as_text=True)
         self.assertEqual(respuesta.status_code, 200)
-        self.assertIn('<span class="badge badge-confirmada">Confirmada</span>', html)
-        for dato in ("D5, D6, D7", "Combo pochoclos grande × 1", "#1042"):
+        self.assertIn("<h1>Cancelar compra</h1>", html)
+        self.assertNotIn("ticket-qr", html)
+        for dato in ("Paradiso Centro", "24/10 · 19:30", "D5, D6, D7", "Combo pochoclos grande × 1"):
             with self.subTest(dato=dato):
                 self.assertIn(f"<dd>{dato}</dd>", html)
-        self.assertIn("Se liberan las butacas", html)
+        self.assertIn("N.º de compra #1042", html)
+        self.assertIn("se liberan las butacas", html)
         self.assertIn('method="post"\n        action="/compras/1042/cancelar"', html)
         self.assertIn(">Sí, cancelar compra</button>", html)
 

@@ -290,7 +290,7 @@ h3 { font-size: var(--texto-lg); }
   line-height: 1;
   white-space: nowrap;
 }
-.badge-activa, .badge-confirmada { color: var(--color-exito); }
+.badge-activa { color: var(--color-exito); }
 .badge-inactiva { color: var(--color-texto-tenue); border-style: dashed; }
 .badge-cancelada { color: var(--color-error); }
 .badge-utilizada { color: var(--color-texto); }
@@ -480,12 +480,8 @@ h3 { font-size: var(--texto-lg); }
 .confirmada-acciones { display: grid; gap: var(--espacio-3); margin-bottom: var(--espacio-5); text-align: center; }
 .confirmada-nota { border-left-color: var(--color-primario); color: var(--color-texto-secundario); font-size: var(--texto-xs); }
 
-/* Cancelar compra: avisa qué pasa al cancelar y pide confirmación */
-.cancelar .resumen-total { margin-bottom: 0; }
-.cancelar-aviso { margin-bottom: var(--espacio-5); font-size: var(--texto-sm); }
-.cancelar-aviso p { margin: 0; }
-.cancelar-aviso ul { margin: var(--espacio-2) 0; padding-left: var(--espacio-5); color: var(--color-texto-secundario); }
-.cancelar-acciones { display: grid; gap: var(--espacio-3); text-align: center; }
+/* Cancelar compra: reusa la cabecera, el ticket (sin QR) y las acciones de la compra confirmada */
+.cancelar-aviso { margin: 0 0 var(--espacio-5); color: var(--color-texto-secundario); font-size: var(--texto-xs); }
 
 /* Validar ingreso (backoffice): lector + resultado; en desktop van lado a lado */
 .validar { display: grid; gap: var(--espacio-4); margin-bottom: var(--espacio-5); }
@@ -558,10 +554,10 @@ h3 { font-size: var(--texto-lg); }
   .tarjeta-auth { padding: var(--espacio-6); }
   .paso + .paso::before { content: ""; width: var(--espacio-6); border-top: var(--borde-fino); }
   .ticket { grid-template-columns: 2fr 3fr; align-items: center; padding: var(--espacio-5); }
+  .cancelar .ticket { grid-template-columns: 1fr; }
   .ticket-qr { width: 100%; }
   .ticket h2 { text-align: left; }
   .confirmada-acciones { display: flex; justify-content: center; }
-  .cancelar-acciones { display: flex; justify-content: flex-end; }
 
   .tabla thead { display: table-header-group; }
   .tabla tr { display: table-row; padding: 0; }
