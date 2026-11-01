@@ -5,6 +5,8 @@ from flask import Blueprint, flash, redirect, render_template, request, session,
 
 from src.frontend.validaciones import leer_formulario, validar_codigo_qr, validar_servicio
 
+from src.frontend.api_client import ErrorBackend, llamar
+
 backoffice_bp = Blueprint("backoffice", __name__, url_prefix="/admin")
 
 # Ítems del sidebar: (endpoint dentro del blueprint, texto). La ruta es /admin/<endpoint>.
@@ -72,28 +74,154 @@ def _historial_ejemplo():
         {"hora": "2026-10-24T18:58:00", "pelicula": "La noche del telón", "butacas": "C2", "resultado": "cancelada"},
     ]
 
-def _peliculas_ejemplo():
-    return [
-        {"id": 1, "titulo": "La noche del telón", "genero": "Drama", "duracion_min": 108, "clasificacion": "R-13", "activa": True,},
-        {"id": 2, "titulo": "Último tren a Lisboa", "genero": "Suspenso", "duracion_min": 112, "clasificacion": "R-13", "activa": True,},
-        {"id": 3, "titulo": "Pequeños gigantes","genero": "Animación", "duracion_min": 95, "clasificacion": "ATP", "activa": False,},
-    ]
+CAMPOS_EDICION_PELICULA = (
+    "titulo", "sinopsis", "poster_url", "duracion_min", "clasificacion", "genero", "disponible_desde", "disponible_hasta",
+)
+
+
+def _listar_peliculas():
+    try:
+        return llamar("GET", "/api/admin/peliculas")
+    except ErrorBackend as error:
+        flash(error.mensaje, "error")
+        return []
+
 
 @backoffice_bp.get("/peliculas")
 @requiere_admin
 def peliculas():
-    peliculas = _peliculas_ejemplo()
-    return render_template("backoffice/peliculas.html", peliculas=peliculas)
+    consulta = request.args.get("q", "").strip()
+    resultados = []
 
-@backoffice_bp.get("/peliculas/<int:id>/editar")
+    if consulta:
+        try:
+            resultados = llamar("GET", "/api/admin/tmdb/buscar", params={"q": consulta},)
+        except ErrorBackend as error:
+            flash(error.mensaje, "error")
+
+    return render_template(
+        "backoffice/peliculas.html",
+        peliculas=_listar_peliculas(),
+        consulta=consulta,
+        resultados=resultados,
+    )
+
+
+@backoffice_bp.post("/peliculas/importar")
+@requiere_admin
+def importar_pelicula():
+    formulario = leer_formulario(
+        request.form, "tmdb_id", "disponible_desde", "disponible_hasta", "q",)
+
+    try:
+        tmdb_id = int(formulario["tmdb_id"])
+    except ValueError:
+        flash("La película seleccionada no es válida.", "error")
+        return redirect(url_for("backoffice.peliculas"))
+
+    try:
+        pelicula = llamar(
+            "POST",
+            "/api/admin/peliculas",
+            json={
+                "tmdb_id": tmdb_id,
+                "disponible_desde": formulario["disponible_desde"],
+                "disponible_hasta": formulario["disponible_hasta"],
+            },
+        )
+    except ErrorBackend as error:
+        flash(error.mensaje, "error")
+        return redirect(
+            url_for("backoffice.peliculas", q=formulario["q"])
+        )
+
+    flash(f"Importaste {pelicula['titulo']}.", "exito")
+    return redirect(url_for("backoffice.peliculas"))
+
+
+@backoffice_bp.route("/peliculas/<int:id>/editar", methods=["GET", "POST"])
 @requiere_admin
 def editar_pelicula(id):
+    if request.method == "GET":
+        try:
+            pelicula = llamar("GET", f"/api/admin/peliculas/{id}")
+        except ErrorBackend as error:
+            flash(error.mensaje, "error")
+            return redirect(url_for("backoffice.peliculas"))
+
+        formulario = {
+            campo: pelicula.get(campo) or ""
+            for campo in CAMPOS_EDICION_PELICULA
+        }
+
+        return render_template(
+            "backoffice/pelicula_editar.html",
+            pelicula=pelicula,
+            formulario=formulario,
+        )
+
+    formulario = leer_formulario(
+        request.form,
+        *CAMPOS_EDICION_PELICULA,
+    )
+
+    try:
+        duracion_min = int(formulario["duracion_min"])
+    except ValueError:
+        flash("La duración debe ser un número entero de minutos.", "error")
+        pelicula = {"id": id, "titulo": formulario["titulo"]}
+
+        return render_template(
+            "backoffice/pelicula_editar.html",
+            pelicula=pelicula,
+            formulario=formulario,
+        ), 400
+
+    datos = {
+        "titulo": formulario["titulo"],
+        "sinopsis": formulario["sinopsis"] or None,
+        "poster_url": formulario["poster_url"] or None,
+        "duracion_min": duracion_min,
+        "clasificacion": formulario["clasificacion"] or None,
+        "genero": formulario["genero"],
+        "disponible_desde": formulario["disponible_desde"],
+        "disponible_hasta": formulario["disponible_hasta"],
+    }
+
+    try:
+        pelicula = llamar(
+            "PUT",
+            f"/api/admin/peliculas/{id}",
+            json=datos,
+        )
+    except ErrorBackend as error:
+        flash(error.mensaje, "error")
+        pelicula = {"id": id, "titulo": formulario["titulo"]}
+
+        return render_template(
+            "backoffice/pelicula_editar.html",
+            pelicula=pelicula,
+            formulario=formulario,
+        ), error.status
+
+    flash(f"Guardaste los cambios de {pelicula['titulo']}.", "exito")
     return redirect(url_for("backoffice.peliculas"))
 
 
 @backoffice_bp.post("/peliculas/<int:id>/baja")
 @requiere_admin
 def baja_pelicula(id):
+    try:
+        resultado = llamar("DELETE", f"/api/admin/peliculas/{id}",)
+    except ErrorBackend as error:
+        flash(error.mensaje, "error")
+        return redirect(url_for("backoffice.peliculas"))
+
+    if resultado["baja"] == "logica":
+        flash("La película quedó inactiva.", "exito")
+    else:
+        flash("La película fue eliminada.", "exito")
+
     return redirect(url_for("backoffice.peliculas"))
 
 @backoffice_bp.route("/validar", methods=["GET", "POST"])

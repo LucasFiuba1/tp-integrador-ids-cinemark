@@ -602,3 +602,42 @@ h3 { font-size: var(--texto-lg); }
   .formulario-linea-acciones { margin-top: var(--espacio-5); }
   .formulario-linea-acciones .boton { flex: none; }
 }
+
+.resultados-tmdb {
+  display: grid;
+  gap: var(--espacio-4);
+  margin-bottom: var(--espacio-5);
+}
+
+.resultado-tmdb {
+  display: grid;
+  gap: var(--espacio-4);
+}
+
+.resultado-tmdb-poster,
+.pelicula-edicion-poster {
+  width: 100px;
+  border-radius: var(--radio-md);
+}
+
+.resultado-tmdb-datos {
+  display: grid;
+  gap: var(--espacio-2);
+}
+
+.resultado-tmdb-formulario {
+  display: grid;
+  gap: var(--espacio-3);
+}
+
+@media (min-width: 48rem) {
+  .resultado-tmdb {
+    grid-template-columns: 100px 1fr;
+  }
+
+  .resultado-tmdb-formulario {
+    grid-column: 2;
+    grid-template-columns: 1fr 1fr auto;
+    align-items: end;
+  }
+}
