@@ -40,7 +40,7 @@
         <span class="avatar" aria-hidden="true">{{ nombre[0] | upper }}</span>
         <span>
           <span class="admin-usuario-nombre">{{ nombre }}</span>
-          <form method="post" action="{{ url_for('backoffice.salir') }}">
+          <form method="post" action="{{ url_for('publico.salir') }}">
             <button type="submit" class="accion-texto accion-tenue">Cerrar sesión</button>
           </form>
         </span>

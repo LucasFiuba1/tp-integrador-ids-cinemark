@@ -1,5 +1,5 @@
 """Páginas para el cliente: cartelera, compra y perfil."""
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from src.frontend.api_client import llamar
 from src.frontend.validaciones import leer_formulario, validar_login, validar_pago, validar_registro
@@ -14,29 +14,57 @@ def inicio():
     return render_template("inicio.html", estado_api=estado_api)
 
 
-# Ingresar y crear cuenta (SCRUM-88). El formulario se valida acá y, si hay errores, se vuelve a mostrar con los
-# datos cargados (sin la contraseña). SCRUM-46 reemplaza el aviso del envío válido por /api/auth/login y /registro.
-def _pantalla_cuenta(template, campos, validar):
+# Ingresar y crear cuenta (SCRUM-88, SCRUM-46). El formulario se valida acá y después en el backend; si hay errores
+# se vuelve a mostrar con los datos cargados (sin la contraseña). Al entrar, la sesión guarda token, rol y nombre.
+def _iniciar_sesion(formulario):
+    return llamar("POST", "/api/auth/login", json={"email": formulario["email"], "password": formulario["password"]})
+
+
+def _registrar_e_iniciar_sesion(formulario):
+    cuenta = {campo: formulario[campo] for campo in ("nombre", "email", "password")}
+    _, error = llamar("POST", "/api/auth/registro", json=cuenta)
+    return (None, error) if error else _iniciar_sesion(formulario)
+
+
+def _abrir_sesion(usuario):
+    session.clear()
+    session.update(token=usuario["token"], rol=usuario["rol"], nombre=usuario["nombre"])
+    flash(f"¡Hola, {usuario['nombre']}!", "exito")
+    return redirect(url_for("backoffice.inicio") if usuario["rol"] == "admin" else url_for("publico.inicio"))
+
+
+def _pantalla_cuenta(template, campos, validar, enviar):
     formulario = leer_formulario(request.form, *campos)
     if request.method == "GET":
         return render_template(template, formulario=formulario, errores={})
     errores = validar(formulario)
     if errores:
         return render_template(template, formulario=formulario, errores=errores), 400
-    flash("El ingreso y el registro todavía no están habilitados.", "error")
-    return redirect(request.path)
+    usuario, error = enviar(formulario)
+    if error is None:
+        return _abrir_sesion(usuario)
+    flash(error["mensaje"], "error")
+    return render_template(template, formulario=formulario, errores={}), error["status"]
 
 
 @publico_bp.route("/ingresar", methods=["GET", "POST"])
 def ingresar():
-    return _pantalla_cuenta("auth/login.html", ("email", "password"), validar_login)
+    return _pantalla_cuenta("auth/login.html", ("email", "password"), validar_login, _iniciar_sesion)
 
 
 @publico_bp.route("/registro", methods=["GET", "POST"])
 def registro():
     return _pantalla_cuenta(
-        "auth/registro.html", ("nombre", "email", "password", "repetir_password"), validar_registro
+        "auth/registro.html", ("nombre", "email", "password", "repetir_password"), validar_registro,
+        _registrar_e_iniciar_sesion,
     )
+
+
+@publico_bp.post("/salir")
+def salir():
+    session.clear()
+    flash("Cerraste la sesión.", "exito")
+    return redirect(url_for("publico.inicio"))
 
 
 # Pago y compra confirmada maquetados (SCRUM-114) con una compra de ejemplo que tiene la forma de la respuesta de
