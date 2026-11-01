@@ -41,6 +41,7 @@ Reseñas solo para quienes asistieron · PDF de ventas · Docker · hosting grat
 - [ ] Frontend Flask que consume el backend respetando REST.
 - [ ] **Sin** `fetch`, promesas, `axios`, `XMLHttpRequest` ni equivalentes en el navegador: solo `requests` en Python.
 - [ ] **Sin** ORM ni clases que mapeen tablas: SQL explícito.
+- [ ] **Sin** programación orientada a objetos: solo funciones y estructuras de datos (`dict`, listas).
 - [ ] Generación de QR y mecanismo de validación.
 - [ ] Responsive (celulares y tablets).
 - [ ] `init.sh` que instale las dependencias.
@@ -49,7 +50,7 @@ Reseñas solo para quienes asistieron · PDF de ventas · Docker · hosting grat
 
 ## Condiciones de aprobación
 
-No: variables globales · ciclos infinitos · código repetido · programa que no funciona o con errores graves · entregar tarde.
+No: programación orientada a objetos · variables globales · ciclos infinitos · código repetido · programa que no funciona o con errores graves · entregar tarde.
 Sí: que no rompa ante el usuario · código modularizado · buenas prácticas · funcionalidad completa.
 
 Las dos entregas deben tener **toda** la funcionalidad (no se aceptan entregas parciales). Hora límite 18:00.

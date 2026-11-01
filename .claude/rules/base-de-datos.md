@@ -8,7 +8,8 @@ paths:
 # Base de datos (MySQL, sin ORM)
 
 - **Prohibido** SQLAlchemy, SQLModel, Peewee o cualquier ORM, y también clases Python que representen tablas.
-  Las filas viajan como `dict` (el cursor es `DictCursor`).
+  Las filas viajan como `dict` (el cursor es `DictCursor`). Tampoco clases de ningún otro tipo: el proyecto no usa
+  programación orientada a objetos (ver `CLAUDE.md`).
 - Acceso solo por `src/backend/db.py`: `consultar`, `consultar_uno`, `ejecutar`, `transaccion()`.
 - Parámetros siempre con `%s` y tupla: `consultar_uno("SELECT ... WHERE id = %s", (id,))`.
   Nunca f-strings, `%` ni `+` con valores del usuario. Concatenar solo constantes del código (como `COLUMNAS`).
