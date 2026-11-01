@@ -58,6 +58,44 @@ def _compra_ejemplo(compra_id, confirmada=False):
         "email": "lucas@email.com", "qr_png_base64": QR_EJEMPLO if confirmada else None, "cancelable": confirmada,
     }
 
+def _servicios_ejemplo():
+    return [
+        {
+            "id": 1,
+            "nombre": "Combo pochoclos grande",
+            "descripcion": "Pochoclos grandes y gaseosa de 500ml",
+            "precio": 6500
+        },
+        {
+            "id": 2,
+            "nombre": "Gaseosa",
+            "descripcion": "Gaseosa de 500ml",
+            "precio": 2500
+        },
+        {
+            "id": 3,
+            "nombre": "Estacionamiento",
+            "descripcion": "Estacionamiento durante la función",
+            "precio": 3000
+        },
+        {
+            "id": 4,
+            "nombre": "Acceso VIP",
+            "descripcion": "Butaca reclinable y servicio en sala",
+            "precio": 8000
+        }
+    ]
+
+@publico_bp.get("/compras/<int:compra_id>/servicios")
+def servicios_compra(compra_id):
+    compra = _compra_ejemplo(compra_id)
+    servicios = _servicios_ejemplo()
+
+    return render_template(
+        "compra/servicios.html",
+        compra=compra,
+        servicios=servicios
+    )
 
 @publico_bp.route("/compras/<int:compra_id>/pago", methods=["GET", "POST"])
 def pago(compra_id):

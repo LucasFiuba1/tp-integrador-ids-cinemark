@@ -390,6 +390,109 @@ h3 { font-size: var(--texto-lg); }
 .datos dt { color: var(--color-texto-secundario); }
 .datos dd { margin: 0; font-weight: var(--peso-medio); text-align: right; }
 
+
+/* Servicios de la compra */
+
+.servicios-lista {
+  display: grid;
+  gap: var(--espacio-3);
+  min-width: 0;
+}
+
+.servicio-tarjeta {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  overflow: hidden;
+  border-radius: var(--radio-md);
+  background: var(--color-panel);
+}
+
+.servicio-imagen {
+  display: grid;
+  place-items: center;
+  min-height: 110px;
+  font-family: var(--fuente-titulos);
+  font-size: var(--texto-xl);
+  font-weight: var(--peso-negrita);
+  color: var(--color-texto);
+}
+
+.servicio-imagen-1 {
+  background: linear-gradient(
+    var(--color-primario),
+    var(--color-panel)
+  );
+}
+
+.servicio-imagen-2 {
+  background: linear-gradient(
+    var(--color-superficie-alta),
+    var(--color-panel)
+  );
+}
+
+.servicio-imagen-3 {
+  background: linear-gradient(
+    var(--color-superficie),
+    var(--color-panel)
+  );
+}
+
+.servicio-imagen-4 {
+  background: linear-gradient(
+    var(--color-primario),
+    var(--color-superficie)
+  );
+}
+
+.servicio-informacion {
+  flex: 1;
+  min-width: 0;
+  padding: var(--espacio-3);
+}
+
+.servicio-informacion h2 {
+  margin-bottom: var(--espacio-2);
+  font-size: var(--texto-md);
+}
+
+.servicio-informacion p {
+  margin: 0 0 var(--espacio-2);
+  color: var(--color-texto-secundario);
+  font-size: var(--texto-sm);
+}
+
+.servicio-informacion .servicio-precio {
+  margin: 0;
+  color: var(--color-texto);
+  font-weight: var(--peso-negrita);
+}
+
+.servicio-cantidad {
+  display: flex;
+  gap: var(--espacio-3);
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 var(--espacio-3) var(--espacio-3);
+}
+
+.servicio-cantidad button {
+  width: var(--espacio-6);
+  height: var(--espacio-6);
+  border: var(--borde-fino);
+  border-radius: var(--radio-sm);
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  font: inherit;
+}
+
+.servicio-cantidad button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Compra: pasos, casilla de términos, checkout con resumen lateral y compra confirmada */
 .paso, .resumen-total, .ticket-numero {
   font-family: var(--fuente-titulos);
@@ -637,4 +740,18 @@ h3 { font-size: var(--texto-lg); }
   .formulario-linea { grid-template-columns: 1fr 1fr 1fr auto; align-items: start; }
   .formulario-linea-acciones { margin-top: var(--espacio-5); }
   .formulario-linea-acciones .boton { flex: none; }
+}
+
+/* Servicios: dos columnas en pantallas grandes */
+
+@media (min-width: 48rem) {
+  .servicios-lista {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Servicio seleccionado de ejemplo */
+
+.servicio-tarjeta:first-child {
+  border: 1px solid var(--color-primario);
 }
