@@ -55,7 +55,7 @@ Backend Flask (`src/backend`) con un blueprint por módulo, JSON de entrada y sa
 | | GET | `/api/admin/peliculas` | admin | ✅ |
 | | POST | `/api/admin/peliculas` | admin | ✅ |
 | | GET | `/api/admin/peliculas/<id>` | admin | ✅ |
-| | PUT | `/api/admin/peliculas/<id>` | admin | ✅ |
+| | PATCH | `/api/admin/peliculas/<id>` | admin | ✅ |
 | | DELETE | `/api/admin/peliculas/<id>` | admin | ✅ |
 | Locales y salas (admin) | GET / POST | `/api/admin/locales` | admin | 🟡 |
 | | PUT / DELETE | `/api/admin/locales/<id>` | admin | 🟡 |

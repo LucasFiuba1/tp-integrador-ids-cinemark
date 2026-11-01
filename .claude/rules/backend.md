@@ -14,7 +14,8 @@ Seguir el patrón de `routes/admin.py` + `services/peliculas.py`, que es la refe
 - Cada endpoint lleva `@requiere_rol(...)` salvo los públicos listados en `docs/endpoints.md`
   (salud, registro, login, cartelera, cancelación por token).
 - El decorador de Flask (`@bp.get`, `@bp.post`, …) va arriba y `@requiere_rol` debajo.
-- Verbos: `GET` leer, `POST` crear o acciones (`/confirmar`, `/cancelar`), `PUT` modificar, `DELETE` baja.
+- Verbos: `GET` leer, `POST` crear o acciones (`/confirmar`, `/cancelar`), `PUT` reemplazar el recurso completo,
+  `PATCH` actualizar parcialmente, `DELETE` baja.
 - Cuerpo JSON: validar que sea un objeto (ver `_cuerpo_json()` en `admin.py`; si se necesita en otro blueprint,
   moverlo a un helper común en vez de copiarlo).
 - Blueprint nuevo: registrarlo en `routes/__init__.py`.

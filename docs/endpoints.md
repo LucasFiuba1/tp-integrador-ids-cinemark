@@ -166,7 +166,7 @@ Errores de cancelación: 409 `FUERA_DE_PLAZO` · 409 `YA_CANCELADA` · 409 `YA_U
 | GET | `/api/admin/peliculas` | 🛠️ | Lista de películas cargadas. |
 | POST | `/api/admin/peliculas` | 🛠️ | Importa una película de TMDB con su período de disponibilidad. |
 | GET | `/api/admin/peliculas/<id>` | 🛠️ | Detalle de una película. |
-| PUT | `/api/admin/peliculas/<id>` | 🛠️ | Modifica datos y período de disponibilidad. |
+| PATCH | `/api/admin/peliculas/<id>` | 🛠️ | Actualiza los campos enviados; los no enviados quedan sin cambios. |
 | DELETE | `/api/admin/peliculas/<id>` | 🛠️ | Baja (lógica si tiene funciones). |
 
 ```http
@@ -175,6 +175,14 @@ POST /api/admin/peliculas
 
 201 Created
 { "id": 3, "titulo": "Volver al futuro", "duracion_min": 116, "genero": "Ciencia ficción" }
+```
+
+```http
+PATCH /api/admin/peliculas/3
+{ "disponible_hasta": "2027-01-31T00:00:00" }
+
+200 OK
+{ "id": 3, "titulo": "Volver al futuro", "disponible_hasta": "2027-01-31T00:00:00" }
 ```
 
 ### Locales y salas

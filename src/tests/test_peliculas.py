@@ -90,17 +90,18 @@ class PeliculasTest(unittest.TestCase):
     @patch("src.backend.services.peliculas.consultar_uno")
     def test_edicion_actualiza_periodo(self, consultar_uno, ejecutar):
         consultar_uno.side_effect = [fila(), fila(disponible_hasta=datetime(2027, 1, 31))]
-        respuesta = self.cliente.put(
+        respuesta = self.cliente.patch(
             "/api/admin/peliculas/3", json={"disponible_hasta": "2027-01-31T00:00:00"},
             headers=self.cabeceras,
         )
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.get_json()["disponible_hasta"], "2027-01-31T00:00:00")
+        self.assertEqual(respuesta.get_json()["titulo"], "Volver al futuro")
         self.assertIn("UPDATE peliculas", ejecutar.call_args.args[0])
 
     @patch("src.backend.services.peliculas.consultar_uno", return_value=fila())
     def test_edicion_con_periodo_invertido_devuelve_400(self, consultar_uno):
-        respuesta = self.cliente.put(
+        respuesta = self.cliente.patch(
             "/api/admin/peliculas/3", json={"disponible_hasta": "2026-10-01T00:00:00"},
             headers=self.cabeceras,
         )
@@ -108,8 +109,14 @@ class PeliculasTest(unittest.TestCase):
 
     @patch("src.backend.services.peliculas.consultar_uno", return_value=None)
     def test_edicion_de_inexistente_devuelve_404(self, consultar_uno):
-        respuesta = self.cliente.put("/api/admin/peliculas/99", json={"titulo": "x"}, headers=self.cabeceras)
+        respuesta = self.cliente.patch("/api/admin/peliculas/99", json={"titulo": "x"}, headers=self.cabeceras)
         self.assertEqual(respuesta.status_code, 404)
+
+    def test_put_de_pelicula_devuelve_405(self):
+        respuesta = self.cliente.put(
+            "/api/admin/peliculas/3", json={"titulo": "x"}, headers=self.cabeceras
+        )
+        self.assertEqual(respuesta.status_code, 405)
 
     # --- baja ---
     @patch("src.backend.services.peliculas.ejecutar")
