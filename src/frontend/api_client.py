@@ -9,14 +9,8 @@ from flask import current_app, session
 TIMEOUT_SEGUNDOS = 5
 
 
-class ErrorBackend(Exception):
-    """El backend respondió con error o no está disponible."""
-
-    def __init__(self, status, codigo, mensaje):
-        super().__init__(mensaje)
-        self.status = status
-        self.codigo = codigo
-        self.mensaje = mensaje
+def _error(status, codigo, mensaje):
+    return {"status": status, "codigo": codigo, "mensaje": mensaje}
 
 
 def _cabeceras():
@@ -25,26 +19,27 @@ def _cabeceras():
 
 
 def llamar(metodo, ruta, json=None, params=None):
-    """Llama al backend y devuelve el JSON de la respuesta.
+    """Llama al backend y devuelve la tupla (datos, error).
 
-    Lanza ErrorBackend si la respuesta no es 2xx o si el backend no responde.
+    Si la respuesta es 2xx, datos es el JSON recibido y error es None. Si no es 2xx o el
+    backend no responde, datos es None y error es {"status", "codigo", "mensaje"}.
     """
     url = f"{current_app.config['BACKEND_URL']}{ruta}"
     try:
         respuesta = requests.request(
             metodo, url, json=json, params=params, headers=_cabeceras(), timeout=TIMEOUT_SEGUNDOS
         )
-    except requests.RequestException as error:
-        raise ErrorBackend(503, "BACKEND_NO_DISPONIBLE", "No se pudo conectar con el servidor.") from error
+    except requests.RequestException:
+        return None, _error(503, "BACKEND_NO_DISPONIBLE", "No se pudo conectar con el servidor.")
 
     if respuesta.ok:
-        return respuesta.json() if respuesta.content else None
+        return (respuesta.json() if respuesta.content else None), None
 
     try:
         detalle = respuesta.json().get("error", {})
     except ValueError:
         detalle = {}
-    raise ErrorBackend(
+    return None, _error(
         respuesta.status_code,
         detalle.get("codigo", "ERROR"),
         detalle.get("mensaje", "El servidor respondió con un error."),

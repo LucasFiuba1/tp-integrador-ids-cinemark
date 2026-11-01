@@ -1,7 +1,7 @@
 """Páginas para el cliente: cartelera, compra y perfil."""
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-from src.frontend.api_client import ErrorBackend, llamar
+from src.frontend.api_client import llamar
 from src.frontend.validaciones import leer_formulario, validar_login, validar_pago, validar_registro
 
 publico_bp = Blueprint("publico", __name__)
@@ -9,10 +9,8 @@ publico_bp = Blueprint("publico", __name__)
 
 @publico_bp.get("/")
 def inicio():
-    try:
-        estado_api = llamar("GET", "/api/salud").get("estado")
-    except ErrorBackend as error:
-        estado_api = error.mensaje
+    datos, error = llamar("GET", "/api/salud")
+    estado_api = error["mensaje"] if error else datos.get("estado")
     return render_template("inicio.html", estado_api=estado_api)
 
 
@@ -57,7 +55,7 @@ def _compra_ejemplo(compra_id, confirmada=False):
         "pelicula": "La noche del telón", "poster_url": None, "local": "Paradiso Centro", "sala": "Sala 1",
         "funcion": "2026-10-24T19:30:00", "butacas": ["D5", "D6", "D7"], "subtotal_entradas": 16500,
         "servicios": [{"nombre": "Combo pochoclos grande", "cantidad": 1, "subtotal": 6500}], "total": 23000,
-        "email": "lucas@email.com", "qr_png_base64": QR_EJEMPLO if confirmada else None,
+        "email": "lucas@email.com", "qr_png_base64": QR_EJEMPLO if confirmada else None, "cancelable": confirmada,
     }
 
 
@@ -77,3 +75,13 @@ def pago(compra_id):
 @publico_bp.get("/compras/<int:compra_id>/confirmada")
 def compra_confirmada(compra_id):
     return render_template("compra/confirmada.html", compra=_compra_ejemplo(compra_id, confirmada=True))
+
+
+# Cancelación maquetada (SCRUM-115) con la compra confirmada de ejemplo. SCRUM-70 reemplaza _compra_ejemplo por
+# llamar("GET", f"/api/compras/{compra_id}") y el POST por /api/compras/<id>/cancelar (errores 409 con flash).
+@publico_bp.route("/compras/<int:compra_id>/cancelar", methods=["GET", "POST"])
+def cancelar_compra(compra_id):
+    if request.method == "POST":
+        flash(f"Cancelaste la compra #{compra_id}. Liberamos las butacas y el QR ya no es válido.", "exito")
+        return redirect(url_for("publico.inicio"))
+    return render_template("compra/cancelar.html", compra=_compra_ejemplo(compra_id, confirmada=True))

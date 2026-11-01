@@ -204,3 +204,24 @@
     {{ caller() }}
   </aside>
 {% endmacro %}
+
+{# Detalle de una compra confirmada (compra confirmada y cancelación): título, datos de la función, total y número.
+   compra tiene la forma de GET /api/compras/<id>. #}
+{% macro detalle_compra(compra) %}
+  <div class="ticket-detalle">
+    <h2 id="titulo-ticket">{{ compra.pelicula }}</h2>
+    {% set servicios = namespace(textos=[]) %}
+    {% for servicio in compra.servicios %}
+      {% set servicios.textos = servicios.textos + [servicio.nombre ~ " × " ~ servicio.cantidad] %}
+    {% endfor %}
+    {{ datos([
+      ("Local", compra.local),
+      ("Sala", compra.sala),
+      ("Función", compra.funcion | fecha_hora),
+      ("Butaca" if compra.butacas | length == 1 else "Butacas", compra.butacas | join(", ")),
+      ("Servicios", servicios.textos | join(", ") or "Sin servicios"),
+    ]) }}
+    <p class="resumen-total"><span>Total</span><strong>{{ compra.total | precio }}</strong></p>
+    <p class="ticket-numero">N.º de compra #{{ compra.id }}</p>
+  </div>
+{% endmacro %}
