@@ -4,7 +4,7 @@ Los endpoints de este módulo están listados en docs/endpoints.md.
 """
 from flask import Blueprint, jsonify, request
 
-from src.backend.services import cartelera
+from src.backend.services import cartelera, funciones
 
 cartelera_bp = Blueprint("cartelera", __name__, url_prefix="/api")
 
@@ -17,6 +17,11 @@ def obtener_cartelera():
 @cartelera_bp.get("/peliculas/<int:pelicula_id>")
 def obtener_pelicula(pelicula_id):
     return jsonify(cartelera.obtener_pelicula(pelicula_id))
+
+
+@cartelera_bp.get("/funciones/<int:funcion_id>")
+def obtener_funcion(funcion_id):
+    return jsonify(funciones.obtener(funcion_id))
 
 
 @cartelera_bp.get("/funciones/<int:funcion_id>/butacas")

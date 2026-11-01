@@ -675,6 +675,29 @@ h3 { font-size: var(--texto-lg); }
 .formulario-linea-acciones { display: flex; gap: var(--espacio-4); align-items: center; }
 .formulario-linea-acciones .boton { flex: 1; }
 
+.filtro { display: grid; gap: var(--espacio-1); }
+.filtro > span { color: var(--color-texto-secundario); font-size: var(--texto-sm); }
+.filtro select {
+  padding: var(--espacio-2) var(--espacio-3);
+  border: var(--borde-fino);
+  border-radius: var(--radio-sm);
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  font: inherit;
+}
+.chip-funcion {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--espacio-1);
+  padding: var(--espacio-2) var(--espacio-3);
+  border: var(--borde-fino);
+  border-radius: var(--radio-redondo);
+  background: var(--color-panel);
+  color: var(--color-texto);
+  text-decoration: none;
+}
+.chip-funcion:hover { border-color: var(--color-primario); color: var(--color-texto); }
+.chip-funcion-deshabilitada { color: var(--color-texto-tenue); cursor: not-allowed; }
 /* Tablet */
 @media (min-width: 48rem) {
   .marquesina { padding: var(--espacio-3) var(--espacio-6); }

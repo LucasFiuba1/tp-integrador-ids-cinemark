@@ -63,6 +63,19 @@ Errores: 400 `DATOS_INVALIDOS` (campo faltante, email sin formato válido, nombr
 contraseña fuera de rango) · 409 `EMAIL_REGISTRADO` · 401 `CREDENCIALES_INVALIDAS` (mismo mensaje si falla el
 email o la contraseña).
 
+El nombre debe tener hasta 100 caracteres, el email hasta 150 y la contraseña entre 8 y 128 caracteres.
+La contraseña se guarda con hash `pbkdf2:sha256`; nunca se devuelve en las respuestas.
+
+```http
+GET /api/auth/me
+Authorization: Bearer <token>
+
+200 OK
+{ "id": 7, "nombre": "Ana Pérez", "rol": "cliente" }
+```
+
+Errores de `/me`: 401 sin token, token inválido o vencido · 403 si el rol no está habilitado.
+
 ## Cartelera (público)
 
 | Método | Ruta | Rol | Descripción |
@@ -125,6 +138,9 @@ POST /api/compras
 409 Conflict
 { "error": { "codigo": "BUTACA_OCUPADA", "mensaje": "Las butacas D5, D6 ya fueron vendidas." } }
 ```
+
+La función debe estar activa y no haber comenzado; las butacas deben ser únicas y pertenecer a su sala.
+Los errores de entrada devuelven 400 `DATOS_INVALIDOS`; una función inexistente o ya comenzada devuelve 404.
 
 ```http
 PUT /api/compras/88/servicios
@@ -198,7 +214,7 @@ Errores: 401 sin token o token vencido. Un usuario sin compras recibe `[]`.
 | GET | `/api/admin/peliculas` | 🛠️ | Lista de películas cargadas. |
 | POST | `/api/admin/peliculas` | 🛠️ | Importa una película de TMDB con su período de disponibilidad. |
 | GET | `/api/admin/peliculas/<id>` | 🛠️ | Detalle de una película. |
-| PUT | `/api/admin/peliculas/<id>` | 🛠️ | Modifica datos y período de disponibilidad. |
+| PATCH | `/api/admin/peliculas/<id>` | 🛠️ | Actualiza los campos enviados; los no enviados quedan sin cambios. |
 | DELETE | `/api/admin/peliculas/<id>` | 🛠️ | Baja (lógica si tiene funciones). |
 
 ```http
@@ -207,6 +223,14 @@ POST /api/admin/peliculas
 
 201 Created
 { "id": 3, "titulo": "Volver al futuro", "duracion_min": 116, "genero": "Ciencia ficción" }
+```
+
+```http
+PATCH /api/admin/peliculas/3
+{ "disponible_hasta": "2027-01-31T00:00:00" }
+
+200 OK
+{ "id": 3, "titulo": "Volver al futuro", "disponible_hasta": "2027-01-31T00:00:00" }
 ```
 
 ### Locales y salas

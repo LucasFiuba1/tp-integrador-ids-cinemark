@@ -2,8 +2,9 @@
 
 Los endpoints de este módulo están listados en docs/endpoints.md.
 """
-from flask import Blueprint, jsonify
+from flask import Blueprint, g, jsonify
 
+from src.backend.auth import requiere_rol
 from src.backend.routes.comun import cuerpo_json
 from src.backend.services import cuentas
 
@@ -18,3 +19,9 @@ def registrar():
 @auth_bp.post("/login")
 def iniciar_sesion():
     return jsonify(cuentas.iniciar_sesion(cuerpo_json()))
+
+
+@auth_bp.get("/me")
+@requiere_rol("cliente", "admin")
+def obtener_actual():
+    return jsonify(g.usuario)

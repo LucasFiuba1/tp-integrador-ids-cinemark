@@ -67,6 +67,44 @@ def salir():
     return redirect(url_for("publico.inicio"))
 
 
+def _sesion_vencida(error):
+    session.clear()
+    flash(error["mensaje"], "error")
+    return redirect(url_for("publico.ingresar"))
+
+
+@publico_bp.route("/funciones/<int:funcion_id>/butacas", methods=["GET", "POST"])
+def butacas(funcion_id):
+    seleccionadas = []
+    error_formulario = ""
+    datos_invalidos = False
+    if request.method == "POST":
+        if not session.get("token"):
+            flash("Ingresá para reservar tus butacas.", "error")
+            return redirect(url_for("publico.ingresar"))
+        valores = request.form.getlist("butaca_ids")
+        seleccionadas = [int(valor) for valor in valores if valor.isdigit() and int(valor) > 0]
+        if not valores or len(seleccionadas) != len(valores):
+            error_formulario = "Elegí al menos una butaca libre."
+            datos_invalidos = True
+        else:
+            compra, error = llamar("POST", "/api/compras", json={"funcion_id": funcion_id, "butaca_ids": seleccionadas})
+            if error is None:
+                flash("Reservamos tus butacas por 10 minutos.", "exito")
+                return redirect(url_for("publico.pago", compra_id=compra["id"]))
+            if error["status"] == 401:
+                return _sesion_vencida(error)
+            error_formulario = error["mensaje"]
+    funcion, error = llamar("GET", f"/api/funciones/{funcion_id}")
+    mapa, error_mapa = (None, error) if error else llamar("GET", f"/api/funciones/{funcion_id}/butacas")
+    if error_mapa:
+        flash(error_mapa["mensaje"], "error")
+        return redirect(url_for("publico.inicio"))
+    return render_template(
+        "compra/butacas.html", funcion=funcion, mapa=mapa, seleccionadas=seleccionadas, error=error_formulario,
+    ), 400 if datos_invalidos else 200
+
+
 # Pago y compra confirmada maquetados (SCRUM-114) con una compra de ejemplo que tiene la forma de la respuesta de
 # GET /api/compras/<id>. SCRUM-68 reemplaza _compra_ejemplo por llamar(...) y el POST por /api/compras/<id>/confirmar.
 CAMPOS_PAGO = ("titular", "numero", "vencimiento", "codigo_seguridad", "acepto")

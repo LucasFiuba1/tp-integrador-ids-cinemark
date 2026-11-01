@@ -95,6 +95,8 @@ flash se muestran dentro del panel principal. Las vistas se protegen con `@requi
 | `badge_estado(estado, texto='')` | Palabra en mayúscula con borde: `activa` (verde), `inactiva` (gris, borde punteado), `cancelada` (rojo), `utilizada` (blanco). Se distingue por el texto, no solo por el color; `texto` cambia la leyenda (ej. "En cartelera"). |
 | `tarjeta_kpi(titulo, valor, detalle='', tono='')` | Indicador de los dashboards; agrupar en `<div class="kpis">` (2 por fila en mobile, 4 en desktop). `tono` `positivo`/`negativo` colorea el detalle. |
 | `barra(etiqueta, valor, maximo=100, sufijo='', destacada=false)` | Fila etiqueta / pista / valor; ancho `valor / maximo` con tope 100 %. Relleno blanco y `destacada` en `--color-primario`. El valor se muestra con el filtro `numero`. |
+| `filtro(nombre, etiqueta, opciones, seleccionado='')` | Selector para colocar dentro de un `<form method="get">`. Cada opción es `{"valor": ..., "texto": ...}`. |
+| `chip_funcion(funcion)` | Muestra hora, formato, idioma y sala; `formato` e `idioma` son opcionales. La función debe incluir `id`, `fecha_hora`, `sala` y `habilitada`; el llamador marca `habilitada` como falso si ya comenzó o no tiene butacas libres. Enlaza a selección de butacas solo cuando está habilitada. |
 | `columnas(filas, clave_etiqueta, clave_valor, titulo)` | Gráfico de columnas (ej. entradas por franja horaria): `filas` es la lista de diccionarios de la API y las claves indican qué dato va de etiqueta y cuál de valor; el alto es `valor / máximo` dentro de `--alto-grafico` y la más alta va en `--color-primario`; `titulo` es el `aria-label` de la lista. |
 
 Filtros de Jinja (`src/frontend/filtros.py`): `fecha_hora` (`2026-10-24T19:30:00` → `24/10 · 19:30`), `hora`

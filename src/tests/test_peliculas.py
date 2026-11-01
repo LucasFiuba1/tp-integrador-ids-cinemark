@@ -86,7 +86,7 @@ def test_alta_sin_cuerpo_json_devuelve_400(cliente_backend, cabeceras):
 # --- edición ---
 def test_edicion_actualiza_periodo(cliente_backend, cabeceras, bd):
     bd.consultar_uno.side_effect = [fila(), fila(disponible_hasta=datetime(2027, 1, 31))]
-    respuesta = cliente_backend.put(f"{RUTA}/3", json={"disponible_hasta": "2027-01-31T00:00:00"}, headers=cabeceras)
+    respuesta = cliente_backend.patch(f"{RUTA}/3", json={"disponible_hasta": "2027-01-31T00:00:00"}, headers=cabeceras)
     assert respuesta.status_code == 200
     assert respuesta.get_json()["disponible_hasta"] == "2027-01-31T00:00:00"
     assert "UPDATE peliculas" in bd.ejecutar.call_args.args[0]
@@ -103,19 +103,23 @@ def test_edicion_actualiza_periodo(cliente_backend, cabeceras, bd):
 ])
 def test_edicion_con_datos_invalidos_devuelve_400(cliente_backend, cabeceras, bd, cuerpo):
     bd.consultar_uno.return_value = fila()
-    assert cliente_backend.put(f"{RUTA}/3", json=cuerpo, headers=cabeceras).status_code == 400
+    assert cliente_backend.patch(f"{RUTA}/3", json=cuerpo, headers=cabeceras).status_code == 400
     bd.ejecutar.assert_not_called()
 
 
 def test_edicion_acepta_clasificacion_y_poster_vacios(cliente_backend, cabeceras, bd):
     bd.consultar_uno.side_effect = [fila(), fila(clasificacion=None)]
-    respuesta = cliente_backend.put(f"{RUTA}/3", json={"clasificacion": None, "poster_url": None}, headers=cabeceras)
+    respuesta = cliente_backend.patch(f"{RUTA}/3", json={"clasificacion": None, "poster_url": None}, headers=cabeceras)
     assert respuesta.status_code == 200
+
+
+def test_put_de_pelicula_devuelve_405(cliente_backend, cabeceras):
+    assert cliente_backend.put(f"{RUTA}/3", json={"titulo": "x"}, headers=cabeceras).status_code == 405
 
 
 def test_edicion_de_inexistente_devuelve_404(cliente_backend, cabeceras, bd):
     bd.consultar_uno.return_value = None
-    assert cliente_backend.put(f"{RUTA}/99", json={"titulo": "x"}, headers=cabeceras).status_code == 404
+    assert cliente_backend.patch(f"{RUTA}/99", json={"titulo": "x"}, headers=cabeceras).status_code == 404
 
 
 # --- baja ---
