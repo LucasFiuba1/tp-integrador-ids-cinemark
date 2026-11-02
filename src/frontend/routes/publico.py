@@ -6,13 +6,55 @@ from src.frontend.validaciones import leer_formulario, validar_login, validar_pa
 
 publico_bp = Blueprint("publico", __name__)
 
+# El desplegable usa los locales del seed: GET /api/locales todavía no está en el backend.
+LOCALES_CARTELERA = (
+    {"valor": "", "texto": "Todos"},
+    {"valor": "1", "texto": "Paradiso Centro"},
+    {"valor": "2", "texto": "Paradiso Belgrano"},
+    {"valor": "3", "texto": "Paradiso Palermo"},
+)
+
 
 @publico_bp.get("/")
 def inicio():
     datos, error = llamar("GET", "/api/salud")
     estado_api = error["mensaje"] if error else datos.get("estado")
-    return render_template("inicio.html", estado_api=estado_api)
+    local_id = request.args.get("local_id") or ""
+    fecha = request.args.get("fecha") or ""
+    params = {}
+    if local_id:
+        params["local_id"] = local_id
+    if fecha:
+        params["fecha"] = fecha
+    peliculas, error_cartelera = llamar("GET", "/api/cartelera", params=params or None)
+    if error_cartelera:
+        flash(error_cartelera["mensaje"], "error")
+        peliculas = []
+    elif not isinstance(peliculas, list):
+        peliculas = []
+    return render_template(
+        "inicio.html",
+        estado_api=estado_api,
+        peliculas=peliculas,
+        locales=LOCALES_CARTELERA,
+        local_id=local_id,
+        fecha=fecha,
+    )
 
+
+@publico_bp.get("/peliculas/<int:id>")
+def detalle_pelicula(id):
+    pelicula, error = llamar("GET", f"/api/peliculas/{id}")
+    if error:
+        if error["status"] == 404:
+            return render_template("errores/404.html"), 404
+        flash(error["mensaje"], "error")
+        return redirect(url_for("publico.inicio"))
+    pelicula["funciones"] = sorted(
+        pelicula.get("funciones") or [],
+        key=lambda funcion: (funcion.get("nombre_local") or "", funcion.get("fecha_hora") or ""),
+    )
+    return render_template("pelicula.html", pelicula=pelicula)
 
 # Ingresar y crear cuenta (SCRUM-88, SCRUM-46). El formulario se valida acá y después en el backend; si hay errores
 # se vuelve a mostrar con los datos cargados (sin la contraseña). Al entrar, la sesión guarda token, rol y nombre.

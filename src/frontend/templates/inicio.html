@@ -1,8 +1,44 @@
 {% extends "base.html" %}
+{% from "macros.html" import filtro, boton %}
 {% block contenido %}
-  <section class="portada">
-    <h1>Las películas que extrañabas, otra vez en la sala</h1>
-    <p>Elegí la función, tu butaca y entrá con un QR.</p>
-  </section>
-  <p class="estado">Estado de la API: <strong>{{ estado_api }}</strong></p>
+<section class="portada">
+  <h1>Las películas que extrañabas, otra vez en la sala</h1>
+  <p>Elegí la función, tu butaca y entrá con un QR.</p>
+</section>
+<section class="cartelera">
+  <h2>En Cartelera</h2>
+  <form method="get" class="filtros-cartelera" action="{{ url_for('publico.inicio') }}">
+    {{ filtro("local_id", "Local", locales, local_id) }}
+    <label class="filtro">
+      <span>Fecha</span>
+      <input type="date" name="fecha" value="{{ fecha }}">
+    </label>
+    {{ boton("Filtrar") }}
+  </form>
+  {% if peliculas %}
+  <div class="grilla-peliculas">
+    {% for peli in peliculas %}
+    <article class="tarjeta-pelicula panel">
+      {% if peli.poster_url %}
+      <img src="{{ peli.poster_url }}" alt="Póster de {{ peli.titulo }}" class="tarjeta-poster">
+      {% else %}
+      <div class="tarjeta-poster sin-poster" aria-hidden="true"></div>
+      {% endif %}
+      <div class="tarjeta-cuerpo">
+        <h3>{{ peli.titulo }}</h3>
+        <p class="tarjeta-meta">
+          <span>{{ peli.genero }}</span> ·
+          <span>{{ peli.duracion_min }} min</span> ·
+          <span class="badge">{{ peli.clasificacion }}</span>
+        </p>
+        <a class="boton boton-bloque" href="{{ url_for('publico.detalle_pelicula', id=peli.id) }}">Ver funciones</a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="estado-vacio">Por el momento no hay funciones disponibles en cartelera.</p>
+  {% endif %}
+</section>
+<p class="estado">Estado de la API: <strong>{{ estado_api }}</strong></p>
 {% endblock %}

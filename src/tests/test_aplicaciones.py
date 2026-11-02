@@ -20,8 +20,11 @@ def test_portada_con_api_disponible(cliente_frontend, backend_ok):
     respuesta = cliente_frontend.get("/")
     assert respuesta.status_code == 200
     assert "<strong>ok</strong>" in respuesta.get_data(as_text=True)
-    backend_ok.assert_called_once_with(
+    backend_ok.assert_any_call(
         "GET", "http://api.test/api/salud", json=None, params=None, headers={}, timeout=5
+    )
+    backend_ok.assert_any_call(
+        "GET", "http://api.test/api/cartelera", json=None, params=None, headers={}, timeout=5
     )
 
 
