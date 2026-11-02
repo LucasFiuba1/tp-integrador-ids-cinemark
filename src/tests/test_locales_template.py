@@ -1,30 +1,15 @@
-import unittest
-
-from src.frontend.app import create_app
+"""Pruebas del template maquetado del ABM de locales y salas del backoffice (SCRUM-118)."""
 
 
-class TestLocalesTemplate(unittest.TestCase):
-
-    def setUp(self):
-        app = create_app()
-        app.config.update(TESTING=True, SECRET_KEY="pruebas")
-        self.cliente = app.test_client()
-
-    def test_locales_admin(self):
-        with self.cliente.session_transaction() as sesion:
-            sesion.update(token="token-admin", rol="admin")
-
-        respuesta = self.cliente.get("/admin/locales")
-
-        self.assertEqual(respuesta.status_code, 200)
-
-        html = respuesta.get_data(as_text=True)
-
-        self.assertIn("Paradiso Centro", html)
-        self.assertIn("Paradiso Belgrano", html)
-        self.assertIn("Paradiso Palermo", html)
-        self.assertIn("Sala VIP", html)
+def test_locales_sin_sesion_de_admin_redirige_a_la_cartelera(cliente_frontend):
+    respuesta = cliente_frontend.get("/admin/locales")
+    assert respuesta.status_code == 302
+    assert respuesta.headers["Location"] == "/"
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_locales_con_admin_muestra_los_locales_y_sus_salas(cliente_admin):
+    respuesta = cliente_admin.get("/admin/locales")
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 200
+    for dato in ("Paradiso Centro", "Paradiso Belgrano", "Paradiso Palermo", "Sala VIP"):
+        assert dato in html
