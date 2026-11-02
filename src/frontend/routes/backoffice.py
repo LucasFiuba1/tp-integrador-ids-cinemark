@@ -1,8 +1,7 @@
 """Páginas del administrador (ABM, dashboards y validación de QR)."""
-from functools import wraps
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
-
+from src.frontend.sesion import requiere_admin
 from src.frontend.validaciones import leer_formulario, validar_codigo_qr, validar_servicio
 
 backoffice_bp = Blueprint("backoffice", __name__, url_prefix="/admin")
@@ -54,16 +53,6 @@ def _locales_ejemplo():
         }
     ]
 
-
-def requiere_admin(vista):
-    """Deja pasar solo a administradores; al resto lo manda a la cartelera con un aviso."""
-    @wraps(vista)
-    def envoltura(*args, **kwargs):
-        if session.get("rol") != "admin":
-            flash("Ingresá con una cuenta de administrador para ver el backoffice.", "error")
-            return redirect(url_for("publico.inicio"))
-        return vista(*args, **kwargs)
-    return envoltura
 
 @backoffice_bp.get("/locales")
 @requiere_admin
