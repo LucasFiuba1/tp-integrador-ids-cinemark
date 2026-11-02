@@ -15,8 +15,8 @@ HOY = date(2026, 10, 31)
 
 
 # --- pantallas ---
-def test_pago_muestra_pasos_formulario_y_resumen(cliente_frontend):
-    respuesta = cliente_frontend.get("/compras/1042/pago")
+def test_pago_muestra_pasos_formulario_y_resumen(cliente_logueado):
+    respuesta = cliente_logueado.get("/compras/1042/pago")
     html = respuesta.get_data(as_text=True)
     assert respuesta.status_code == 200
     assert '<li class="paso paso-hecho">' in html
@@ -29,14 +29,14 @@ def test_pago_muestra_pasos_formulario_y_resumen(cliente_frontend):
         assert dato in html
 
 
-def test_pago_valido_redirige_a_compra_confirmada(cliente_frontend):
-    respuesta = cliente_frontend.post("/compras/1042/pago", data=PAGO_VALIDO)
+def test_pago_valido_redirige_a_compra_confirmada(cliente_logueado):
+    respuesta = cliente_logueado.post("/compras/1042/pago", data=PAGO_VALIDO)
     assert respuesta.status_code == 302
     assert respuesta.headers["Location"] == "/compras/1042/confirmada"
 
 
-def test_pago_con_errores_devuelve_400_sin_repetir_los_datos_de_la_tarjeta(cliente_frontend):
-    respuesta = cliente_frontend.post("/compras/1042/pago", data=dict(PAGO_VALIDO, vencimiento="13/28", acepto=""))
+def test_pago_con_errores_devuelve_400_sin_repetir_los_datos_de_la_tarjeta(cliente_logueado):
+    respuesta = cliente_logueado.post("/compras/1042/pago", data=dict(PAGO_VALIDO, vencimiento="13/28", acepto=""))
     html = respuesta.get_data(as_text=True)
     assert respuesta.status_code == 400
     assert 'id="error-vencimiento">Ingresá el vencimiento como MM/AA' in html
@@ -46,8 +46,8 @@ def test_pago_con_errores_devuelve_400_sin_repetir_los_datos_de_la_tarjeta(clien
     assert 'value="123"' not in html
 
 
-def test_compra_confirmada_muestra_qr_y_datos(cliente_frontend):
-    respuesta = cliente_frontend.get("/compras/1042/confirmada")
+def test_compra_confirmada_muestra_qr_y_datos(cliente_logueado):
+    respuesta = cliente_logueado.get("/compras/1042/confirmada")
     html = respuesta.get_data(as_text=True)
     assert respuesta.status_code == 200
     assert "¡Compra confirmada!" in html

@@ -2,6 +2,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from src.frontend.api_client import llamar
+from src.frontend.sesion import ir_al_login, requiere_sesion
 from src.frontend.validaciones import leer_formulario, validar_login, validar_pago, validar_registro
 
 publico_bp = Blueprint("publico", __name__)
@@ -75,12 +76,8 @@ def salir():
     return redirect(url_for("publico.inicio"))
 
 
-def _sesion_vencida(error):
-    session.clear()
-    flash(error["mensaje"], "error")
-    return redirect(url_for("publico.ingresar"))
-
-
+# Ver el mapa de butacas es público (GET); reservar (POST) pide sesión. Por eso el chequeo va acá y no con
+# @requiere_sesion, que protegería los dos métodos.
 @publico_bp.route("/funciones/<int:funcion_id>/butacas", methods=["GET", "POST"])
 def butacas(funcion_id):
     seleccionadas = []
@@ -88,8 +85,7 @@ def butacas(funcion_id):
     datos_invalidos = False
     if request.method == "POST":
         if not session.get("token"):
-            flash("Ingresá para reservar tus butacas.", "error")
-            return redirect(url_for("publico.ingresar"))
+            return ir_al_login("Ingresá para reservar tus butacas.")
         valores = request.form.getlist("butaca_ids")
         seleccionadas = [int(valor) for valor in valores if valor.isdigit() and int(valor) > 0]
         if not valores or len(seleccionadas) != len(valores):
@@ -100,8 +96,6 @@ def butacas(funcion_id):
             if error is None:
                 flash("Reservamos tus butacas por 10 minutos.", "exito")
                 return redirect(url_for("publico.pago", compra_id=compra["id"]))
-            if error["status"] == 401:
-                return _sesion_vencida(error)
             error_formulario = error["mensaje"]
     funcion, error = llamar("GET", f"/api/funciones/{funcion_id}")
     mapa, error_mapa = (None, error) if error else llamar("GET", f"/api/funciones/{funcion_id}/butacas")
@@ -161,6 +155,7 @@ def _servicios_ejemplo():
     ]
 
 @publico_bp.get("/compras/<int:compra_id>/servicios")
+@requiere_sesion
 def servicios_compra(compra_id):
     compra = _compra_ejemplo(compra_id)
     servicios = _servicios_ejemplo()
@@ -172,6 +167,7 @@ def servicios_compra(compra_id):
     )
 
 @publico_bp.route("/compras/<int:compra_id>/pago", methods=["GET", "POST"])
+@requiere_sesion
 def pago(compra_id):
     formulario = leer_formulario(request.form, *CAMPOS_PAGO)
     errores = validar_pago(formulario) if request.method == "POST" else {}
@@ -185,6 +181,7 @@ def pago(compra_id):
 
 
 @publico_bp.get("/compras/<int:compra_id>/confirmada")
+@requiere_sesion
 def compra_confirmada(compra_id):
     return render_template("compra/confirmada.html", compra=_compra_ejemplo(compra_id, confirmada=True))
 
@@ -192,6 +189,7 @@ def compra_confirmada(compra_id):
 # Cancelación maquetada (SCRUM-115) con la compra confirmada de ejemplo. SCRUM-70 reemplaza _compra_ejemplo por
 # llamar("GET", f"/api/compras/{compra_id}") y el POST por /api/compras/<id>/cancelar (errores 409 con flash).
 @publico_bp.route("/compras/<int:compra_id>/cancelar", methods=["GET", "POST"])
+@requiere_sesion
 def cancelar_compra(compra_id):
     if request.method == "POST":
         flash(f"Cancelaste la compra #{compra_id}. Liberamos las butacas y el QR ya no es válido.", "exito")

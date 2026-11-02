@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block titulo %}Sin permiso · Cine Paradiso{% endblock %}
+{% block contenido %}
+  <h1>No tenés permiso para ver esta página</h1>
+  <p>Esta sección es solo para administradores. Volvé a la <a href="{{ url_for('publico.inicio') }}">cartelera</a>.</p>
+{% endblock %}

@@ -12,7 +12,7 @@ class TestLocalesTemplate(unittest.TestCase):
 
     def test_locales_admin(self):
         with self.cliente.session_transaction() as sesion:
-            sesion["rol"] = "admin"
+            sesion.update(token="token-admin", rol="admin")
 
         respuesta = self.cliente.get("/admin/locales")
 
