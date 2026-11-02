@@ -22,10 +22,11 @@ funciones que reciben y devuelven `dict`. Nada de `class`, `self`, herencia, `@d
 
 - `routes/publico.py`: cliente. `routes/backoffice.py`: admin, prefijo `/admin`.
 - Toda llamada al backend es `datos, error = llamar(...)`. Si `error` no es `None`: mostrar
-  `flash(error["mensaje"], "error")` y volver a la pantalla, nunca un 500. Si `error["status"] == 401`, limpiar la
-  sesión y redirigir al login. No definir clases de excepción propias.
-- La sesión de Flask guarda `token`, `rol` y `nombre` tras el login. Proteger las páginas del backoffice
-  verificando `session["rol"] == "admin"` con un decorador común (no repetir el chequeo en cada vista).
+  `flash(error["mensaje"], "error")` y volver a la pantalla, nunca un 500. El 401 por token vencido no se revisa en
+  las rutas: `llamar` ya limpia la sesión y redirige al login. No definir clases de excepción propias.
+- La sesión de Flask guarda `token`, `rol` y `nombre` tras el login. Proteger las páginas con los decoradores de
+  `src/frontend/sesion.py`: `@requiere_sesion` (sin sesión → login) y `@requiere_admin` (sin sesión → login,
+  cliente → 403). No repetir el chequeo en cada vista.
 - No acceder a la base desde el frontend ni importar nada de `src.backend`.
 
 ## Templates

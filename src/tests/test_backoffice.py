@@ -18,18 +18,16 @@ def macro(app_frontend, renderizar):
 
 
 # --- layout ---
-def test_backoffice_sin_sesion_redirige_a_la_cartelera(cliente_frontend):
+def test_backoffice_sin_sesion_redirige_al_login(cliente_frontend):
     respuesta = cliente_frontend.get("/admin/peliculas")
     assert respuesta.status_code == 302
-    assert respuesta.headers["Location"] == "/"
+    assert respuesta.headers["Location"] == "/ingresar"
 
 
-def test_backoffice_con_rol_cliente_redirige_a_la_cartelera(cliente_frontend):
-    with cliente_frontend.session_transaction() as sesion:
-        sesion["rol"] = "cliente"
-    respuesta = cliente_frontend.get("/admin/dashboards")
-    assert respuesta.status_code == 302
-    assert respuesta.headers["Location"] == "/"
+def test_backoffice_con_rol_cliente_devuelve_403(cliente_logueado):
+    respuesta = cliente_logueado.get("/admin/dashboards")
+    assert respuesta.status_code == 403
+    assert "No tenés permiso para ver esta página" in respuesta.get_data(as_text=True)
 
 
 def test_inicio_del_backoffice_redirige_a_dashboards(cliente_admin):
@@ -50,7 +48,7 @@ def test_sidebar_lista_las_secciones_y_marca_la_actual(cliente_admin):
 
 def test_sidebar_muestra_el_nombre_del_admin(cliente_frontend):
     with cliente_frontend.session_transaction() as sesion:
-        sesion.update(rol="admin", nombre="Lucía")
+        sesion.update(token="token-admin", rol="admin", nombre="Lucía")
     html = cliente_frontend.get("/admin/funciones").get_data(as_text=True)
     assert "Lucía" in html
     assert '<form method="post" action="/salir">' in html

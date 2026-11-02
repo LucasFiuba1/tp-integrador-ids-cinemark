@@ -69,7 +69,7 @@ def _error_numero_tarjeta(numero):
     digitos = numero.replace(" ", "").replace("-", "")
     if not digitos:
         return "Ingresá el número de la tarjeta."
-    if not digitos.isdigit() or not DIGITOS_TARJETA[0] <= len(digitos) <= DIGITOS_TARJETA[1]:
+    if not digitos.isdecimal() or not DIGITOS_TARJETA[0] <= len(digitos) <= DIGITOS_TARJETA[1]:
         return f"El número tiene que tener entre {DIGITOS_TARJETA[0]} y {DIGITOS_TARJETA[1]} dígitos."
     return None
 

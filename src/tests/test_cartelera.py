@@ -36,7 +36,7 @@ def test_cartelera_filtra_por_local_y_por_dia_con_un_rango(cliente_backend, cons
     assert parametros[1:] == [2, datetime(2026, 11, 10), datetime(2026, 11, 11)]
 
 
-@pytest.mark.parametrize("consulta", ["local_id=abc", "local_id=0", "fecha=ayer", "fecha=2026-13-01"])
+@pytest.mark.parametrize("consulta", ["local_id=abc", "local_id=0", "local_id=²", "fecha=ayer", "fecha=2026-13-01"])
 def test_cartelera_con_filtros_invalidos_devuelve_400(cliente_backend, consultar, consulta):
     respuesta = cliente_backend.get(f"/api/cartelera?{consulta}")
     assert respuesta.status_code == 400

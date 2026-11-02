@@ -247,6 +247,47 @@
   </ol>
 {% endmacro %}
 
+{# Grilla de butacas de una función, agrupada por fila y con la pantalla arriba. butacas tiene la forma de
+   GET /api/funciones/<id>/butacas ({"id", "fila", "numero", "estado"}). Cada libre es un checkbox butaca_ids
+   (HTML puro, sin JS) y seleccionadas son los ids que vuelven marcados si el formulario tuvo un error.
+   habilitada en falso (función ya comenzada) muestra las libres sin poder elegirlas. Además del color, la
+   seleccionada lleva ✓ y la ocupada ×. Las filas de 6 o más butacas se parten al medio con un pasillo. #}
+{% macro grilla_butacas(butacas, seleccionadas=[], habilitada=true) %}
+  <div class="butacas">
+    <p class="butacas-pantalla" aria-hidden="true">Pantalla</p>
+    <div class="butacas-filas">
+      {% for fila, butacas_fila in butacas | groupby("fila") %}
+        {% set pasillo = (butacas_fila | length) // 2 if butacas_fila | length >= 6 else 0 %}
+        <div class="butacas-fila" role="group" aria-label="Fila {{ fila }}">
+          <span class="butacas-fila-letra" aria-hidden="true">{{ fila }}</span>
+          {% for butaca in butacas_fila | sort(attribute="numero") %}
+            {% set nombre = fila ~ butaca.numero %}
+            {% set clase = "butaca butaca-pasillo" if loop.index == pasillo else "butaca" %}
+            {% if butaca.estado == "libre" and habilitada %}
+              <label class="{{ clase }}" title="{{ nombre }}">
+                <input class="visualmente-oculto" type="checkbox" name="butaca_ids" value="{{ butaca.id }}"
+                  {%- if butaca.id in seleccionadas %} checked{% endif %}>
+                <span class="butaca-marca" aria-hidden="true"></span>
+                <span class="visualmente-oculto">Butaca {{ nombre }}</span>
+              </label>
+            {% else %}
+              <span class="{{ clase }}" title="{{ nombre }}: {{ butaca.estado }}">
+                <span class="butaca-marca butaca-{{ butaca.estado }}" aria-hidden="true"></span>
+                <span class="visualmente-oculto">Butaca {{ nombre }}: {{ butaca.estado }}</span>
+              </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+    <ul class="butacas-leyenda" aria-label="Referencias">
+      <li><span class="butaca-marca" aria-hidden="true"></span>Libre</li>
+      <li><span class="butaca-marca butaca-seleccionada" aria-hidden="true"></span>Seleccionada</li>
+      <li><span class="butaca-marca butaca-ocupada" aria-hidden="true"></span>Ocupada</li>
+    </ul>
+  </div>
+{% endmacro %}
+
 {# Resumen lateral de la compra (servicios y pago): película, función, detalle de precios, total y vencimiento
    de la reserva. compra tiene la forma de GET /api/compras/<id>; el botón de la pantalla va en el caller(). #}
 {% macro resumen_compra(compra) %}

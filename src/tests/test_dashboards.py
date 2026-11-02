@@ -1,5 +1,4 @@
 """Pruebas del template maquetado de dashboards del backoffice (SCRUM-121)."""
-import unittest
 from src.frontend.app import create_app as crear_frontend
 from unittest.mock import patch
 
@@ -7,10 +6,10 @@ from src.frontend.filtros import numero
 from src.frontend.routes import backoffice
 
 
-def test_sin_sesion_de_admin_redirige_a_la_cartelera(cliente_frontend):
+def test_sin_sesion_redirige_al_login(cliente_frontend):
     respuesta = cliente_frontend.get("/admin/dashboards")
     assert respuesta.status_code == 302
-    assert respuesta.headers["Location"] == "/"
+    assert respuesta.headers["Location"] == "/ingresar"
 
 
 def test_muestra_los_kpi_y_los_cuatro_tableros(cliente_admin):

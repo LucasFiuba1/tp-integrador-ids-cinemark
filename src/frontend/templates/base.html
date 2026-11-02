@@ -17,11 +17,13 @@
     <a class="marca" href="{{ url_for('publico.inicio') }}">Cine Paradiso</a>
     <nav class="menu">
       <a href="{{ url_for('publico.inicio') }}">Cartelera</a>
-      {% if session.get('rol') == 'admin' %}
-        <a href="{{ url_for('backoffice.inicio') }}">Backoffice</a>
-      {% endif %}
+      {# Cliente: Mi perfil. Admin: Backoffice. Sin sesión: Ingresar. #}
       {% if session.get('token') %}
-        <a href="#">Mi perfil</a>
+        {% if session.get('rol') == 'admin' %}
+          <a href="{{ url_for('backoffice.inicio') }}">Backoffice</a>
+        {% else %}
+          <a href="#">Mi perfil</a>
+        {% endif %}
         <form method="post" action="{{ url_for('publico.salir') }}">
           <button type="submit" class="boton boton-secundario">Salir</button>
         </form>

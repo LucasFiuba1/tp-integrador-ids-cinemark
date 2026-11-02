@@ -2,6 +2,9 @@
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from src.frontend.api_client import llamar
+from src.frontend.ejemplos import servicios_ejemplo
+from src.frontend.filtros import hora
+from src.frontend.sesion import ir_al_login, requiere_sesion
 from src.frontend.validaciones import leer_formulario, validar_login, validar_pago, validar_registro
 
 publico_bp = Blueprint("publico", __name__)
@@ -117,12 +120,8 @@ def salir():
     return redirect(url_for("publico.inicio"))
 
 
-def _sesion_vencida(error):
-    session.clear()
-    flash(error["mensaje"], "error")
-    return redirect(url_for("publico.ingresar"))
-
-
+# Ver el mapa de butacas es público (GET); reservar (POST) pide sesión. Por eso el chequeo va acá y no con
+# @requiere_sesion, que protegería los dos métodos.
 @publico_bp.route("/funciones/<int:funcion_id>/butacas", methods=["GET", "POST"])
 def butacas(funcion_id):
     seleccionadas = []
@@ -130,20 +129,18 @@ def butacas(funcion_id):
     datos_invalidos = False
     if request.method == "POST":
         if not session.get("token"):
-            flash("Ingresá para reservar tus butacas.", "error")
-            return redirect(url_for("publico.ingresar"))
+            return ir_al_login("Ingresá para reservar tus butacas.")
         valores = request.form.getlist("butaca_ids")
-        seleccionadas = [int(valor) for valor in valores if valor.isdigit() and int(valor) > 0]
+        # isdecimal() y no isdigit(): "²" es dígito pero int("²") falla y la página daría error 500.
+        seleccionadas = [int(valor) for valor in valores if valor.isdecimal() and int(valor) > 0]
         if not valores or len(seleccionadas) != len(valores):
             error_formulario = "Elegí al menos una butaca libre."
             datos_invalidos = True
         else:
             compra, error = llamar("POST", "/api/compras", json={"funcion_id": funcion_id, "butaca_ids": seleccionadas})
             if error is None:
-                flash("Reservamos tus butacas por 10 minutos.", "exito")
-                return redirect(url_for("publico.pago", compra_id=compra["id"]))
-            if error["status"] == 401:
-                return _sesion_vencida(error)
+                flash(f"Reservamos tus butacas hasta las {hora(compra['vence_en'])}.", "exito")
+                return redirect(url_for("publico.servicios_compra", compra_id=compra["id"]))
             error_formulario = error["mensaje"]
     funcion, error = llamar("GET", f"/api/funciones/{funcion_id}")
     mapa, error_mapa = (None, error) if error else llamar("GET", f"/api/funciones/{funcion_id}/butacas")
@@ -174,46 +171,16 @@ def _compra_ejemplo(compra_id, confirmada=False):
         "email": "lucas@email.com", "qr_png_base64": QR_EJEMPLO if confirmada else None, "cancelable": confirmada,
     }
 
-def _servicios_ejemplo():
-    return [
-        {
-            "id": 1,
-            "nombre": "Combo pochoclos grande",
-            "descripcion": "Pochoclos grandes y gaseosa de 500ml",
-            "precio": 6500
-        },
-        {
-            "id": 2,
-            "nombre": "Gaseosa",
-            "descripcion": "Gaseosa de 500ml",
-            "precio": 2500
-        },
-        {
-            "id": 3,
-            "nombre": "Estacionamiento",
-            "descripcion": "Estacionamiento durante la función",
-            "precio": 3000
-        },
-        {
-            "id": 4,
-            "nombre": "Acceso VIP",
-            "descripcion": "Butaca reclinable y servicio en sala",
-            "precio": 8000
-        }
-    ]
 
 @publico_bp.get("/compras/<int:compra_id>/servicios")
+@requiere_sesion
 def servicios_compra(compra_id):
-    compra = _compra_ejemplo(compra_id)
-    servicios = _servicios_ejemplo()
+    servicios = [servicio for servicio in servicios_ejemplo() if servicio["activo"]]
+    return render_template("compra/servicios.html", compra=_compra_ejemplo(compra_id), servicios=servicios)
 
-    return render_template(
-        "compra/servicios.html",
-        compra=compra,
-        servicios=servicios
-    )
 
 @publico_bp.route("/compras/<int:compra_id>/pago", methods=["GET", "POST"])
+@requiere_sesion
 def pago(compra_id):
     formulario = leer_formulario(request.form, *CAMPOS_PAGO)
     errores = validar_pago(formulario) if request.method == "POST" else {}
@@ -227,6 +194,7 @@ def pago(compra_id):
 
 
 @publico_bp.get("/compras/<int:compra_id>/confirmada")
+@requiere_sesion
 def compra_confirmada(compra_id):
     return render_template("compra/confirmada.html", compra=_compra_ejemplo(compra_id, confirmada=True))
 
@@ -234,6 +202,7 @@ def compra_confirmada(compra_id):
 # Cancelación maquetada (SCRUM-115) con la compra confirmada de ejemplo. SCRUM-70 reemplaza _compra_ejemplo por
 # llamar("GET", f"/api/compras/{compra_id}") y el POST por /api/compras/<id>/cancelar (errores 409 con flash).
 @publico_bp.route("/compras/<int:compra_id>/cancelar", methods=["GET", "POST"])
+@requiere_sesion
 def cancelar_compra(compra_id):
     if request.method == "POST":
         flash(f"Cancelaste la compra #{compra_id}. Liberamos las butacas y el QR ya no es válido.", "exito")

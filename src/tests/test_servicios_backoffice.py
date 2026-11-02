@@ -16,10 +16,10 @@ SERVICIO_VALIDO = {"nombre": "Combo familiar", "descripcion": "Dos pochoclos y d
     ("get", "/admin/servicios"), ("post", "/admin/servicios"),
     ("get", "/admin/servicios/1"), ("post", "/admin/servicios/1/baja"),
 ])
-def test_servicios_sin_sesion_de_admin_redirige_a_la_cartelera(cliente_frontend, metodo, ruta):
+def test_servicios_sin_sesion_redirige_al_login(cliente_frontend, metodo, ruta):
     respuesta = getattr(cliente_frontend, metodo)(ruta)
     assert respuesta.status_code == 302
-    assert respuesta.headers["Location"] == "/"
+    assert respuesta.headers["Location"] == "/ingresar"
 
 
 def test_listado_muestra_los_servicios_con_precio_estado_y_acciones(cliente_admin):

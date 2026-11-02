@@ -9,10 +9,10 @@ from src.frontend.validaciones import MAXIMO_CODIGO_QR
 
 # --- pantalla ---
 @pytest.mark.parametrize("metodo", ["get", "post"])
-def test_validar_sin_sesion_de_admin_redirige_a_la_cartelera(cliente_frontend, metodo):
+def test_validar_sin_sesion_redirige_al_login(cliente_frontend, metodo):
     respuesta = getattr(cliente_frontend, metodo)("/admin/validar")
     assert respuesta.status_code == 302
-    assert respuesta.headers["Location"] == "/"
+    assert respuesta.headers["Location"] == "/ingresar"
 
 
 def test_validar_sin_codigo_muestra_el_formulario_y_el_historial(cliente_admin):

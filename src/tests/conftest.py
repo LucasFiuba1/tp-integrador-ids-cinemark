@@ -55,7 +55,15 @@ def cliente_frontend(app_frontend):
 @pytest.fixture
 def cliente_admin(cliente_frontend):
     with cliente_frontend.session_transaction() as sesion:
-        sesion["rol"] = "admin"
+        sesion.update(token="token-admin", rol="admin")
+    return cliente_frontend
+
+
+@pytest.fixture
+def cliente_logueado(cliente_frontend):
+    """Sesión iniciada con rol cliente, para las páginas protegidas con @requiere_sesion."""
+    with cliente_frontend.session_transaction() as sesion:
+        sesion.update(token="token-cliente", rol="cliente", nombre="Ana")
     return cliente_frontend
 
 
