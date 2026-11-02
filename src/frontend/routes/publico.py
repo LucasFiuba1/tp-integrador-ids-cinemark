@@ -166,3 +166,65 @@ def cancelar_compra(compra_id):
         flash(f"Cancelaste la compra #{compra_id}. Liberamos las butacas y el QR ya no es válido.", "exito")
         return redirect(url_for("publico.inicio"))
     return render_template("compra/cancelar.html", compra=_compra_ejemplo(compra_id, confirmada=True))
+
+
+# SCRUM-116: Perfil del cliente maquetado con datos ficticios.
+@publico_bp.get("/perfil")
+@requiere_sesion
+def perfil():
+    datos = {
+        "cliente": {
+            "nombre": "Lucas Berardi",
+            "email": "lucas@email.com",
+            "inicial": "L",
+        },
+        "compras": [
+            {
+                "id": 1042,
+                "pelicula": "La noche del telón",
+                "local": "Paradiso Centro",
+                "sala": "Sala 1",
+                "fecha": "15/11/2026",
+                "hora": "19:30",
+                "butacas": ["D5", "D6"],
+                "combo": "Combo pochoclos grande",
+                "estado": "confirmada",
+                "precio": 23000,
+                "pestana": "proximas",
+            },
+            {
+                "id": 1038,
+                "pelicula": "El último viaje",
+                "local": "Paradiso Norte",
+                "sala": "Sala 2",
+                "fecha": "20/10/2026",
+                "hora": "20:00",
+                "butacas": ["B4", "B5"],
+                "combo": "",
+                "estado": "finalizada",
+                "precio": 16500,
+                "pestana": "historial",
+            },
+            {
+                "id": 1035,
+                "pelicula": "Sombras del pasado",
+                "local": "Paradiso Centro",
+                "sala": "Sala 3",
+                "fecha": "18/10/2026",
+                "hora": "18:00",
+                "butacas": ["C7"],
+                "combo": "",
+                "estado": "cancelada",
+                "precio": 8500,
+                "pestana": "canceladas",
+            },
+        ],
+        "peliculas_vistas": [
+            {"titulo": "El último viaje", "edad": "+13", "duracion": "120 min", "fecha": "20/10/2026"},
+            {"titulo": "Sombras del pasado", "edad": "+16", "duracion": "105 min", "fecha": "18/10/2026"},
+            {"titulo": "La ciudad perdida", "edad": "+13", "duracion": "110 min", "fecha": "05/10/2026"},
+            {"titulo": "Un nuevo comienzo", "edad": "ATP", "duracion": "98 min", "fecha": "28/09/2026"},
+        ],
+    }
+
+    return render_template("perfil.html", datos=datos)

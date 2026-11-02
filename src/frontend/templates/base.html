@@ -1,16 +1,20 @@
 {% from "macros.html" import avisos -%}
 <!doctype html>
 <html lang="es">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Cine Paradiso{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
 </head>
+
 <body>
   {% block cabecera %}
   <header class="marquesina">
@@ -19,16 +23,16 @@
       <a href="{{ url_for('publico.inicio') }}">Cartelera</a>
       {# Cliente: Mi perfil. Admin: Backoffice. Sin sesión: Ingresar. #}
       {% if session.get('token') %}
-        {% if session.get('rol') == 'admin' %}
-          <a href="{{ url_for('backoffice.inicio') }}">Backoffice</a>
-        {% else %}
-          <a href="#">Mi perfil</a>
-        {% endif %}
-        <form method="post" action="{{ url_for('publico.salir') }}">
-          <button type="submit" class="boton boton-secundario">Salir</button>
-        </form>
+      {% if session.get('rol') == 'admin' %}
+      <a href="{{ url_for('backoffice.inicio') }}">Backoffice</a>
       {% else %}
-        <a class="boton boton-secundario" href="{{ url_for('publico.ingresar') }}">Ingresar</a>
+      <a href="{{ url_for('publico.perfil') }}">Mi perfil</a>
+      {% endif %}
+      <form method="post" action="{{ url_for('publico.salir') }}">
+        <button type="submit" class="boton boton-secundario">Salir</button>
+      </form>
+      {% else %}
+      <a class="boton boton-secundario" href="{{ url_for('publico.ingresar') }}">Ingresar</a>
       {% endif %}
     </nav>
   </header>
@@ -43,4 +47,5 @@
   <footer class="pie">Cine Paradiso. Películas que vuelven a la pantalla grande.</footer>
   {% endblock %}
 </body>
+
 </html>
