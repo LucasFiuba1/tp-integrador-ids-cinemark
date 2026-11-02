@@ -61,7 +61,14 @@ flask --app src.frontend.app run --port 5001 --debug    # Sitio en http://localh
 
 Verificación rápida: `http://localhost:5000/api/salud` devuelve `{"estado": "ok"}` y la portada del sitio muestra el estado de la API.
 
-Usuario administrador de prueba: `admin@cineparadiso.com` / `admin1234`.
+Usuarios de prueba que carga `seed.sql`:
+
+- Administrador: `admin@cineparadiso.com` / `admin1234`
+- Clientes: `ana@mail.com` y `juan@mail.com` / `cliente1234`
+
+El seed también carga 8 películas, funciones de anteayer a dentro de 6 días en todas las salas (14:00, 17:30 y
+21:00) y 4 compras de ejemplo (dos con el QR ya validado y una cancelada). Las fechas son relativas al día de la
+carga: para tener funciones futuras de nuevo, volver a correr `bash init.sh --db`.
 
 ## Pruebas
 
