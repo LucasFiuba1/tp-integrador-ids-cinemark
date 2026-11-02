@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "macros.html" import pasos_compra, cabecera_pagina, grilla_butacas, datos, boton %}
+
+{% block titulo %}Butacas - Cine Paradiso{% endblock %}
+
+{% block contenido %}
+
+  {{ pasos_compra(2) }}
+
+  {{ cabecera_pagina("Elegí tus butacas", bajada=funcion.local ~ " · " ~ funcion.sala ~ " · " ~ (funcion.fecha_hora | fecha_hora) ~ " · " ~ (funcion.precio | precio) ~ " por entrada") }}
+
+  {% if error %}<p class="aviso aviso-error" role="alert">{{ error }}</p>{% endif %}
+  {% if not mapa.vendible %}
+    <p class="aviso aviso-error" role="alert">Esta función ya comenzó: no se pueden comprar entradas.</p>
+  {% endif %}
+
+  <form class="checkout" method="post" action="{{ url_for('publico.butacas', funcion_id=funcion.id) }}">
+
+    <section class="panel" aria-label="Butacas de la {{ mapa.sala }}">
+      {{ grilla_butacas(mapa.butacas, seleccionadas, mapa.vendible) }}
+    </section>
+
+    <aside class="panel resumen" aria-labelledby="titulo-resumen">
+      <div class="resumen-pelicula">
+        {% if funcion.poster_url %}
+          <img class="resumen-poster" src="{{ funcion.poster_url }}" alt="Póster de {{ funcion.pelicula }}">
+        {% else %}
+          <span class="resumen-poster" aria-hidden="true"></span>
+        {% endif %}
+        <div>
+          <h2 id="titulo-resumen">{{ funcion.pelicula }}</h2>
+          <p class="resumen-funcion">{{ funcion.local }} · {{ funcion.sala }}<br>{{ funcion.fecha_hora | fecha_hora }}</p>
+        </div>
+      </div>
+      {{ datos([("Precio por entrada", funcion.precio | precio), ("Butacas libres", mapa.libres ~ " de " ~ mapa.capacidad)], "resumen-detalle") }}
+      {% if mapa.vendible %}
+        <p class="checkout-nota">Al continuar reservamos tus butacas por 10 minutos para que termines la compra.</p>
+        {{ boton("Continuar", clase="boton boton-bloque") }}
+      {% endif %}
+    </aside>
+
+  </form>
+
+{% endblock %}

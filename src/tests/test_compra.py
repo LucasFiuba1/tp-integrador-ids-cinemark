@@ -1,5 +1,4 @@
 """Pruebas de los templates maquetados de pago, compra confirmada (SCRUM-114) y cancelación (SCRUM-115)."""
-import unittest
 from datetime import date
 from unittest.mock import patch
 
