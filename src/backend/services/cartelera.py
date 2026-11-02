@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 from src.backend.db import consultar, consultar_uno
 from src.backend.errores import error_api
 from src.backend.services.peliculas import COLUMNAS, a_json
+from src.backend.services.validaciones import entero_positivo_texto
 
 # Funciones que se pueden vender: activas, en salas activas, futuras y dentro del período de la película.
 FUNCIONES_VIGENTES = """
@@ -17,12 +18,6 @@ FUNCIONES_VIGENTES = """
     AND funciones.fecha_hora >= %s
     AND funciones.fecha_hora BETWEEN peliculas.disponible_desde AND peliculas.disponible_hasta
 """
-
-
-def _entero_positivo(texto, campo):
-    if not texto.isdigit() or int(texto) == 0:
-        error_api(400, "DATOS_INVALIDOS", f"{campo} debe ser un entero positivo.")
-    return int(texto)
 
 
 def _dia(texto):
@@ -42,7 +37,7 @@ def listar(local_id=None, fecha=None):
     parametros = [datetime.now()]
     if local_id is not None:
         sql += " AND locales.id = %s"
-        parametros.append(_entero_positivo(local_id, "local_id"))
+        parametros.append(entero_positivo_texto(local_id, "local_id"))
     if fecha is not None:
         # Rango en vez de LIKE para que MySQL pueda usar el índice de fecha_hora.
         inicio = _dia(fecha)

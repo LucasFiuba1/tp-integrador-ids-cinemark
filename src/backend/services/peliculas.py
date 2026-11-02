@@ -6,6 +6,7 @@ import pymysql
 from src.backend.db import consultar, consultar_uno, ejecutar
 from src.backend.errores import error_api
 from src.backend.services import tmdb
+from src.backend.services.validaciones import datos_invalidos, entero_positivo, fecha_hora_iso
 
 COLUMNAS = (
     "id, tmdb_id, titulo, sinopsis, poster_url, duracion_min, clasificacion, genero, "
@@ -13,20 +14,9 @@ COLUMNAS = (
 )
 
 
-def _invalido(mensaje):
-    error_api(400, "DATOS_INVALIDOS", mensaje)
-
-
-def _leer_fecha(texto, campo):
-    try:
-        return datetime.fromisoformat(texto)
-    except (TypeError, ValueError):
-        _invalido(campo + " debe tener formato YYYY-MM-DDTHH:MM:SS.")
-
-
 def _validar_periodo(desde, hasta):
     if hasta <= desde:
-        _invalido("disponible_hasta debe ser posterior a disponible_desde.")
+        datos_invalidos("disponible_hasta debe ser posterior a disponible_desde.")
 
 
 def _texto(valor, campo, maximo, obligatorio=False):
@@ -34,13 +24,13 @@ def _texto(valor, campo, maximo, obligatorio=False):
     if valor is None and not obligatorio:
         return valor
     if type(valor) is not str or (obligatorio and valor.strip() == "") or len(valor) > maximo:
-        _invalido(f"{campo} debe ser un texto de hasta {maximo} caracteres.")
+        datos_invalidos(f"{campo} debe ser un texto de hasta {maximo} caracteres.")
     return valor
 
 
 def _fecha_o_actual(datos, actual, campo):
     if campo in datos:
-        return _leer_fecha(datos[campo], campo)
+        return fecha_hora_iso(datos[campo], campo)
     return datetime.fromisoformat(actual[campo])
 
 
@@ -54,7 +44,7 @@ def a_json(fila):
 
 def buscar_en_tmdb(texto):
     if texto is None or texto.strip() == "":
-        _invalido("Falta el parámetro q.")
+        datos_invalidos("Falta el parámetro q.")
     return tmdb.buscar(texto.strip())
 
 
@@ -70,11 +60,9 @@ def obtener(pelicula_id):
 
 
 def importar(datos):
-    tmdb_id = datos.get("tmdb_id")
-    if type(tmdb_id) is not int or tmdb_id <= 0:
-        _invalido("tmdb_id debe ser un entero positivo.")
-    desde = _leer_fecha(datos.get("disponible_desde"), "disponible_desde")
-    hasta = _leer_fecha(datos.get("disponible_hasta"), "disponible_hasta")
+    tmdb_id = entero_positivo(datos.get("tmdb_id"), "tmdb_id")
+    desde = fecha_hora_iso(datos.get("disponible_desde"), "disponible_desde")
+    hasta = fecha_hora_iso(datos.get("disponible_hasta"), "disponible_hasta")
     _validar_periodo(desde, hasta)
 
     if consultar_uno("SELECT id FROM peliculas WHERE tmdb_id = %s", (tmdb_id,)) is not None:
@@ -114,9 +102,7 @@ def modificar(pelicula_id, datos):
     clasificacion = _texto(datos.get("clasificacion", actual["clasificacion"]), "clasificacion", 10)
     poster_url = _texto(datos.get("poster_url", actual["poster_url"]), "poster_url", 300)
     sinopsis = _texto(datos.get("sinopsis", actual["sinopsis"]), "sinopsis", 65535)
-    duracion_min = datos.get("duracion_min", actual["duracion_min"])
-    if type(duracion_min) is not int or duracion_min <= 0:
-        _invalido("duracion_min debe ser un entero positivo.")
+    duracion_min = entero_positivo(datos.get("duracion_min", actual["duracion_min"]), "duracion_min")
 
     desde = _fecha_o_actual(datos, actual, "disponible_desde")
     hasta = _fecha_o_actual(datos, actual, "disponible_hasta")

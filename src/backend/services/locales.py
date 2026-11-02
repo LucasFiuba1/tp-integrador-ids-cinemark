@@ -1,4 +1,5 @@
 from src.backend import db
+from src.backend.services.validaciones import texto_no_vacio
 
 
 def listar_locales():
@@ -8,12 +9,8 @@ def listar_locales():
 
 
 def validar_local(nombre_local, direccion_local):
-    mensaje = None
-    if not nombre_local:
-        mensaje = "El nombre es obligatorio."
-    elif not direccion_local:
-        mensaje = "La dirección es obligatoria."
-    return mensaje
+    """Devuelve (nombre, direccion) sin espacios en los extremos; los largos son los VARCHAR de schema.sql."""
+    return texto_no_vacio(nombre_local, "nombre", 100), texto_no_vacio(direccion_local, "direccion", 200)
 
 
 def crear_local(nombre_local, direccion_local):
