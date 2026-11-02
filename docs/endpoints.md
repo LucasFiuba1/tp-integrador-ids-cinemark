@@ -55,15 +55,34 @@ POST /api/auth/login
 { "token": "eyJ1c2VyX2lkIjo3fQ...", "rol": "cliente", "nombre": "Ana Pérez" }
 ```
 
-Errores: 400 datos inválidos · 409 email ya registrado · 401 credenciales incorrectas.
+Reglas: el email se guarda en minúsculas y sin espacios; la contraseña (8 a 128 caracteres) se guarda con hash
+`pbkdf2:sha256`. Todo registro nuevo es rol `cliente` (los admin se cargan desde `seed.sql`; un `rol` en el cuerpo
+se ignora).
+
+Errores: 400 `DATOS_INVALIDOS` (campo faltante, email sin formato válido, nombre de más de 100 caracteres,
+contraseña fuera de rango) · 409 `EMAIL_REGISTRADO` · 401 `CREDENCIALES_INVALIDAS` (mismo mensaje si falla el
+email o la contraseña).
+
+El nombre debe tener hasta 100 caracteres, el email hasta 150 y la contraseña entre 8 y 128 caracteres.
+La contraseña se guarda con hash `pbkdf2:sha256`; nunca se devuelve en las respuestas.
+
+```http
+GET /api/auth/me
+Authorization: Bearer <token>
+
+200 OK
+{ "id": 7, "nombre": "Ana Pérez", "rol": "cliente" }
+```
+
+Errores de `/me`: 401 sin token, token inválido o vencido · 403 si el rol no está habilitado.
 
 ## Cartelera (público)
 
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
 | GET | `/api/locales` | 🌐 | Lista de locales. |
-| GET | `/api/cartelera?local_id=&fecha=` | 🌐 | Películas con funciones vigentes. |
-| GET | `/api/peliculas/<id>` | 🌐 | Detalle de la película y sus funciones futuras por local. |
+| GET | `/api/cartelera?local_id=&fecha=` | 🌐 | Películas con funciones vigentes y su próxima función. `fecha` es `YYYY-MM-DD` y `local_id` un entero positivo (si no, 400 `DATOS_INVALIDOS`). |
+| GET | `/api/peliculas/<id>` | 🌐 | Detalle de la película activa y sus funciones futuras por local (404 `NO_ENCONTRADO` si no existe o está dada de baja). |
 | GET | `/api/funciones/<id>` | 🌐 | Detalle de una función (película, sala, local, fecha y hora, precio). |
 | GET | `/api/funciones/<id>/butacas` | 🌐 | Mapa de butacas con su estado y capacidad. |
 | GET | `/api/servicios` | 🌐 | Servicios activos para agregar a una compra. |
@@ -94,6 +113,10 @@ GET /api/funciones/12/butacas
 }
 ```
 
+Una butaca está `ocupada` si tiene una entrada vigente de una compra `confirmada` o `pendiente` sin vencer;
+las de compras canceladas o vencidas cuentan como libres. No expone datos de los compradores.
+`vendible` es `false` si la función ya empezó. Función inexistente o dada de baja → 404 `NO_ENCONTRADO`.
+
 ## Compras (cliente)
 
 | Método | Ruta | Rol | Descripción |
@@ -115,6 +138,9 @@ POST /api/compras
 409 Conflict
 { "error": { "codigo": "BUTACA_OCUPADA", "mensaje": "Las butacas D5, D6 ya fueron vendidas." } }
 ```
+
+La función debe estar activa y no haber comenzado; las butacas deben ser únicas y pertenecer a su sala.
+Los errores de entrada devuelven 400 `DATOS_INVALIDOS`; una función inexistente o ya comenzada devuelve 404.
 
 ```http
 PUT /api/compras/88/servicios
@@ -140,6 +166,44 @@ Errores de cancelación: 409 `FUERA_DE_PLAZO` · 409 `YA_CANCELADA` · 409 `YA_U
 | GET | `/api/me/compras` | 👤 | Historial de compras (entradas, servicios, total, estado, si es cancelable). |
 | GET | `/api/me/peliculas-vistas` | 👤 | Películas cuyo QR fue validado en el ingreso. |
 
+El usuario sale del token: no hay parámetros. El historial solo incluye compras `confirmada` y `cancelada` (las `pendiente` y `vencida` nunca se pagaron). `token_qr` es `null` si la compra está cancelada.
+
+```http
+GET /api/me/compras
+
+200 OK
+[
+  {
+    "id": 88, "estado": "confirmada", "total": 23000.0,
+    "creada_en": "2026-11-05T18:30:00", "confirmada_en": "2026-11-05T18:33:10",
+    "cancelada_en": null, "utilizada_en": null,
+    "funcion": {
+      "id": 12, "fecha_hora": "2026-11-10T20:30:00", "pelicula": "Volver al futuro",
+      "poster_url": "https://image.tmdb.org/...", "sala": "Sala 1", "local": "Paradiso Centro"
+    },
+    "butacas": ["D5", "D6"],
+    "servicios": [ { "nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": 6500.0 } ],
+    "token_qr": "eyJjb21wcmFfaWQiOjg4fQ...",
+    "cancelable": true
+  }
+]
+```
+
+```http
+GET /api/me/peliculas-vistas
+
+200 OK
+[
+  {
+    "pelicula_id": 3, "titulo": "Volver al futuro", "poster_url": "https://image.tmdb.org/...",
+    "genero": "Ciencia ficción", "fecha_hora": "2026-11-10T20:30:00",
+    "sala": "Sala 1", "local": "Paradiso Centro", "utilizada_en": "2026-11-10T20:21:00"
+  }
+]
+```
+
+Errores: 401 sin token o token vencido. Un usuario sin compras recibe `[]`.
+
 ## Backoffice (administrador)
 
 ### Películas
@@ -150,7 +214,7 @@ Errores de cancelación: 409 `FUERA_DE_PLAZO` · 409 `YA_CANCELADA` · 409 `YA_U
 | GET | `/api/admin/peliculas` | 🛠️ | Lista de películas cargadas. |
 | POST | `/api/admin/peliculas` | 🛠️ | Importa una película de TMDB con su período de disponibilidad. |
 | GET | `/api/admin/peliculas/<id>` | 🛠️ | Detalle de una película. |
-| PUT | `/api/admin/peliculas/<id>` | 🛠️ | Modifica datos y período de disponibilidad. |
+| PATCH | `/api/admin/peliculas/<id>` | 🛠️ | Actualiza los campos enviados; los no enviados quedan sin cambios. |
 | DELETE | `/api/admin/peliculas/<id>` | 🛠️ | Baja (lógica si tiene funciones). |
 
 ```http
@@ -159,6 +223,14 @@ POST /api/admin/peliculas
 
 201 Created
 { "id": 3, "titulo": "Volver al futuro", "duracion_min": 116, "genero": "Ciencia ficción" }
+```
+
+```http
+PATCH /api/admin/peliculas/3
+{ "disponible_hasta": "2027-01-31T00:00:00" }
+
+200 OK
+{ "id": 3, "titulo": "Volver al futuro", "disponible_hasta": "2027-01-31T00:00:00" }
 ```
 
 ### Locales y salas

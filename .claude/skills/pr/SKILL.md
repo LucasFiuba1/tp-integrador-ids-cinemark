@@ -14,7 +14,8 @@ disable-model-invocation: true
    - `grep -rnE "execute\(f\"|execute\(\".*\" *%|\.format\(" src/backend` (SQL armado con datos)
    - `grep -rnE "^[a-z_]+ *= *(\[|\{)" src` y revisar que no sean estado global mutable
    - `grep -rn "while True" src`
-   - `python -m unittest discover -s src/tests -v`
+   - `grep -rnE "^\s*class |self\.|@dataclass|@property|@staticmethod|@classmethod" src` (sin POO)
+   - `python -m pytest src/tests -v`
 3. **Revisión manual** del diff: verbos HTTP, `@requiere_rol`, validaciones, `transaccion()` donde corresponde,
    fechas en un solo `DATETIME`, código repetido, `docs/endpoints.md` y `docs/base_de_datos.md` al día,
    dependencias nuevas en `requirements.txt`. Listar los problemas y corregirlos con OK del usuario.

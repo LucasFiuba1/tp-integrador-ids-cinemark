@@ -14,8 +14,8 @@ bash init.sh --db                                         # crea la base y carga
 source .venv/bin/activate
 flask --app src.backend.app run --port 5000 --debug       # API (JSON)
 flask --app src.frontend.app run --port 5001 --debug      # sitio + backoffice (Jinja)
-python -m unittest discover -s src/tests -v               # pruebas (no requieren MySQL)
-python -m unittest src.tests.test_peliculas -v            # un solo archivo
+python -m pytest src/tests -v                             # pruebas (no requieren MySQL)
+python -m pytest src/tests/test_peliculas.py -v           # un solo archivo
 ```
 
 Admin de prueba: ver `src/backend/db/seed.sql`. Variables de entorno: `.env.example`.
@@ -26,16 +26,18 @@ Dos apps Flask separadas, ambas con `create_app()`:
 
 - `src/backend/` API REST en JSON sobre MySQL.
   - `routes/<modulo>.py`: un blueprint por módulo. Solo HTTP: lee el request, llama al service, devuelve `jsonify(...)`.
-  - `services/<funcionalidad>.py`: casos de uso y validaciones. Lanzan `ErrorApi(status, CODIGO, mensaje)`.
+  - `services/<funcionalidad>.py`: casos de uso y validaciones. Cortan con `error_api(status, CODIGO, mensaje)` (de `errores.py`).
   - `db.py`: `consultar`, `consultar_uno`, `ejecutar`, `transaccion()`. Única forma de tocar la base.
   - `auth.py`: token firmado (`generar_token`) y decorador `@requiere_rol("admin")` / `@requiere_rol("cliente", "admin")`; deja el usuario en `g.usuario`.
-  - `errores.py`: formato único `{"error": {"codigo": ..., "mensaje": ...}}`.
+  - `errores.py`: formato único `{"error": {"codigo": ..., "mensaje": ...}}` y `error_api(...)`, que corta el request
+    con ese JSON (sin clases de excepción propias: la cátedra no quiere POO).
   - `db/schema.sql` y `db/seed.sql`: creación y carga de la base.
 - `src/frontend/` sitio del cliente y backoffice con Jinja.
-  - `api_client.py`: `llamar(metodo, ruta, json=, params=)` es la **única** puerta al backend; lanza `ErrorBackend`.
+  - `api_client.py`: `llamar(metodo, ruta, json=, params=)` es la **única** puerta al backend;
+    devuelve la tupla `(datos, error)`, con `error` en `None` o `{"status", "codigo", "mensaje"}`.
   - `routes/publico.py` (cliente) y `routes/backoffice.py` (`/admin`).
   - `templates/base.html`, `templates/macros.html`, `static/css/estilos.css`.
-- `src/tests/` pruebas con `unittest` y `unittest.mock` (base y servicios externos simulados).
+- `src/tests/` pruebas con `pytest` (funciones y fixtures en `conftest.py`, sin clases) y `unittest.mock` (base y servicios externos simulados).
 - `docs/endpoints.md` (contrato de la API) y `docs/base_de_datos.md` (modelo y reglas de negocio).
 
 ## Reglas obligatorias de la cátedra (incumplirlas desaprueba)
@@ -43,12 +45,13 @@ Dos apps Flask separadas, ambas con `create_app()`:
 1. **Prohibido** que el navegador haga peticiones: nada de `fetch`, `axios`, `XMLHttpRequest`, promesas ni equivalentes.
    El frontend habla con el backend solo desde Python con `requests` (vía `api_client.llamar`). Formularios HTML + redirect.
 2. **Prohibido cualquier ORM** y las clases Python que mapeen tablas. SQL explícito, siempre parametrizado (`%s`), nunca con f-strings ni concatenando datos del usuario.
-3. Fecha y hora en **un único campo `DATETIME`**. En JSON, formato ISO `YYYY-MM-DDTHH:MM:SS`.
-4. Endpoints con el verbo HTTP correcto, JSON de entrada y salida, y **todos con seguridad** (salvo salud, login, registro y cartelera pública).
-5. Sin variables globales mutables, sin ciclos infinitos, sin código repetido: extraer helpers, macros de Jinja y funciones comunes.
-6. El programa no puede romper ante la interacción del usuario: validar toda entrada y mostrar errores amigables.
-7. Sitio **responsive** (mobile-first); no se usa Kivy.
-8. Dependencias nuevas: agregarlas a `requirements.txt` con versión fija (las instala `init.sh`).
+3. **Prohibida la programación orientada a objetos** en todo el código (app y pruebas): nada de `class`, `self`, herencia, `@dataclass`, `@property`, `@staticmethod` ni clases de excepción propias. Solo funciones, módulos, `dict`, listas y tuplas; los errores se cortan con `error_api(...)` y `llamar(...)` devuelve `(datos, error)`.
+4. Fecha y hora en **un único campo `DATETIME`**. En JSON, formato ISO `YYYY-MM-DDTHH:MM:SS`.
+5. Endpoints con el verbo HTTP correcto, JSON de entrada y salida, y **todos con seguridad** (salvo salud, login, registro y cartelera pública).
+6. Sin variables globales mutables, sin ciclos infinitos, sin código repetido: extraer helpers, macros de Jinja y funciones comunes.
+7. El programa no puede romper ante la interacción del usuario: validar toda entrada y mostrar errores amigables.
+8. Sitio **responsive** (mobile-first); no se usa Kivy.
+9. Dependencias nuevas: agregarlas a `requirements.txt` con versión fija (las instala `init.sh`).
 
 ## Reglas de negocio clave
 

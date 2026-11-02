@@ -24,7 +24,7 @@ src/
     routes/         blueprints: público y backoffice
     templates/      base.html, macros y páginas
     static/css/     estilos responsive
-  tests/              pruebas automatizadas con unittest
+  tests/              pruebas automatizadas con pytest
 docs/
   endpoints.md      listado de endpoints con ejemplos
   base_de_datos.md  diagrama entidad-relación y reglas del negocio en la base
@@ -34,7 +34,7 @@ init.sh             instala dependencias y prepara la configuración
 
 ## Requisitos
 
-- Python 3.10 o superior
+- Python 3.9 o superior
 - MySQL 8 (o MariaDB 10.5+)
 
 ## Instalación
@@ -61,14 +61,21 @@ flask --app src.frontend.app run --port 5001 --debug    # Sitio en http://localh
 
 Verificación rápida: `http://localhost:5000/api/salud` devuelve `{"estado": "ok"}` y la portada del sitio muestra el estado de la API.
 
-Usuario administrador de prueba: `admin@cineparadiso.com` / `admin1234`.
+Usuarios de prueba que carga `seed.sql`:
+
+- Administrador: `admin@cineparadiso.com` / `admin1234`
+- Clientes: `ana@mail.com` y `juan@mail.com` / `cliente1234`
+
+El seed también carga 8 películas, funciones de anteayer a dentro de 6 días en todas las salas (14:00, 17:30 y
+21:00) y 4 compras de ejemplo (dos con el QR ya validado y una cancelada). Las fechas son relativas al día de la
+carga: para tener funciones futuras de nuevo, volver a correr `bash init.sh --db`.
 
 ## Pruebas
 
 Desde la raíz, con el entorno virtual activado:
 
 ```bash
-python -m unittest discover -s src/tests -v
+python -m pytest src/tests -v
 ```
 
 Las pruebas iniciales verifican la API de salud, el formato de errores y la
@@ -79,6 +86,7 @@ Al implementar compras, reservas y permisos, agregar sus pruebas en `tests/`.
 
 - El frontend se comunica con el backend **solo desde Python con `requests`**. Prohibido usar `fetch`, `axios` o `XMLHttpRequest` en el navegador.
 - **Sin ORM**: todas las consultas son SQL explícito y parametrizado (`src/backend/db.py`).
+- **Sin programación orientada a objetos**: ni en la app ni en las pruebas (`class`, `self`, herencia, `@dataclass`); solo funciones, `dict` y listas.
 - Las rutas manejan HTTP; los casos de uso van en `src/backend/services/`, en módulos por funcionalidad (por ejemplo, `compras.py`). Las operaciones atómicas usan una misma `transaccion()`.
 - Fechas y horas en un único campo `DATETIME`.
 - Sin variables globales ni código repetido: usar `create_app()`, macros de Jinja y los helpers comunes.

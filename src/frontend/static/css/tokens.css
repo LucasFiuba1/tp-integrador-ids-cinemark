@@ -64,6 +64,7 @@
   --ancho-sidebar: 16rem;    /* 256 px: sidebar del backoffice */
   --ancho-formulario: 26rem; /* 416 px: tarjeta de ingresar y crear cuenta */
   --ancho-ticket: 40rem;     /* 640 px: compra confirmada */
+  --alto-grafico: 12rem;     /* 192 px: gráfico de columnas de los dashboards */
   --transicion: 150ms ease;
 }
 

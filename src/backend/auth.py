@@ -8,7 +8,7 @@ from flask import current_app, g, request
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
 from src.backend.db import consultar_uno
-from src.backend.errores import ErrorApi
+from src.backend.errores import error_api
 
 VIGENCIA_TOKEN_SEGUNDOS = 8 * 60 * 60
 
@@ -29,20 +29,20 @@ def requiere_rol(*roles):
         def envoltura(*args, **kwargs):
             encabezado = request.headers.get("Authorization", "")
             if not encabezado.startswith("Bearer "):
-                raise ErrorApi(401, "NO_AUTENTICADO", "Tenés que iniciar sesión.")
+                error_api(401, "NO_AUTENTICADO", "Tenés que iniciar sesión.")
             try:
                 datos = _serializador().loads(
                     encabezado[len("Bearer "):], max_age=VIGENCIA_TOKEN_SEGUNDOS
                 )
             except BadSignature:
-                raise ErrorApi(401, "TOKEN_INVALIDO", "El token es inválido o venció.")
+                error_api(401, "TOKEN_INVALIDO", "El token es inválido o venció.")
             usuario = consultar_uno(
                 "SELECT id, nombre, rol FROM usuarios WHERE id = %s", (datos.get("user_id"),)
             )
             if usuario is None:
-                raise ErrorApi(401, "TOKEN_INVALIDO", "El token es inválido o venció.")
+                error_api(401, "TOKEN_INVALIDO", "El token es inválido o venció.")
             if usuario["rol"] not in roles:
-                raise ErrorApi(403, "SIN_PERMISO", "No tenés permiso para esta acción.")
+                error_api(403, "SIN_PERMISO", "No tenés permiso para esta acción.")
             g.usuario = usuario
             return vista(*args, **kwargs)
 

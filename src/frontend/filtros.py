@@ -24,16 +24,27 @@ def hora(valor):
     return _formatear(valor, "%H:%M")
 
 
+def _formato_argentino(valor, decimales):
+    """Separador de miles con punto y decimales con coma. Si no es un número devuelve None."""
+    try:
+        cantidad = float(valor)
+    except (TypeError, ValueError):
+        return None
+    decimales = 0 if cantidad.is_integer() else decimales
+    return f"{cantidad:,.{decimales}f}".replace(",", "_").replace(".", ",").replace("_", ".")
+
+
+def numero(valor):
+    """1742 -> 1.742 y 4.2 -> 4,2 (un decimal, formato argentino). Si no es un número lo devuelve tal cual."""
+    texto = _formato_argentino(valor, 1)
+    return valor if texto is None else texto
+
+
 def precio(valor):
     """6500 -> $6.500 y 6500.5 -> $6.500,50 (formato argentino). Si no es un número lo devuelve tal cual."""
-    try:
-        numero = float(valor)
-    except (TypeError, ValueError):
-        return valor
-    decimales = 0 if numero.is_integer() else 2
-    texto = f"{numero:,.{decimales}f}".replace(",", "_").replace(".", ",").replace("_", ".")
-    return f"${texto}"
+    texto = _formato_argentino(valor, 2)
+    return valor if texto is None else f"${texto}"
 
 
 def registrar_filtros(app):
-    app.jinja_env.filters.update(fecha_hora=fecha_hora, hora=hora, precio=precio)
+    app.jinja_env.filters.update(fecha_hora=fecha_hora, hora=hora, numero=numero, precio=precio)
