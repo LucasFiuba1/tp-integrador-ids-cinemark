@@ -34,7 +34,7 @@ init.sh             instala dependencias y prepara la configuración
 
 ## Requisitos
 
-- Python 3.10 o superior
+- Python 3.9 o superior
 - MySQL 8 (o MariaDB 10.5+)
 
 ## Instalación

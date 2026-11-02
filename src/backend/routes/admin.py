@@ -10,9 +10,9 @@ from src.backend.auth import requiere_rol
 from src.backend.errores import respuesta_error
 from src.backend.routes.comun import cuerpo_json
 from src.backend.services import locales, peliculas, salas
+from src.backend.services.validaciones import entero_positivo
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
-
 
 
 @admin_bp.get("/locales")
@@ -24,12 +24,8 @@ def listar_locales():
 @admin_bp.post("/locales")
 @requiere_rol("admin")
 def crear_local():
-    datos = request.get_json(silent=True) or {}
-    nombre = datos.get("nombre")
-    direccion = datos.get("direccion")
-    mensaje = locales.validar_local(nombre, direccion)
-    if mensaje:
-        return respuesta_error(400, "DATOS_INVALIDOS", mensaje)
+    datos = cuerpo_json()
+    nombre, direccion = locales.validar_local(datos.get("nombre"), datos.get("direccion"))
     try:
         local = locales.crear_local(nombre, direccion)
     except pymysql.err.IntegrityError:
@@ -42,12 +38,8 @@ def crear_local():
 def modificar_local(local_id):
     if locales.obtener_local(local_id) is None:
         return respuesta_error(404, "NO_ENCONTRADO", "El local no existe.")
-    datos = request.get_json(silent=True) or {}
-    nombre = datos.get("nombre")
-    direccion = datos.get("direccion")
-    mensaje = locales.validar_local(nombre, direccion)
-    if mensaje:
-        return respuesta_error(400, "DATOS_INVALIDOS", mensaje)
+    datos = cuerpo_json()
+    nombre, direccion = locales.validar_local(datos.get("nombre"), datos.get("direccion"))
     try:
         local = locales.modificar_local(local_id, nombre, direccion)
     except pymysql.err.IntegrityError:
@@ -76,14 +68,9 @@ def listar_salas():
 @admin_bp.post("/salas")
 @requiere_rol("admin")
 def crear_sala():
-    datos = request.get_json(silent=True) or {}
-    local_id = datos.get("local_id")
-    nombre = datos.get("nombre")
-    filas = datos.get("filas")
-    columnas = datos.get("columnas")
-    mensaje = salas.validar_salas(nombre, filas, columnas)
-    if mensaje:
-        return respuesta_error(400, "DATOS_INVALIDOS", mensaje)
+    datos = cuerpo_json()
+    local_id = entero_positivo(datos.get("local_id"), "local_id")
+    nombre, filas, columnas = salas.validar_salas(datos.get("nombre"), datos.get("filas"), datos.get("columnas"))
     if locales.obtener_local(local_id) is None:
         return respuesta_error(404, "NO_ENCONTRADO", "El local no existe.")
     try:
@@ -99,13 +86,8 @@ def modificar_sala(sala_id):
     sala = salas.obtener_sala(sala_id)
     if sala is None:
         return respuesta_error(404, "NO_ENCONTRADO", "La sala no existe.")
-    datos = request.get_json(silent=True) or {}
-    nombre = datos.get("nombre")
-    filas = datos.get("filas")
-    columnas = datos.get("columnas")
-    mensaje = salas.validar_salas(nombre, filas, columnas)
-    if mensaje:
-        return respuesta_error(400, "DATOS_INVALIDOS", mensaje)
+    datos = cuerpo_json()
+    nombre, filas, columnas = salas.validar_salas(datos.get("nombre"), datos.get("filas"), datos.get("columnas"))
     se_achica_la_sala = filas < sala["filas"] or columnas < sala["columnas"]
     if se_achica_la_sala and salas.tiene_funciones_futuras(sala_id):
         return respuesta_error(409, "SALA_CON_FUNCIONES", "No se puede reducir una sala con funciones futuras.")

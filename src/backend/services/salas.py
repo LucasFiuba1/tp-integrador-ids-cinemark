@@ -1,4 +1,5 @@
 from src.backend import db
+from src.backend.services.validaciones import entero_en_rango, texto_no_vacio
 
 
 def listar_salas(local_id=None):
@@ -15,16 +16,12 @@ def listar_salas(local_id=None):
 
 
 def validar_salas(nombre, filas, columnas):
-    max_filas = 26
-    max_columnas = 30
-    mensaje = None
-    if not nombre:
-        mensaje = "El nombre es obligatorio."
-    elif not isinstance(filas, int) or filas < 1 or filas > max_filas:
-        mensaje = "La cantidad de filas debe ser un número entero entre 1 y 26."
-    elif not isinstance(columnas, int) or columnas < 1 or columnas > max_columnas:
-        mensaje = "La cantidad de columnas debe ser un número entero entre 1 y 30."
-    return mensaje
+    """Devuelve (nombre, filas, columnas) validados. 26 filas: una por letra (A a Z)."""
+    return (
+        texto_no_vacio(nombre, "nombre", 50),
+        entero_en_rango(filas, "filas", 1, 26),
+        entero_en_rango(columnas, "columnas", 1, 30),
+    )
 
 
 def letra_de_fila(indice):

@@ -115,6 +115,9 @@ def test_crear_local_valido_devuelve_201(pedir, db_locales):
 
 @pytest.mark.parametrize("datos", [
     {}, {"nombre": "Sur"}, {"direccion": "Calle 1"}, {"nombre": "", "direccion": "Calle 1"},
+    {"nombre": "   ", "direccion": "Calle 1"}, {"nombre": 123, "direccion": "Calle 1"},
+    {"nombre": ["Sur"], "direccion": "Calle 1"}, {"nombre": "x" * 101, "direccion": "Calle 1"},
+    {"nombre": "Sur", "direccion": "x" * 201},
 ])
 def test_crear_local_con_datos_invalidos_devuelve_400(pedir, db_locales, datos):
     respuesta = pedir("POST", "/api/admin/locales", datos)
@@ -226,6 +229,7 @@ def test_crear_sala_valida_genera_todas_las_butacas(pedir, db_locales, db_salas,
 @pytest.mark.parametrize("cambio", [
     {"filas": 0}, {"filas": -1}, {"filas": 27}, {"filas": "8"},
     {"columnas": 0}, {"columnas": 31}, {"columnas": 2.5}, {"nombre": ""},
+    {"filas": True}, {"nombre": 5}, {"nombre": "x" * 51}, {"local_id": "1"}, {"local_id": None}, {"local_id": [1]},
 ])
 def test_crear_sala_con_datos_invalidos_devuelve_400(pedir, db_salas, cursor, cambio):
     datos = {"local_id": 1, "nombre": "Sala 3", "filas": 8, "columnas": 12, **cambio}
@@ -336,3 +340,14 @@ def test_eliminar_sala_con_funciones_futuras_devuelve_409(pedir, db_salas, sala)
     assert respuesta.status_code == 409
     assert respuesta.get_json()["error"]["codigo"] == "SALA_CON_FUNCIONES"
     db_salas.ejecutar.assert_not_called()
+
+def test_crear_local_guarda_los_textos_sin_espacios_en_los_extremos(pedir, db_locales):
+    db_locales.ejecutar.return_value = 4
+    respuesta = pedir("POST", "/api/admin/locales", {"nombre": "  Paradiso Sur ", "direccion": " Calle 1 "})
+    assert respuesta.get_json() == {"id": 4, "nombre": "Paradiso Sur", "direccion": "Calle 1"}
+
+
+def test_crear_local_con_cuerpo_que_no_es_objeto_devuelve_400(pedir, db_locales):
+    respuesta = pedir("POST", "/api/admin/locales", ["Paradiso Sur", "Calle 1"])
+    assert respuesta.status_code == 400
+    db_locales.ejecutar.assert_not_called()

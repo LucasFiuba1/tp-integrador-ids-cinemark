@@ -1,10 +1,10 @@
 """Pruebas del template maquetado del ABM de locales y salas del backoffice (SCRUM-118)."""
 
 
-def test_locales_sin_sesion_de_admin_redirige_a_la_cartelera(cliente_frontend):
+def test_locales_sin_sesion_redirige_al_login(cliente_frontend):
     respuesta = cliente_frontend.get("/admin/locales")
     assert respuesta.status_code == 302
-    assert respuesta.headers["Location"] == "/"
+    assert respuesta.headers["Location"] == "/ingresar"
 
 
 def test_locales_con_admin_muestra_los_locales_y_sus_salas(cliente_admin):

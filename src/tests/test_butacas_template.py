@@ -12,7 +12,7 @@ MAPA = {"funcion_id": 12, "sala": "Sala 1", "capacidad": 3, "libres": 2, "vendib
 ]}
 
 
-def respuestas_backend(mapa=MAPA, reserva=({"id": 88}, None)):
+def respuestas_backend(mapa=MAPA, reserva=({"id": 88, "vence_en": "2026-11-10T20:10:00"}, None)):
     """Simula llamar(...): detalle de la función, mapa de butacas y la reserva del POST."""
     def llamar(metodo, ruta, json=None, params=None):
         if metodo == "POST":
@@ -59,14 +59,16 @@ def test_reservar_sin_sesion_redirige_al_login(cliente_frontend):
     assert respuesta.headers["Location"] == "/ingresar"
 
 
-def test_reservar_butacas_libres_redirige_al_pago(cliente_logueado):
+def test_reservar_butacas_libres_redirige_a_servicios_con_el_vencimiento(cliente_logueado):
     with respuestas_backend():
         respuesta = cliente_logueado.post("/funciones/12/butacas", data={"butaca_ids": ["1", "3"]})
     assert respuesta.status_code == 302
-    assert respuesta.headers["Location"] == "/compras/88/pago"
+    assert respuesta.headers["Location"] == "/compras/88/servicios"
+    with cliente_logueado.session_transaction() as sesion:
+        assert ("exito", "Reservamos tus butacas hasta las 20:10.") in sesion["_flashes"]
 
 
-@pytest.mark.parametrize("datos", [{}, {"butaca_ids": ["x"]}, {"butaca_ids": ["0"]}])
+@pytest.mark.parametrize("datos", [{}, {"butaca_ids": ["x"]}, {"butaca_ids": ["0"]}, {"butaca_ids": ["²"]}])
 def test_reservar_sin_butacas_validas_devuelve_400_con_mensaje(cliente_logueado, datos):
     with respuestas_backend():
         respuesta = cliente_logueado.post("/funciones/12/butacas", data=datos)
