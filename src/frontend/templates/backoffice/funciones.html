@@ -1,0 +1,89 @@
+{% extends "backoffice/base_admin.html" %}
+
+{% block titulo %}Funciones - Cine Paradiso{% endblock %}
+
+{% from "macros.html" import cabecera_pagina, campo, boton, tabla %}
+
+{% block admin %}
+
+{{ cabecera_pagina(
+"Funciones",
+bajada="Programación de funciones y disponibilidad de salas"
+) }}
+
+<section class="panel">
+    <h2>Nueva función</h2>
+
+    <form>
+        <div class="formulario-linea">
+
+            <label class="filtro">
+                <span>Película</span>
+                <select name="pelicula">
+                    <option value="">Seleccionar película</option>
+                    <option>La noche del telón</option>
+                    <option>Código Medianoche</option>
+                    <option>Pequeños gigantes</option>
+                    <option>Último tren a Lisboa</option>
+                </select>
+            </label>
+
+            <label class="filtro">
+                <span>Local</span>
+                <select name="local">
+                    <option value="">Seleccionar local</option>
+                    <option>Paradiso Centro</option>
+                    <option>Paradiso Palermo</option>
+                    <option>Paradiso Belgrano</option>
+                </select>
+            </label>
+
+            <label class="filtro">
+                <span>Sala</span>
+                <select name="sala">
+                    <option value="">Seleccionar sala</option>
+                    <option>Sala 1</option>
+                    <option>Sala 2</option>
+                    <option>Sala VIP</option>
+                </select>
+            </label>
+
+        </div>
+
+        <div class="formulario-linea">
+
+            {{ campo("fecha", "Fecha", tipo="date") }}
+
+            {{ campo("hora", "Hora", tipo="time") }}
+
+            {{ campo("precio", "Precio de entrada", tipo="number", placeholder="Ej. 5500") }}
+
+            <div class="formulario-linea-acciones">
+                {{ boton("Guardar función", tipo="button") }}
+            </div>
+
+        </div>
+
+        <p class="cabecera-bajada">
+            El sistema valida que la sala esté libre en ese horario.
+        </p>
+
+    </form>
+</section>
+
+{% set columnas_funciones = [
+{"clave": "pelicula", "titulo": "Película"},
+{"clave": "local", "titulo": "Local"},
+{"clave": "sala", "titulo": "Sala"},
+{"clave": "fecha_hora", "titulo": "Fecha y hora", "tipo": "fecha_hora"},
+{"clave": "precio", "titulo": "Precio", "tipo": "precio"},
+{"clave": "disponibilidad", "titulo": "Libres"}
+] %}
+
+{{ tabla(
+columnas_funciones,
+funciones,
+vacio="Todavía no hay funciones programadas."
+) }}
+
+{% endblock %}

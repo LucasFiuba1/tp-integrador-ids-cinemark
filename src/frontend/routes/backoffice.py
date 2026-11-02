@@ -19,7 +19,7 @@ SECCIONES = (
 
 # Secciones que ya tienen su vista; el resto muestra la pantalla provisoria. Al implementar una
 # (SCRUM-53, 55, 57, 72, 74, 77), agregar su endpoint acá y definir la vista con ese mismo endpoint.
-SECCIONES_IMPLEMENTADAS = ("dashboards", "locales", "servicios", "validar")
+SECCIONES_IMPLEMENTADAS = ("dashboards", "locales", "servicios", "validar", "funciones")
 
 
 def _locales_ejemplo():
@@ -56,12 +56,86 @@ def _locales_ejemplo():
     ]
 
 
+def _funciones_ejemplo():
+    return [
+        {
+            "pelicula": "La noche del telón",
+            "local": "Paradiso Centro",
+            "sala": "Sala 1",
+            "fecha": "24/10/2026",
+            "hora": "19:30",
+            "precio": 5500,
+            "libres": 98,
+            "capacidad": 132,
+            "fecha_hora": "2026-10-24T19:30:00",
+            "disponibilidad": "98 / 132"
+        },
+        {
+            "pelicula": "La noche del telón",
+            "local": "Paradiso Centro",
+            "sala": "Sala 2",
+            "fecha": "24/10/2026",
+            "hora": "22:15",
+            "precio": 5500,
+            "libres": 120,
+            "capacidad": 132,
+            "fecha_hora": "2026-10-24T22:15:00",
+            "disponibilidad": "120 / 132"
+        },
+        {
+            "pelicula": "Código Medianoche",
+            "local": "Paradiso Palermo",
+            "sala": "Sala VIP",
+            "fecha": "28/11/2026",
+            "hora": "21:00",
+            "precio": 9500,
+            "libres": 18,
+            "capacidad": 36,
+            "fecha_hora": "2026-11-28T21:00:00",
+            "disponibilidad": "18 / 36"
+        },
+        {
+            "pelicula": "Pequeños gigantes",
+            "local": "Paradiso Belgrano",
+            "sala": "Sala 1",
+            "fecha": "29/11/2026",
+            "hora": "15:00",
+            "precio": 6000,
+            "libres": 84,
+            "capacidad": 96,
+            "fecha_hora": "2026-11-29T15:00:00",
+            "disponibilidad": "84 / 96"
+        },
+        {
+            "pelicula": "Último tren a Lisboa",
+            "local": "Paradiso Belgrano",
+            "sala": "Sala 2",
+            "fecha": "29/11/2026",
+            "hora": "20:45",
+            "precio": 6000,
+            "libres": 70,
+            "capacidad": 96,
+            "fecha_hora": "2026-11-29T20:45:00",
+            "disponibilidad": "70 / 96"
+        }
+    ]
+
+
 @backoffice_bp.get("/locales")
 @requiere_admin
 def locales():
     return render_template(
         "backoffice/locales.html",
         locales=_locales_ejemplo()
+    )
+
+
+@backoffice_bp.get("/funciones")
+@requiere_admin
+def funciones():
+    return render_template(
+        "backoffice/funciones.html",
+        funciones=_funciones_ejemplo()
     )
 
 
