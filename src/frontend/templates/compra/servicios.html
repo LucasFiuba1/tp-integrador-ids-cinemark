@@ -1,0 +1,61 @@
+
+{% extends "base.html" %}
+{% from "macros.html" import pasos_compra, resumen_compra, cabecera_pagina %}
+
+{% block titulo %}Servicios - Cine Paradiso{% endblock %}
+
+{% block contenido %}
+
+  {{ pasos_compra(3) }}
+
+  {{ cabecera_pagina("Sumá servicios a tu compra", bajada="Opcionales. Están disponibles para todas las salas y se pagan junto con las entradas.") }}
+
+  <div class="checkout">
+
+    <section class="servicios-lista" aria-label="Servicios disponibles">
+
+      {% for servicio in servicios %}
+
+        <article class="servicio-tarjeta">
+
+          <div class="servicio-imagen servicio-imagen-{{ servicio.id }}">
+            {% if servicio.id == 1 %}
+              <span>COMBO</span>
+            {% elif servicio.id == 2 %}
+              <span>GASEOSA</span>
+            {% elif servicio.id == 3 %}
+              <span>ESTACIONAMIENTO</span>
+            {% else %}
+              <span>ACCESO</span>
+            {% endif %}
+          </div>
+
+          <div class="servicio-informacion">
+            <h2>{{ servicio.nombre }}</h2>
+            <p>{{ servicio.descripcion }}</p>
+            <p class="servicio-precio">{{ servicio.precio | precio }}</p>
+          </div>
+
+          <div class="servicio-cantidad">
+            <button type="button" disabled aria-label="Quitar {{ servicio.nombre }}">−</button>
+
+            <span>{{ 1 if servicio.id == 1 else 0 }}</span>
+
+            <button type="button" disabled aria-label="Agregar {{ servicio.nombre }}">+</button>
+          </div>
+
+        </article>
+
+      {% endfor %}
+
+    </section>
+
+    {% call resumen_compra(compra) %}
+      <a class="boton boton-bloque" href="{{ url_for('publico.pago', compra_id=compra.id) }}">
+        Continuar al pago
+      </a>
+    {% endcall %}
+
+  </div>
+
+{% endblock %}

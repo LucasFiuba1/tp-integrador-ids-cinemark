@@ -3,22 +3,21 @@
 Todas las respuestas de error tienen la forma:
     {"error": {"codigo": "BUTACA_OCUPADA", "mensaje": "..."}}
 """
-from flask import jsonify
+from flask import abort, jsonify, make_response
 from werkzeug.exceptions import HTTPException
-
-
-class ErrorApi(Exception):
-    """Error de negocio que se convierte en una respuesta JSON."""
-
-    def __init__(self, status, codigo, mensaje):
-        super().__init__(mensaje)
-        self.status = status
-        self.codigo = codigo
-        self.mensaje = mensaje
 
 
 def respuesta_error(status, codigo, mensaje):
     return jsonify({"error": {"codigo": codigo, "mensaje": mensaje}}), status
+
+
+def error_api(status, codigo, mensaje):
+    """Corta el request con un error de negocio en el formato JSON único.
+
+    flask.abort lanza una HTTPException que lleva la respuesta armada adentro;
+    manejar_error_http la devuelve tal cual.
+    """
+    abort(make_response(respuesta_error(status, codigo, mensaje)))
 
 
 MENSAJES_HTTP = {
@@ -33,12 +32,10 @@ MENSAJES_HTTP = {
 def registrar_manejadores(app):
     """Registra los manejadores para que ningún error devuelva HTML."""
 
-    @app.errorhandler(ErrorApi)
-    def manejar_error_api(error):
-        return respuesta_error(error.status, error.codigo, error.mensaje)
-
     @app.errorhandler(HTTPException)
     def manejar_error_http(error):
+        if error.response is not None:
+            return error.response
         codigo, mensaje = MENSAJES_HTTP.get(
             error.code, (error.name.upper().replace(" ", "_"), error.description)
         )

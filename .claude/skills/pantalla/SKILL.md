@@ -12,7 +12,7 @@ argument-hint: "<nombre de pantalla, ej. Butacas o Backoffice Películas>"
 2. **Datos**: identificar qué endpoints de `docs/endpoints.md` consume la pantalla y qué formularios envía.
    Si el endpoint no existe todavía, avisar y no inventar respuestas.
 3. **Ruta** en `routes/publico.py` o `routes/backoffice.py`: `GET` que llama a `llamar(...)` y renderiza; `POST` que
-   envía el formulario y redirige (PRG). Manejar `ErrorBackend` con `flash` y 401 → login.
+   envía el formulario y redirige (PRG). Solo funciones, sin clases ni POO. `datos, error = llamar(...)`: si hay `error`, `flash(error["mensaje"], "error")` y 401 → login.
 4. **Template** en `templates/` (subcarpeta por área si crece: `compra/`, `backoffice/`), extendiendo `base.html`
    y usando/creando macros en `macros.html`.
 5. **CSS** mobile-first con los tokens existentes.

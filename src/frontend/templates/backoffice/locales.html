@@ -1,0 +1,23 @@
+{% extends "backoffice/base_admin.html" %}
+
+{% block titulo %}Locales y salas - Cine Paradiso{% endblock %}
+
+{% from "macros.html" import cabecera_pagina, local_tarjeta %}
+
+{% block admin %}
+
+    {{ cabecera_pagina(
+        "Locales y salas",
+        {"texto": "Nuevo local", "url": "#"},
+        "Sedes, salas y capacidad de butacas"
+    ) }}
+
+    <div class="locales-lista">
+
+        {% for local in locales %}
+            {{ local_tarjeta(local) }}
+        {% endfor %}
+
+    </div>
+
+{% endblock %}

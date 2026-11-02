@@ -33,7 +33,7 @@ CREATE TABLE usuarios (
 CREATE TABLE locales (
     id        INT AUTO_INCREMENT PRIMARY KEY,
     nombre    VARCHAR(100) NOT NULL UNIQUE,
-    direccion VARCHAR(200) NOT NULL
+    direccion VARCHAR(200) NOT NULL UNIQUE
 );
 
 -- Cada sala pertenece a un local. Capacidad = filas x columnas.
