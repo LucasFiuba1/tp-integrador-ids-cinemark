@@ -1,6 +1,6 @@
 
 {% extends "base.html" %}
-{% from "macros.html" import pasos_compra, resumen_compra, cabecera_pagina %}
+{% from "macros.html" import pasos_compra, resumen_compra, cabecera_pagina, boton %}
 
 {% block titulo %}Servicios - Cine Paradiso{% endblock %}
 
@@ -51,9 +51,7 @@
     </section>
 
     {% call resumen_compra(compra) %}
-      <a class="boton boton-bloque" href="{{ url_for('publico.pago', compra_id=compra.id) }}">
-        Continuar al pago
-      </a>
+      {{ boton("Continuar al pago", url=url_for('publico.pago', compra_id=compra.id), bloque=true) }}
     {% endcall %}
 
   </div>

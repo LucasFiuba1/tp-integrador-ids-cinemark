@@ -172,7 +172,7 @@ def test_header_con_sesion_muestra_salir(cliente_frontend, backend_ok):
 
 def test_header_enlaza_a_ingresar(cliente_frontend, backend_ok):
     html = cliente_frontend.get("/").get_data(as_text=True)
-    assert 'class="boton boton-secundario" href="/ingresar">Ingresar</a>' in html
+    assert 'class="boton boton-borde" href="/ingresar">Ingresar</a>' in html
 
 
 # --- validaciones ---

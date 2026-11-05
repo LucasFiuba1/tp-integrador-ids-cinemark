@@ -38,7 +38,7 @@
         ], "resultado-datos") }}
         <form method="post" action="{{ url_for('backoffice.confirmar_ingreso') }}">
           <input type="hidden" name="compra_id" value="{{ resultado.compra_id }}">
-          {{ boton("Confirmar ingreso", clase="boton boton-bloque") }}
+          {{ boton("Confirmar ingreso", bloque=true) }}
         </form>
         <p class="resultado-nota">Al confirmar, la película se suma a las vistas del usuario y el QR queda usado.</p>
       {% else %}

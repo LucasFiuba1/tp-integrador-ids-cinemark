@@ -88,9 +88,12 @@ h3 { font-size: var(--texto-lg); }
   transition: background var(--transicion), color var(--transicion);
 }
 .boton:hover { background: var(--color-superficie); color: var(--color-texto); }
-.boton-secundario { background: transparent; color: var(--color-texto); }
-.boton-secundario:hover { background: var(--color-texto); color: var(--color-texto-invertido); }
+.boton-rojo { border-color: var(--color-primario); background: var(--color-primario); color: var(--color-texto); }
+.boton-rojo:hover { border-color: var(--color-primario-hover); background: var(--color-primario-hover); }
+.boton-borde { background: transparent; color: var(--color-texto); }
+.boton-borde:hover { background: var(--color-texto); color: var(--color-texto-invertido); }
 .boton-bloque { display: block; width: 100%; text-align: center; }
+.boton:disabled, .boton[aria-disabled="true"] { opacity: .4; cursor: not-allowed; pointer-events: none; }
 
 /* Campos */
 .campo { display: grid; gap: var(--espacio-1); margin-bottom: var(--espacio-4); }
@@ -100,7 +103,7 @@ h3 { font-size: var(--texto-lg); }
   text-transform: uppercase;
   color: var(--color-texto-tenue);
 }
-.campo input {
+.campo input, .campo select {
   padding: var(--espacio-3);
   border: var(--borde-fino);
   border-radius: var(--radio-sm);
@@ -111,8 +114,11 @@ h3 { font-size: var(--texto-lg); }
 .campo input::placeholder { color: var(--color-texto-tenue); }
 /* Campo con error de validación: borde y mensaje en --color-error; el mensaje en texto lo distingue sin color */
 .campo-invalido span { color: var(--color-error-texto); }
-.campo-invalido input { border-color: var(--color-error); }
-.campo-invalido input:focus-visible { outline-color: var(--color-error); }
+.campo input:disabled, .campo select:disabled { opacity: .5; cursor: not-allowed; }
+/* El ícono del calendario de date / datetime-local es oscuro por defecto: se invierte sobre el fondo oscuro */
+.campo input::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+.campo-invalido input, .campo-invalido select { border-color: var(--color-error); }
+.campo-invalido input:focus-visible, .campo-invalido select:focus-visible { outline-color: var(--color-error); }
 .campo-mensaje { color: var(--color-error-texto); font-size: var(--texto-xs); }
 
 /* Avisos (mensajes flash) */

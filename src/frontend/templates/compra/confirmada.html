@@ -1,7 +1,7 @@
 {# Compra confirmada (Figma D6 desktop y M6 mobile): QR de ingreso y datos de la compra.
    compra tiene la forma de GET /api/compras/<id> con estado confirmada (incluye qr_png_base64). #}
 {% extends "base.html" %}
-{% from "macros.html" import detalle_compra %}
+{% from "macros.html" import detalle_compra, boton %}
 
 {% block titulo %}Compra confirmada · Cine Paradiso{% endblock %}
 
@@ -21,8 +21,8 @@
 
     <div class="confirmada-acciones">
       {# Mi perfil todavía no tiene pantalla (igual que en base.html): el link se completa cuando exista. #}
-      <a class="boton" href="#">Ver mis compras</a>
-      <a class="boton boton-secundario" href="{{ url_for('publico.inicio') }}">Volver a cartelera</a>
+      {{ boton("Ver mis compras", url="#") }}
+      {{ boton("Volver a cartelera", "borde", url=url_for('publico.inicio')) }}
     </div>
 
     <p class="aviso confirmada-nota">Podés cancelar tu compra hasta 2 horas antes de la función, desde el email o desde

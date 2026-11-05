@@ -1,4 +1,4 @@
-{% from "macros.html" import avisos -%}
+{% from "macros.html" import avisos, boton -%}
 <!doctype html>
 <html lang="es">
 <head>
@@ -25,10 +25,10 @@
           <a href="#">Mi perfil</a>
         {% endif %}
         <form method="post" action="{{ url_for('publico.salir') }}">
-          <button type="submit" class="boton boton-secundario">Salir</button>
+          {{ boton("Salir", "borde") }}
         </form>
       {% else %}
-        <a class="boton boton-secundario" href="{{ url_for('publico.ingresar') }}">Ingresar</a>
+        {{ boton("Ingresar", "borde", url=url_for('publico.ingresar')) }}
       {% endif %}
     </nav>
   </header>

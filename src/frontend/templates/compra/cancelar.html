@@ -27,12 +27,12 @@
         action="{{ url_for('publico.cancelar_compra', compra_id=compra.id) }}">
         {{ boton("Sí, cancelar compra") }}
         {# Mi perfil todavía no tiene pantalla (igual que en base.html): volver lleva a la cartelera. #}
-        <a class="boton boton-secundario" href="{{ url_for('publico.inicio') }}">No, volver</a>
+        {{ boton("No, volver", "borde", url=url_for('publico.inicio')) }}
       </form>
     {% else %}
       <p class="aviso aviso-error cancelar-aviso">No se puede cancelar: faltan menos de 2 horas para la función.</p>
       <div class="confirmada-acciones">
-        <a class="boton boton-secundario" href="{{ url_for('publico.inicio') }}">Volver</a>
+        {{ boton("Volver", "borde", url=url_for('publico.inicio')) }}
       </div>
     {% endif %}
   </section>
