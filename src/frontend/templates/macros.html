@@ -87,7 +87,11 @@
                     <a class="accion-texto" href="{{ url_for(acciones.editar, id=fila.id) }}">Editar</a>
                   {% endif %}
                   {% if acciones.baja and fila.activa is not sameas false and fila.activo is not sameas false %}
-                    <form method="post" action="{{ url_for(acciones.baja, id=fila.id) }}">
+                    {% if acciones.confirmacion %}
+                    <form method="post" action="{{ url_for(acciones.baja, id=fila.id) }}" onsubmit="return confirm('{{ acciones.confirmacion }}')">
+                      {% else %}
+                      <form method="post" action="{{ url_for(acciones.baja, id=fila.id) }}">
+                        {% endif %}
                       <button type="submit" class="accion-texto accion-peligro">{{ acciones.texto_baja or "Dar de baja" }}</button>
                     </form>
                   {% endif %}
