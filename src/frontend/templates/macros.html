@@ -75,6 +75,7 @@
                   {% if columna.tipo == "activo" %}{% set valor = "activa" if valor else "inactiva" %}{% endif %}
                   {% if columna.tipo in ("estado", "activo") %}{{ badge_estado(valor, (columna.textos or {}).get(valor, '')) }}
                   {% elif columna.tipo == "precio" %}{{ valor | precio }}
+                  {% elif columna.tipo == "duracion" %}{{ valor // 60 }}h {{ valor % 60 }}m
                   {% elif columna.tipo == "hora" %}{{ valor | hora }}
                   {% elif columna.tipo == "fecha_hora" %}{{ valor | fecha_hora }}
                   {% else %}{{ valor }}{% endif %}

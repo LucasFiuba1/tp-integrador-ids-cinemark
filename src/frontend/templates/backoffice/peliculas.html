@@ -1,0 +1,52 @@
+{% extends "backoffice/base_admin.html" %}
+{% from "macros.html" import cabecera_pagina, campo, boton, tabla %}
+
+{% block titulo %}Películas · Backoffice · Cine Paradiso{% endblock %}
+
+{% block admin %}
+  {{ cabecera_pagina(
+    "Películas",
+    bajada="Cartelera del cine · datos importados desde TMDB",
+    accion={
+        "texto": "Importar de TMDB",
+        "url": "#buscador-tmdb"
+    }
+) }}
+<section class="panel" id="buscador-tmdb">
+  <form method="get" action="{{ url_for('backoffice.peliculas') }}" class="formulario-linea">
+    {{ campo(
+        "q",
+        "Buscar en TMDB",
+        placeholder="Ej: La noche del telón",
+        requerido=false
+    ) }}
+
+    {{ boton("Buscar", tipo="submit", clase="boton boton-secundario") }}
+  </form>
+</section>
+
+{{ tabla(
+    [
+        {"clave": "titulo", "titulo": "Película"},
+        {"clave": "genero", "titulo": "Género"},
+        {"clave": "duracion_min", "titulo": "Duración", "tipo": "duracion"},
+        {"clave": "clasificacion", "titulo": "Clasif."},
+        {
+            "clave": "activa",
+            "titulo": "Estado",
+            "tipo": "activo",
+            "textos": {
+                "activa": "En cartelera",
+                "inactiva": "Inactiva"
+            }
+        }
+    ],
+    peliculas,
+    acciones={
+        "editar": "backoffice.editar_pelicula",
+        "baja": "backoffice.baja_pelicula",
+        "texto_baja": "Quitar"
+    },
+    vacio="Todavía no hay películas cargadas."
+) }}
+{% endblock %}
