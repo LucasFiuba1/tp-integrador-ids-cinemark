@@ -51,7 +51,17 @@ def reservar(usuario_id, datos):
             butacas_validas = {fila["id"] for fila in cursor.fetchall()}
             if butacas_validas != set(butaca_ids):
                 error_api(400, "DATOS_INVALIDOS", "Una o más butacas no pertenecen a la sala.")
-
+            cursor.execute(
+                "SELECT b.fila, b.numero FROM entradas e "
+                "JOIN butacas b ON b.id = e.butaca_id "
+                f"WHERE e.funcion_id = %s AND e.activa = 1 AND e.butaca_id IN ({marcadores}) "
+                "ORDER BY b.fila, b.numero FOR UPDATE",
+                (funcion_id, *butaca_ids),
+            )
+            ocupadas = cursor.fetchall()
+            if ocupadas:
+                nombres = ", ".join(f"{butaca['fila']}{butaca['numero']}" for butaca in ocupadas)
+                error_api(409, "BUTACA_OCUPADA", f"Las butacas {nombres} ya fueron vendidas.")
             precio = funcion["precio"]
             total = precio * len(butaca_ids)
             cursor.execute(
