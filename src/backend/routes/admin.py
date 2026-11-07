@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, request
 from src.backend.auth import requiere_rol
 from src.backend.errores import respuesta_error
 from src.backend.routes.comun import cuerpo_json
-from src.backend.services import funciones, locales, peliculas, salas
+from src.backend.services import dashboards, funciones, locales, peliculas, salas
 from src.backend.services.validaciones import entero_positivo
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
@@ -175,3 +175,27 @@ def modificar_funcion(funcion_id):
 @requiere_rol("admin")
 def eliminar_funcion(funcion_id):
     return jsonify(funciones.dar_de_baja(funcion_id))
+
+
+@admin_bp.get("/dashboards/franjas-horarias")
+@requiere_rol("admin")
+def dashboard_franjas_horarias():
+    return jsonify(
+        dashboards.listar_franjas_horarias(
+            request.args.get("desde"),
+            request.args.get("hasta"),
+            request.args.get("local_id"),
+        )
+    )
+
+
+@admin_bp.get("/dashboards/cancelaciones")
+@requiere_rol("admin")
+def dashboard_cancelaciones():
+    return jsonify(
+        dashboards.listar_cancelaciones(
+            request.args.get("desde"),
+            request.args.get("hasta"),
+            request.args.get("local_id"),
+        )
+    )

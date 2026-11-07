@@ -82,6 +82,19 @@ Las pruebas iniciales verifican la API de salud, el formato de errores y la
 portada con la API disponible o caída, sin requerir MySQL ni servidores activos.
 Al implementar compras, reservas y permisos, agregar sus pruebas en `tests/`.
 
+Para verificar las consultas de dashboards contra el `seed.sql` real (SCRUM-76),
+hay pruebas MySQL opcionales. Requieren una base **descartable y aislada** en
+`127.0.0.1`, con usuario `root`, contraseña vacía y nombre `cine_paradiso`,
+cargada con `schema.sql` y `seed.sql`. No usar una base de trabajo ni producción.
+
+```bash
+PRUEBAS_MYSQL_PUERTO=33976 python -m pytest src/tests/test_dashboards_mysql.py -v
+```
+
+El puerto debe ser el de esa instancia aislada. Sin la variable, estas pruebas
+se omiten y la suite normal sigue sin necesitar MySQL. Los contratos y los
+valores esperados del seed están en [Dashboards](docs/endpoints.md#dashboards).
+
 ## Reglas del proyecto
 
 - El frontend se comunica con el backend **solo desde Python con `requests`**. Prohibido usar `fetch`, `axios` o `XMLHttpRequest` en el navegador.
