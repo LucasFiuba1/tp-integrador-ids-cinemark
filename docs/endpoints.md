@@ -71,7 +71,7 @@ GET /api/auth/me
 Authorization: Bearer <token>
 
 200 OK
-{ "id": 7, "nombre": "Ana Pérez", "rol": "cliente" }
+{ "id": 7, "nombre": "Ana Pérez", "email": "ana@email.com", "rol": "cliente" }
 ```
 
 Errores de `/me`: 401 sin token, token inválido o vencido · 403 si el rol no está habilitado.
@@ -166,7 +166,7 @@ Errores de cancelación: 409 `FUERA_DE_PLAZO` · 409 `YA_CANCELADA` · 409 `YA_U
 | GET | `/api/me/compras` | 👤 | Historial de compras (entradas, servicios, total, estado, si es cancelable). |
 | GET | `/api/me/peliculas-vistas` | 👤 | Películas cuyo QR fue validado en el ingreso. |
 
-El usuario sale del token: no hay parámetros. El historial solo incluye compras `confirmada` y `cancelada` (las `pendiente` y `vencida` nunca se pagaron). `token_qr` es `null` si la compra está cancelada.
+El usuario sale del token: no hay parámetros. El historial incluye compras `confirmada` y `cancelada`, más las `pendiente` que todavía no vencieron (para poder pagarlas desde el perfil); las `vencida` nunca se pagaron y no aparecen. `vence_en` solo tiene valor en las pendientes. `token_qr` es `null` si la compra no está confirmada. `cancelable_hasta` es la fecha de la función menos `HORAS_LIMITE_CANCELACION`, y `cancelable` es `true` solo si la compra está confirmada, sin usar y todavía no pasó ese límite.
 
 ```http
 GET /api/me/compras
@@ -175,16 +175,16 @@ GET /api/me/compras
 [
   {
     "id": 88, "estado": "confirmada", "total": 23000.0,
-    "creada_en": "2026-11-05T18:30:00", "confirmada_en": "2026-11-05T18:33:10",
+    "creada_en": "2026-11-05T18:30:00", "vence_en": null, "confirmada_en": "2026-11-05T18:33:10",
     "cancelada_en": null, "utilizada_en": null,
     "funcion": {
-      "id": 12, "fecha_hora": "2026-11-10T20:30:00", "pelicula": "Volver al futuro",
+      "id": 12, "fecha_hora": "2026-11-10T20:30:00", "pelicula_id": 3, "pelicula": "Volver al futuro",
       "poster_url": "https://image.tmdb.org/...", "sala": "Sala 1", "local": "Paradiso Centro"
     },
     "butacas": ["D5", "D6"],
     "servicios": [ { "nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": 6500.0 } ],
     "token_qr": "eyJjb21wcmFfaWQiOjg4fQ...",
-    "cancelable": true
+    "cancelable": true, "cancelable_hasta": "2026-11-10T18:30:00"
   }
 ]
 ```
@@ -196,7 +196,7 @@ GET /api/me/peliculas-vistas
 [
   {
     "pelicula_id": 3, "titulo": "Volver al futuro", "poster_url": "https://image.tmdb.org/...",
-    "genero": "Ciencia ficción", "fecha_hora": "2026-11-10T20:30:00",
+    "genero": "Ciencia ficción", "duracion_min": 116, "clasificacion": "ATP", "fecha_hora": "2026-11-10T20:30:00",
     "sala": "Sala 1", "local": "Paradiso Centro", "utilizada_en": "2026-11-10T20:21:00"
   }
 ]
