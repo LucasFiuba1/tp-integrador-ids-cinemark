@@ -559,7 +559,7 @@
   {% set estados = {"confirmada": "Confirmada", "pendiente": "Pendiente de pago", "cancelada": "Cancelada"} %}
   {% set estado = "utilizada" if compra.utilizada_en else compra.estado %}
   <article class="panel tarjeta-compra" aria-labelledby="compra-{{ compra.id }}">
-    {{ poster_pelicula({"id": funcion.id, "titulo": funcion.pelicula, "poster_url": funcion.poster_url},
+    {{ poster_pelicula({"id": funcion.pelicula_id, "titulo": funcion.pelicula, "poster_url": funcion.poster_url},
                        decorativo=true, clase="tarjeta-compra-poster") }}
     <div class="tarjeta-compra-cuerpo">
       <h2 class="tarjeta-compra-titulo" id="compra-{{ compra.id }}">{{ funcion.pelicula }}</h2>

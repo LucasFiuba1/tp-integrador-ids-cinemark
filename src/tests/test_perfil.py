@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from src.frontend.filtros import dia_semana
-from src.frontend.routes.publico import HORAS_LIMITE_CANCELACION, _cancelable_hasta, _perfil_ejemplo, _pestana_compra
+from src.frontend.routes.publico import _cancelable_hasta, _perfil_ejemplo, _pestana_compra
 
 
 @pytest.fixture
@@ -37,8 +37,8 @@ def test_perfil_con_sesion_muestra_cuenta_compras_y_vistas(cliente_logueado, aho
     html = respuesta.get_data(as_text=True)
     assert respuesta.status_code == 200
     for texto in ("Lucas Berardi", "lucas@email.com", "Cerrar sesión", "$23.000", "Pendiente de pago", "Confirmada",
-                  "Ver QR", "Pagar ahora", "Se puede cancelar hasta las 17:30",
-                  "No se puede cancelar: faltan menos de 2 horas", "Las butacas se liberan a las 19:42 si no pagás",
+                  "Ver QR", "Pagar ahora", "Se puede cancelar hasta las 17:30", "Se puede cancelar hasta las 19:00",
+                  "Las butacas se liberan a las 19:42 si no pagás",
                   "Películas que viste", "Se suman cuando se valida tu QR al ingresar a la sala.", "Vista el 18/10",
                   "Paradiso Centro · Sala 1 · Vie 20/11 · 19:30", "Butacas D5, D6, D7 · Combo pochoclos grande × 1"):
         assert texto in html
@@ -46,7 +46,8 @@ def test_perfil_con_sesion_muestra_cuenta_compras_y_vistas(cliente_logueado, aho
         assert _titulo_compra(titulo) in html
     assert 'href="/perfil?estado=proximas" aria-current="page">Próximas</a>' in html
     assert 'href="/compras/1042/cancelar"' in html and 'href="/compras/1044/pago"' in html
-    assert 'class="boton boton-secundario boton-deshabilitado" aria-disabled="true">Cancelar' in html
+    # A 14 días de la función 1043 (21/11) todavía se puede cancelar: la ruta calcula cancelable con la hora actual.
+    assert 'href="/compras/1043/cancelar"' in html and "No se puede cancelar" not in html
     assert "<script" not in html and 'style="' not in html
 
 
@@ -237,11 +238,11 @@ def test_pestana_compra_pendiente_futura_es_proxima():
     ("2026-11-20T19:30", "2026-11-20T17:30:00"),     # sin segundos
 ])
 def test_cancelable_hasta_resta_el_limite_de_horas(fecha_hora, esperada):
-    assert _cancelable_hasta(fecha_hora) == esperada
+    assert _cancelable_hasta(fecha_hora, 2).isoformat() == esperada
 
 
-def test_horas_limite_cancelacion_coincide_con_el_backend(app_backend):
-    assert HORAS_LIMITE_CANCELACION == app_backend.config["HORAS_LIMITE_CANCELACION"]
+def test_horas_limite_cancelacion_coincide_con_el_backend(app_frontend, app_backend):
+    assert app_frontend.config["HORAS_LIMITE_CANCELACION"] == app_backend.config["HORAS_LIMITE_CANCELACION"]
 
 
 # Botón Cancelar (macro tarjeta_compra)
@@ -311,10 +312,6 @@ def test_tarjeta_compra_escapa_el_titulo_de_la_pelicula(renderizar):
     datetime(2026, 11, 20, 17, 30, 1),
     datetime(2026, 11, 20, 18, 45, 0),   # a 45 minutos de la función
 ])
-@pytest.mark.xfail(
-    reason="BUG: la ruta /perfil no recalcula 'cancelable' con la hora actual; el dato fijo deja habilitado "
-           "Cancelar (y el texto 'Se puede cancelar hasta las 17:30') aunque falten menos de 2 horas.",
-    raises=AssertionError, strict=True)
 def test_perfil_deshabilita_cancelar_cuando_faltan_menos_de_2_horas(cliente_logueado, reloj, momento):
     reloj.now.return_value = momento
     html = cliente_logueado.get("/perfil").get_data(as_text=True)
@@ -329,7 +326,7 @@ def test_perfil_ofrece_cancelar_un_segundo_antes_del_limite(cliente_logueado, re
 
 @pytest.mark.parametrize("fecha_hora", ["", "20/11/2026 19:30"])
 def test_perfil_con_fecha_de_funcion_vacia_o_mal_formada_no_rompe(cliente_logueado, ahora_fijo, fecha_hora):
-    # El string se compara como texto: queda en el historial y _cancelable_hasta no llega a ejecutarse.
+    # Sin fecha válida la compra va al historial y no se puede cancelar.
     datos = _perfil_ejemplo()
     datos["compras"][0]["funcion"]["fecha_hora"] = fecha_hora
     with patch("src.frontend.routes.publico._perfil_ejemplo", return_value=datos):
@@ -337,10 +334,6 @@ def test_perfil_con_fecha_de_funcion_vacia_o_mal_formada_no_rompe(cliente_loguea
 
 
 @pytest.mark.parametrize("fecha_hora", ["2027-01-01 al mediodía", "2027-13-01T10:00:00"])
-@pytest.mark.xfail(
-    reason="BUG: una fecha_hora mal formada que queda en Próximas hace fallar _cancelable_hasta "
-           "(datetime.fromisoformat lanza ValueError) y la página da 500 en lugar de mostrarse.",
-    raises=ValueError, strict=True)
 def test_perfil_con_fecha_futura_mal_formada_no_rompe(cliente_logueado, ahora_fijo, fecha_hora):
     datos = _perfil_ejemplo()
     datos["compras"][0]["funcion"]["fecha_hora"] = fecha_hora
@@ -349,10 +342,6 @@ def test_perfil_con_fecha_futura_mal_formada_no_rompe(cliente_logueado, ahora_fi
     assert respuesta.status_code == 200
 
 
-@pytest.mark.xfail(
-    reason="BUG: una compra con funcion.fecha_hora en None hace fallar _pestana_compra (compara None con str, "
-           "TypeError) y la página da 500 en lugar de mostrarse.",
-    raises=TypeError, strict=True)
 def test_perfil_con_fecha_de_funcion_nula_no_rompe(cliente_logueado, ahora_fijo):
     datos = _perfil_ejemplo()
     datos["compras"][0]["funcion"]["fecha_hora"] = None
