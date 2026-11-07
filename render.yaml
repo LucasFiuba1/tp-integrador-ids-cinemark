@@ -12,6 +12,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.12
+      - key: TZ
+        value: America/Argentina/Buenos_Aires
       - key: SECRET_KEY
         generateValue: true
       - key: DB_SSL
@@ -39,6 +41,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.12
+      - key: TZ
+        value: America/Argentina/Buenos_Aires
       - key: FRONTEND_SECRET_KEY
         generateValue: true
       # URL pública https del API (Render Free no tiene red privada), por ejemplo https://cine-paradiso-api.onrender.com

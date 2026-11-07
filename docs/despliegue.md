@@ -47,6 +47,13 @@ confirmar el importe **$0** en ambos paneles. Referencias verificadas el
    del esquema y del seed debe validarse contra la instancia real, no solo por
    el hecho de que el servicio acepte conexiones MySQL.
 
+Para que los `DATETIME` sin zona usados por la aplicación representen hora de
+Argentina, configurar `SET GLOBAL time_zone = '-03:00'` en esta instancia
+dedicada y verificar `@@session.time_zone` desde una conexión nueva. Ambos
+servicios Render usan `TZ=America/Argentina/Buenos_Aires`. No mezclar el reloj
+Python en UTC con consultas MySQL `NOW()` en hora de Argentina. Cargar el seed
+solo después de alinear la zona, para que sus fechas relativas sean coherentes.
+
 No ejecutar `bash init.sh --db` contra la base remota: ese comando está pensado
 para desarrollo local y no configura TLS verificado.
 
@@ -80,7 +87,9 @@ claves secretas fuertes. Luego verificar la URL real del backend.
 
 - `GET https://<api>/api/salud` debe responder `200` con `{"estado":"ok"}`.
   Esta ruta no consulta MySQL: por sí sola **no verifica la base**.
-- Abrir el sitio y comprobar que carga la cartelera desde la base remota.
+- `GET https://<api>/api/cartelera` debe devolver las películas de la base
+  remota. La portada de la versión actual de `develop` solo muestra el estado
+  de la API: desplegarla no implementa la pantalla de cartelera pendiente.
 - Probar login y cierre de sesión con un usuario exclusivo de la demo.
 - Verificar que `/admin` no sea accesible sin una sesión con rol administrador.
 - Esperar a que los servicios se duerman y verificar la primera visita:
@@ -109,3 +118,24 @@ python -m pytest src/tests -q
   limitación. Un proveedor de email por HTTPS requeriría otra integración.
 - Esto es un deploy de demostración, no una garantía de disponibilidad para
   producción. No usarlo para ventas reales.
+
+## Demo publicada
+
+- Sitio: <https://cine-paradiso-web.onrender.com>.
+- API: <https://cine-paradiso-api.onrender.com/api/salud>.
+- Rama: `SCRUM-15/free-deployment`, creada desde `develop`.
+- Publicación inicial: 7 de noviembre de 2026, con ambos servicios en Free y
+  una instancia TiDB Starter con límite de gasto $0. El usuario confirmó que
+  Render no tiene métodos de pago.
+- Se comprobó remotamente la portada, la API de salud, la cartelera con siete
+  películas, el login de cliente y administrador, los permisos del backoffice
+  y el cierre de sesión. No se verificó una compra completa: además del SMTP
+  bloqueado, varias pantallas todavía usan ejemplos en esta versión.
+- Las tres contraseñas del seed se reemplazaron por contraseñas aleatorias.
+  Las credenciales de demo se entregan por un archivo local privado, no por
+  este documento ni por Git.
+
+Los cambios locales del header de la rama anterior no se incluyeron, y
+`main` y `develop` no se modificaron. El deploy no se actualiza automáticamente
+cuando cambian esas ramas; para publicar otra versión hay que elegirla y
+lanzar un deploy manual en ambos servicios.
