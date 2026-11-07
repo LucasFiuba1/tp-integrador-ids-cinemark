@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, request
 from src.backend.auth import requiere_rol
 from src.backend.errores import respuesta_error
 from src.backend.routes.comun import cuerpo_json
-from src.backend.services import locales, peliculas, salas
+from src.backend.services import dashboards, funciones, locales, peliculas, salas
 from src.backend.services.validaciones import entero_positivo
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
@@ -145,3 +145,57 @@ def modificar_pelicula(pelicula_id):
 @requiere_rol("admin")
 def eliminar_pelicula(pelicula_id):
     return jsonify(peliculas.dar_de_baja(pelicula_id))
+
+
+@admin_bp.get("/funciones")
+@requiere_rol("admin")
+def listar_funciones():
+    return jsonify(
+        funciones.listar(
+            request.args.get("local_id"),
+            request.args.get("desde"),
+            request.args.get("hasta"),
+        )
+    )
+
+
+@admin_bp.post("/funciones")
+@requiere_rol("admin")
+def crear_funcion():
+    return jsonify(funciones.crear(cuerpo_json())), 201
+
+
+@admin_bp.put("/funciones/<int:funcion_id>")
+@requiere_rol("admin")
+def modificar_funcion(funcion_id):
+    return jsonify(funciones.modificar(funcion_id, cuerpo_json()))
+
+
+@admin_bp.delete("/funciones/<int:funcion_id>")
+@requiere_rol("admin")
+def eliminar_funcion(funcion_id):
+    return jsonify(funciones.dar_de_baja(funcion_id))
+
+
+@admin_bp.get("/dashboards/franjas-horarias")
+@requiere_rol("admin")
+def dashboard_franjas_horarias():
+    return jsonify(
+        dashboards.listar_franjas_horarias(
+            request.args.get("desde"),
+            request.args.get("hasta"),
+            request.args.get("local_id"),
+        )
+    )
+
+
+@admin_bp.get("/dashboards/cancelaciones")
+@requiere_rol("admin")
+def dashboard_cancelaciones():
+    return jsonify(
+        dashboards.listar_cancelaciones(
+            request.args.get("desde"),
+            request.args.get("hasta"),
+            request.args.get("local_id"),
+        )
+    )

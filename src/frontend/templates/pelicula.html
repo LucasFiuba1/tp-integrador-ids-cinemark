@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "macros.html" import boton, campo, datos, duracion, filtro, funciones_por_local, poster_pelicula %}
+{# Detalle de película (SCRUM-59). Figma desktop 23:542 y mobile 26:1382: título, póster, sinopsis, datos y
+   "Elegí tu función" con las funciones por local. Los datos en none no se muestran.
+   Contexto de la ruta: pelicula (con funciones ya filtradas), locales, local_id, fecha, errores_filtro,
+   filtro_activo, total_funciones, header_locales y header_peliculas. #}
+{% set titulo = pelicula.titulo or "Película sin título" %}
+{% block titulo %}{{ titulo }} · Cine Paradiso{% endblock %}
+
+{% block contenido %}
+  {% set id_pelicula = pelicula.id if pelicula.id is number else request.view_args.id %}
+  {% set url_detalle = url_for("publico.detalle_pelicula", id=id_pelicula) %}
+  <nav class="migas" aria-label="Ubicación">
+    <ol>
+      <li><a href="{{ url_for('publico.inicio', local_id=local_id or none, fecha=fecha or none) }}">Cartelera</a></li>
+      <li aria-current="page">{{ titulo }}</li>
+    </ol>
+  </nav>
+
+  <article class="pelicula">
+    <h1 class="pelicula-titulo">{{ titulo }}</h1>
+    <div class="pelicula-poster">{{ poster_pelicula(pelicula) }}</div>
+
+    <div class="pelicula-info">
+      {% if pelicula.sinopsis %}<p class="pelicula-sinopsis">{{ pelicula.sinopsis }}</p>{% endif %}
+
+      {% set info = namespace(filas=[]) %}
+      {% set tiempo = duracion(pelicula.duracion_min) %}
+      {% if tiempo %}{% set info.filas = info.filas + [("Duración", tiempo)] %}{% endif %}
+      {% if pelicula.clasificacion %}{% set info.filas = info.filas + [("Clasificación", pelicula.clasificacion)] %}{% endif %}
+      {% if pelicula.genero %}{% set info.filas = info.filas + [("Género", pelicula.genero)] %}{% endif %}
+      {% if pelicula.disponible_hasta is string and pelicula.disponible_hasta %}
+        {% set info.filas = info.filas + [("Disponible hasta", pelicula.disponible_hasta[:10].split("-") | reverse | join("/"))] %}
+      {% endif %}
+      {% if info.filas %}{{ datos(info.filas, "pelicula-datos") }}{% endif %}
+
+      <section class="pelicula-funciones" aria-labelledby="titulo-funciones">
+        <h2 id="titulo-funciones">Elegí tu función</h2>
+        <form method="get" action="{{ url_detalle }}" class="filtros-cartelera filtros-funciones"
+          aria-label="Filtrar funciones por local y fecha">
+          {{ filtro("local_id", "Local", locales, local_id, error=errores_filtro.local_id) }}
+          {{ campo("fecha", "Fecha", tipo="date", valor=fecha, requerido=false, error=errores_filtro.fecha) }}
+          <div class="filtros-acciones">
+            {{ boton("Ver funciones") }}
+            {% if filtro_activo %}<a class="accion-texto" href="{{ url_detalle }}">Ver todas</a>{% endif %}
+          </div>
+        </form>
+
+        {% if pelicula.funciones %}
+          {{ funciones_por_local(pelicula.funciones) }}
+        {% elif filtro_activo and total_funciones %}
+          <div class="estado-vacio">
+            <p>No hay funciones para ese local o fecha.</p>
+            <a class="boton boton-secundario" href="{{ url_detalle }}">
+              Ver {{ "la función" if total_funciones == 1 else "las " ~ total_funciones ~ " funciones" }}
+            </a>
+          </div>
+        {% else %}
+          <p class="estado-vacio">No hay funciones programadas para esta película en los próximos días.</p>
+        {% endif %}
+
+        {% if not session.get("token") %}
+          <p class="pelicula-nota">Necesitás iniciar sesión para comprar. La cartelera es pública.</p>
+        {% endif %}
+      </section>
+    </div>
+  </article>
+{% endblock %}
