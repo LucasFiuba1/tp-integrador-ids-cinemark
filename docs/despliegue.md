@@ -57,6 +57,30 @@ solo después de alinear la zona, para que sus fechas relativas sean coherentes.
 No ejecutar `bash init.sh --db` contra la base remota: ese comando está pensado
 para desarrollo local y no configura TLS verificado.
 
+### Restricciones CHECK en TiDB
+
+En la instancia TiDB 8.5.3 de esta demo, `tidb_enable_check_constraint` estaba
+desactivado: importar el schema así aceptaba la sintaxis pero no guardaba los
+CHECK. Para una base nueva, habilitar `SET GLOBAL tidb_enable_check_constraint
+= ON` antes de crear las tablas, reconectar y verificar las cinco restricciones.
+Activarlo después de importar **no recupera automáticamente** los CHECK que
+faltan: hay que agregarlos con `ALTER TABLE`, sin borrar datos.
+
+Para inspeccionarlos, usar `information_schema.tidb_check_constraints`;
+`information_schema.table_constraints` no muestra estos CHECK en esta versión.
+Al agregar a `entradas` el CHECK con `OR` sobre datos existentes, la demo
+necesitó doble paréntesis para evitar un fallo de validación de TiDB:
+
+```sql
+ALTER TABLE entradas ADD CONSTRAINT chk_entradas_activa_nula_o_uno
+  CHECK ((activa IS NULL OR activa = 1));
+```
+
+Ejecutar ese ALTER **solo si falta** la restricción. La expresión conserva la
+regla original; `schema.sql` para MySQL local no cambió. En la demo se verificó
+que las cinco entradas inválidas son rechazadas por CHECK (error 3819) y que
+`activa=1` y `activa=NULL` siguen permitidos, con rollback de las pruebas.
+
 ## 2. Publicar la API y el sitio
 
 1. Subir a GitHub una rama que incluya `render.yaml` y `requirements-deploy.txt`.
