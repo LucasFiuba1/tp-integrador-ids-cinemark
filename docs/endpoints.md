@@ -304,6 +304,14 @@ Motivos de rechazo: `QR_INVALIDO` · `CANCELADA` · `YA_UTILIZADA` · `OTRA_FUNC
 
 Todos aceptan los filtros opcionales `desde`, `hasta` y `local_id`.
 
+Para franjas horarias y cancelaciones, `desde` y `hasta` tienen formato
+`YYYY-MM-DDTHH:MM:SS` y se aplican a la **fecha y hora de la función**, con ambos
+extremos incluidos. `local_id` es un entero positivo de hasta 18 dígitos y filtra
+por el local de la sala. Omitir un filtro lo deja sin restricción; enviarlo vacío o inválido, o
+enviar `desde` posterior a `hasta`, devuelve 400 `DATOS_INVALIDOS`. Un local sin
+compras (o inexistente) devuelve resultados vacíos, no 404. Solo se permite el
+rol admin: sin token devuelve 401 y con otro rol, 403 `SIN_PERMISO`.
+
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
 | GET | `/api/admin/dashboards/ocupacion` | 🛠️ | Ocupación por función y por película (vendidas / capacidad). |
@@ -318,3 +326,59 @@ GET /api/admin/dashboards/ventas-genero?desde=2026-11-01T00:00:00
 [ { "genero": "Ciencia ficción", "entradas": 340, "monto": 1700000.00 },
   { "genero": "Drama", "entradas": 210, "monto": 1050000.00 } ]
 ```
+
+#### Franjas horarias (SCRUM-76)
+
+Bloques de dos horas según `HOUR(funciones.fecha_hora)`: `[00:00, 02:00)`,
+`[02:00, 04:00)`, …, `[22:00, 24:00)`. Se cuentan **entradas activas de compras
+confirmadas**, no compras ni servicios. Solo aparecen franjas con ventas,
+ordenadas por `entradas` descendente y, en caso de empate, por `hora_desde`
+ascendente. `hora_hasta` puede valer 24 y representa el final del día. No se
+excluye el historial por bajas lógicas de películas, salas o funciones.
+
+```http
+GET /api/admin/dashboards/franjas-horarias
+
+200 OK
+[ { "hora_desde": 20, "hora_hasta": 22, "entradas": 4 },
+  { "hora_desde": 16, "hora_hasta": 18, "entradas": 1 } ]
+```
+
+Estos son los valores de `seed.sql` recién cargado. Sin ventas devuelve `[]`.
+
+#### Cancelaciones (SCRUM-76)
+
+Devuelve dos agrupaciones: `por_pelicula` y `por_periodo`. La unidad es la
+**compra**, independientemente de cuántas entradas o servicios tenga.
+`compras` cuenta compras en estado `confirmada` o `cancelada`; `canceladas`
+cuenta las de estado `cancelada`; `porcentaje` es
+`100 * canceladas / compras`, redondeado a dos decimales y enviado como número.
+Las pendientes y vencidas no forman parte del denominador. Se conserva el
+historial de entidades con baja lógica.
+
+El período es el **día de la función**, no el día de creación o cancelación de
+la compra, y se representa como ISO a medianoche (`YYYY-MM-DDT00:00:00`). Solo
+aparecen películas y días con compras contabilizadas, incluso si tienen cero
+cancelaciones. Las películas se ordenan por `canceladas` descendente y luego
+por `pelicula_id`; los períodos, cronológicamente.
+
+```http
+GET /api/admin/dashboards/cancelaciones
+
+200 OK
+{
+  "por_pelicula": [
+    { "pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": 1, "porcentaje": 50.0 },
+    { "pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": 0, "porcentaje": 0.0 },
+    { "pelicula_id": 6, "pelicula": "Toy Story", "compras": 1, "canceladas": 0, "porcentaje": 0.0 }
+  ],
+  "por_periodo": [
+    { "periodo": "2026-11-06T00:00:00", "compras": 2, "canceladas": 0, "porcentaje": 0.0 },
+    { "periodo": "2026-11-08T00:00:00", "compras": 2, "canceladas": 1, "porcentaje": 50.0 }
+  ]
+}
+```
+
+El ejemplo corresponde a `seed.sql` cargado el 7/11/2026: sus fechas son
+relativas al día de carga. Sin compras devuelve
+`{ "por_pelicula": [], "por_periodo": [] }`.
