@@ -66,6 +66,19 @@
   --ancho-ticket: 40rem;     /* 640 px: compra confirmada */
   --alto-grafico: 12rem;     /* 192 px: gráfico de columnas de los dashboards */
   --transicion: 150ms ease;
+
+  /* Header público (Figma Header/Desktop 23:221 y Header/Mobile 23:237) */
+  --texto-marca-header: 1.75rem;        /* 28 px: marca en desktop */
+  --texto-marca-header-mobile: 1.375rem; /* 22 px: marca en mobile */
+  --texto-selector-mobile: .8125rem;    /* 13 px: selectores de la fila mobile */
+  --espaciado-marca-header: .07em;      /* 2 px a 28 px, 1,5 px a 22 px */
+  --espacio-header-barra: .875rem;      /* 14 px: alto de la barra mobile, arriba y abajo de la marca */
+  --espacio-header-grupo: 2.25rem;      /* 36 px: entre la marca y el menú */
+  --espacio-header-menu: 1.75rem;       /* 28 px: entre links del menú */
+  --espacio-header-icono: .375rem;      /* 6 px: entre el pin y "Elegí local" en mobile */
+  --ancho-selector: 10rem;              /* 160 px: tope de cada selector desde 1440 px y mínimo del menú de usuario */
+  --ancho-selector-compacto: 7.5rem;    /* 120 px: tope de cada selector hasta 1439 px, para que todo entre en una fila */
+  --ancho-nombre-header: 10rem;         /* 160 px: nombre del usuario junto al ícono (se corta con …) */
 }
 
 /* Breakpoints (mobile-first, se usan como valores literales porque CSS no admite variables en @media):
