@@ -92,9 +92,31 @@ Desde la raíz, con el entorno virtual activado:
 python -m pytest src/tests -v
 ```
 
-Las pruebas iniciales verifican la API de salud, el formato de errores y la
-portada con la API disponible o caída, sin requerir MySQL ni servidores activos.
-Al implementar compras, reservas y permisos, agregar sus pruebas en `tests/`.
+Las pruebas usan pytest y `unittest.mock`, sin clases ni servicios externos.
+Las utilidades comunes están en `src/tests/utilidades.py` y las fixtures en
+`src/tests/conftest.py`: `app_backend`, `cliente_backend`, `cabeceras_admin`
+y `cabeceras_cliente` permiten probar endpoints con tokens firmados por rol.
+`usuario` y `cabeceras` conservan el usuario admin de las pruebas existentes.
+
+Para simular la base de un service, indicar el módulo donde se usan las
+operaciones (los imports directos también necesitan parchearse):
+
+```python
+from src.tests.utilidades import afirmar_error_json, simular_bd
+
+def test_pelicula_inexistente(cliente_backend, cabeceras_admin):
+    with simular_bd(destinos=("src.backend.services.peliculas",)) as bd:
+        bd.consultar_uno.return_value = None
+        respuesta = cliente_backend.patch(
+            "/api/admin/peliculas/99", json={"titulo": "Nuevo"}, headers=cabeceras_admin,
+        )
+    afirmar_error_json(respuesta, 404, "NO_ENCONTRADO")
+```
+
+La simulación ofrece mocks de `consultar`, `consultar_uno`, `ejecutar`,
+`transaccion` y su cursor; al salir del `with` restaura los originales.
+La autenticación se simula por separado con las fixtures de usuarios:
+no incluir `src.backend.auth` entre los destinos del service.
 
 Para verificar las consultas de dashboards contra el `seed.sql` real (SCRUM-76),
 hay pruebas MySQL opcionales. Requieren una base **descartable y aislada** en
