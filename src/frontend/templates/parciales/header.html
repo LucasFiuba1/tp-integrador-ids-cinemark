@@ -6,7 +6,8 @@
 
    Contexto opcional que puede pasar la vista (el header no llama al backend):
      header_locales, header_peliculas: listas de {"valor", "texto"} para los selectores. Sin ellas, deshabilitados.
-   La selección actual sale de request.args (local_id, pelicula_id) y el formulario va por GET a publico.inicio.
+   La selección actual sale de request.args (local_id, pelicula_id) y el formulario va por GET a publico.inicio;
+   si la vista pasa local_id / fecha se usan esos (validados) y la fecha se conserva como campo oculto.
    Las secciones sin pantalla todavía se muestran deshabilitadas hasta que exista su ruta (ver header.py).
    Con sesión, el ícono de usuario abre un <details> con el nombre, Backoffice (admin) o Mi perfil, y Salir. #}
 {% from "macros.html" import icono, selectores_cartelera %}
@@ -40,8 +41,13 @@
     </div>
 
     <div class="cabecera-derecha">
+      {# La cartelera y el detalle pasan local_id y fecha ya validados; en el resto de las pantallas salen del GET.
+         La fecha no tiene selector en el header: viaja oculta para no perder ese filtro al cambiar local o película. #}
+      {% set header_local = local_id if local_id is defined else request.args.get("local_id", "") %}
+      {% set header_fecha = fecha if fecha is defined else request.args.get("fecha", "") %}
       {{ selectores_cartelera(url_for("publico.inicio"), header_locales, header_peliculas,
-                              request.args.get("local_id", ""), request.args.get("pelicula_id", ""), "cabecera") }}
+                              header_local, request.args.get("pelicula_id", ""), "cabecera",
+                              ocultos={"fecha": header_fecha}) }}
 
       {% if session.get("token") %}
         {% set es_admin = session.get("rol") == "admin" %}
