@@ -1,89 +1,41 @@
+{# Programación de funciones (Figma B3): formulario de nueva función y listado con disponibilidad y acciones.
+   peliculas, locales y salas son opciones {"valor", "texto"}; formulario, los valores iniciales del formulario;
+   funciones, la respuesta de GET /api/admin/funciones (con libres y capacidad). #}
 {% extends "backoffice/base_admin.html" %}
+{% from "macros.html" import cabecera_pagina, campo, boton, filtro, tabla %}
 
-{% block titulo %}Funciones - Cine Paradiso{% endblock %}
-
-{% from "macros.html" import cabecera_pagina, campo, boton, tabla %}
+{% block titulo %}Funciones · Backoffice · Cine Paradiso{% endblock %}
 
 {% block admin %}
+  {{ cabecera_pagina("Funciones", bajada="Programación por local y sala",
+                     accion={"texto": "Nueva función", "url": url_for("backoffice.funciones") ~ "#formulario-funcion"}) }}
 
-{{ cabecera_pagina(
-"Funciones",
-bajada="Programación de funciones y disponibilidad de salas"
-) }}
-
-<section class="panel">
-    <h2>Nueva función</h2>
-
-    <form>
-        <div class="formulario-linea">
-
-            <label class="filtro">
-                <span>Película</span>
-                <select name="pelicula">
-                    <option value="">Seleccionar película</option>
-                    <option>La noche del telón</option>
-                    <option>Código Medianoche</option>
-                    <option>Pequeños gigantes</option>
-                    <option>Último tren a Lisboa</option>
-                </select>
-            </label>
-
-            <label class="filtro">
-                <span>Local</span>
-                <select name="local">
-                    <option value="">Seleccionar local</option>
-                    <option>Paradiso Centro</option>
-                    <option>Paradiso Palermo</option>
-                    <option>Paradiso Belgrano</option>
-                </select>
-            </label>
-
-            <label class="filtro">
-                <span>Sala</span>
-                <select name="sala">
-                    <option value="">Seleccionar sala</option>
-                    <option>Sala 1</option>
-                    <option>Sala 2</option>
-                    <option>Sala VIP</option>
-                </select>
-            </label>
-
-        </div>
-
-        <div class="formulario-linea">
-
-            {{ campo("fecha", "Fecha", tipo="date") }}
-
-            {{ campo("hora", "Hora", tipo="time") }}
-
-            {{ campo("precio", "Precio de entrada", tipo="number", placeholder="Ej. 5500") }}
-
-            <div class="formulario-linea-acciones">
-                {{ boton("Guardar función", tipo="button") }}
-            </div>
-
-        </div>
-
-        <p class="cabecera-bajada">
-            El sistema valida que la sala esté libre en ese horario.
-        </p>
-
+  <section class="panel" id="formulario-funcion" aria-labelledby="titulo-formulario-funcion">
+    <h2 id="titulo-formulario-funcion">Nueva función</h2>
+    <form method="post" action="{{ url_for('backoffice.funciones') }}" class="formulario-funcion" novalidate>
+      <div class="formulario-linea formulario-funcion-selects">
+        {{ filtro("pelicula_id", "Película", peliculas, formulario.pelicula_id) }}
+        {{ filtro("local_id", "Local", locales, formulario.local_id) }}
+        {{ filtro("sala_id", "Sala", salas, formulario.sala_id) }}
+      </div>
+      <div class="formulario-linea">
+        {{ campo("fecha", "Fecha", tipo="date", valor=formulario.fecha) }}
+        {{ campo("hora", "Hora", tipo="time", valor=formulario.hora) }}
+        {{ campo("precio", "Precio de la entrada", tipo="number", valor=formulario.precio, placeholder="$0") }}
+        <div class="formulario-linea-acciones">{{ boton("Guardar función") }}</div>
+      </div>
+      <p class="panel-nota">El sistema valida que la sala esté libre en ese horario.</p>
     </form>
-</section>
+  </section>
 
-{% set columnas_funciones = [
-{"clave": "pelicula", "titulo": "Película"},
-{"clave": "local", "titulo": "Local"},
-{"clave": "sala", "titulo": "Sala"},
-{"clave": "fecha_hora", "titulo": "Fecha y hora", "tipo": "fecha_hora"},
-{"clave": "precio", "titulo": "Precio", "tipo": "precio"},
-{"clave": "disponibilidad", "titulo": "Libres"}
-] %}
-
-{{ tabla(
-columnas_funciones,
-funciones,
-vacio="Todavía no hay funciones programadas."
-) }}
-
+  {{ tabla([
+       {"clave": "pelicula", "titulo": "Película"},
+       {"clave": "local", "titulo": "Local"},
+       {"clave": "sala", "titulo": "Sala"},
+       {"clave": "fecha_hora", "titulo": "Fecha y hora", "tipo": "fecha_hora"},
+       {"clave": "precio", "titulo": "Precio", "tipo": "precio"},
+       {"clave": "libres", "titulo": "Libres", "tipo": "libres"},
+     ], funciones,
+     acciones={"editar": "backoffice.editar_funcion", "baja": "backoffice.baja_funcion", "texto_baja": "Quitar"},
+     vacio="Todavía no hay funciones programadas. Cargá la primera con el formulario de arriba.") }}
 {% endblock %}

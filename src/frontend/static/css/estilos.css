@@ -954,6 +954,9 @@ span.butaca { cursor: not-allowed; }
 .formulario-linea .campo { margin-bottom: 0; }
 .formulario-linea-acciones { display: flex; gap: var(--espacio-4); align-items: center; }
 .formulario-linea-acciones .boton { flex: 1; }
+/* Nueva función (Figma B3): dos filas de formulario-linea (selects y fecha, hora, precio y botón) y la nota */
+.formulario-funcion { display: grid; gap: var(--espacio-3); }
+.formulario-funcion .panel-nota { margin: 0; }
 
 /* Filtro (macro filtro): misma etiqueta y caja que .campo, para usarlos juntos en un formulario GET */
 .filtro { display: grid; gap: var(--espacio-1); }
@@ -1071,6 +1074,7 @@ span.butaca { cursor: not-allowed; }
   .formulario-linea { grid-template-columns: 1fr 1fr 1fr auto; align-items: start; }
   .formulario-linea-acciones { margin-top: var(--espacio-5); }
   .formulario-linea-acciones .boton { flex: none; }
+  .formulario-funcion-selects { grid-template-columns: repeat(3, 1fr); }
 }
 
 .resultados-tmdb {
