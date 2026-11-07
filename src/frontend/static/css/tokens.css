@@ -66,6 +66,38 @@
   --ancho-ticket: 40rem;     /* 640 px: compra confirmada */
   --alto-grafico: 12rem;     /* 192 px: gráfico de columnas de los dashboards */
   --transicion: 150ms ease;
+
+  /* Header público (Figma Header/Desktop 23:221 y Header/Mobile 23:237) */
+  --texto-marca-header: 1.75rem;        /* 28 px: marca en desktop */
+  --texto-marca-header-mobile: 1.375rem; /* 22 px: marca en mobile */
+  --texto-selector-mobile: .8125rem;    /* 13 px: selectores de la fila mobile */
+  --espaciado-marca-header: .07em;      /* 2 px a 28 px, 1,5 px a 22 px */
+  --espacio-header-barra: .875rem;      /* 14 px: alto de la barra mobile, arriba y abajo de la marca */
+  --espacio-header-grupo: 2.25rem;      /* 36 px: entre la marca y el menú */
+  --espacio-header-menu: 1.75rem;       /* 28 px: entre links del menú */
+  --espacio-header-icono: .375rem;      /* 6 px: entre el pin y "Elegí local" en mobile */
+  --ancho-selector: 10rem;              /* 160 px: tope de cada selector desde 1440 px y mínimo del menú de usuario */
+  --ancho-selector-compacto: 7.5rem;    /* 120 px: tope de cada selector hasta 1439 px, para que todo entre en una fila */
+  --ancho-nombre-header: 10rem;         /* 160 px: nombre del usuario junto al ícono (se corta con …) */
+
+  /* Cartelera y detalle de película (SCRUM-59, Figma Home 23:280 / 26:1187 y Detalle 23:542 / 26:1382) */
+  --color-primario-texto: #ff6b61;      /* links rojos en texto chico sobre el fondo: el primario da 3,3:1, este 6:1 */
+  --texto-4xl: 3.5rem;                  /* 56 px: título del detalle de película en desktop */
+  --texto-5xl: 4.5rem;                  /* 72 px: título de la película destacada en desktop */
+  --ancho-poster-lista: 6.5rem;         /* 104 px: póster de la tarjeta en la lista de una columna del celular */
+  --ancho-poster-destacada: 15rem;      /* 240 px: póster de la película destacada en desktop */
+  --ancho-poster-detalle: 22.5rem;      /* 360 px: póster del detalle en desktop */
+  --ancho-chip-funcion: 7rem;           /* 112 px: ancho mínimo de un horario */
+  --espaciado-letras-ancho: .2em;       /* etiqueta "Próxima función" de la destacada (Figma: letras muy separadas) */
+  --ancho-filtro: 14rem;                /* 224 px: tope de cada campo de los filtros de cartelera desde tablet */
+  --ancho-bajada-destacada: 32rem;      /* 512 px: tope de la línea de datos de la destacada en desktop */
+  /* Fondos de los pósters que faltan: degradé de un tono (como en los mockups) hacia --color-panel */
+  --poster-tono-1: #86322a;
+  --poster-tono-2: #3d4a60;
+  --poster-tono-3: #6b5838;
+  --poster-tono-4: #3e6157;
+  --poster-tono-5: #5c3a5c;
+  --poster-tono-6: #7b4526;
 }
 
 /* Breakpoints (mobile-first, se usan como valores literales porque CSS no admite variables en @media):

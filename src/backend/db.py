@@ -3,6 +3,7 @@
 Cada función abre su propia conexión y la cierra al terminar, así no hay
 conexiones globales compartidas entre requests.
 """
+import ssl
 from contextlib import contextmanager
 
 import pymysql
@@ -11,6 +12,8 @@ from flask import current_app
 
 def _conectar():
     config = current_app.config
+    # Con DB_SSL se cifra la conexión verificando certificado y hostname contra los CA del sistema.
+    opciones_tls = {"ssl": ssl.create_default_context()} if config.get("DB_SSL") else {}
     return pymysql.connect(
         host=config["DB_HOST"],
         port=config["DB_PORT"],
@@ -20,6 +23,7 @@ def _conectar():
         charset="utf8mb4",
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=False,
+        **opciones_tls,
     )
 
 

@@ -32,19 +32,7 @@ h1 { font-size: var(--texto-2xl); }
 h2 { font-size: var(--texto-xl); }
 h3 { font-size: var(--texto-lg); }
 
-/* Header */
-.marquesina {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--espacio-3) var(--espacio-5);
-  align-items: center;
-  justify-content: space-between;
-  min-height: var(--alto-header);
-  padding: var(--espacio-3) var(--espacio-4);
-  background: var(--color-fondo);
-  border-bottom: var(--borde-fino);
-}
-
+/* Marca (sidebar del backoffice) */
 .marca {
   font: var(--peso-negrita) var(--texto-xl)/1 var(--fuente-titulos);
   letter-spacing: var(--espaciado-letras);
@@ -53,12 +41,238 @@ h3 { font-size: var(--texto-lg); }
   text-decoration: none;
 }
 
-.menu { display: flex; flex-wrap: wrap; gap: var(--espacio-4); align-items: center; }
-.menu a {
-  font: var(--peso-medio) var(--texto-sm) var(--fuente-titulos);
+/* Header público (SCRUM-95, parciales/header.html). Figma Header/Mobile 23:237 y Header/Desktop 23:221.
+   Mobile: grilla ☰ | marca | usuario, debajo el menú (si el checkbox #cabecera-menu-abierto está marcado, sin JS)
+   y la fila de selectores, siempre visible. Desktop: marca y menú a la izquierda; selectores y usuario a la derecha. */
+.marquesina {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-fondo);
+}
+.icono { display: inline-flex; flex: none; }
+.icono img { display: block; }
+
+.cabecera-barra {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-areas: "boton marca usuario" "menu menu menu" "selectores selectores selectores";
+  align-items: center;
+}
+.cabecera-izquierda, .cabecera-derecha { display: contents; }
+
+.cabecera-boton, .cabecera-usuario-boton {
+  display: inline-flex;
+  gap: var(--espacio-2);
+  align-items: center;
+  padding: var(--espacio-2);
+  border-radius: var(--radio-sm);
+  cursor: pointer;
+  transition: background var(--transicion);
+}
+.cabecera-boton { grid-area: boton; justify-self: start; margin-left: calc(var(--espacio-4) - var(--espacio-2)); }
+.cabecera-boton:hover, .cabecera-usuario-boton:hover,
+.cabecera-interruptor:checked ~ .cabecera-barra .cabecera-boton,
+.cabecera-usuario[open] .cabecera-usuario-boton { background: var(--color-superficie); }
+.cabecera-interruptor:focus-visible ~ .cabecera-barra .cabecera-boton {
+  outline: 2px solid var(--color-foco);
+  outline-offset: 2px;
+}
+
+.cabecera-marca {
+  grid-area: marca;
+  padding: var(--espacio-header-barra) 0;
+  font: var(--peso-negrita) var(--texto-marca-header-mobile)/normal var(--fuente-titulos);
+  letter-spacing: var(--espaciado-marca-header);
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-texto);
+  text-decoration: none;
+}
+
+/* Menú: oculto en mobile hasta abrir ☰; Servicios y Mis compras quedan "Pronto" hasta tener pantalla */
+.menu { grid-area: menu; display: none; padding: 0 var(--espacio-4) var(--espacio-2); border-top: var(--borde-fino); }
+.cabecera-interruptor:checked ~ .cabecera-barra .menu { display: block; animation: cabecera-abrir var(--transicion); }
+@keyframes cabecera-abrir {
+  from { opacity: 0; transform: translateY(calc(-1 * var(--espacio-2))); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cabecera-interruptor:checked ~ .cabecera-barra .menu { animation: none; }
+}
+.menu ul { margin: 0; padding: 0; list-style: none; }
+.menu a, .menu-deshabilitado, .cabecera-enlace, .cabecera-usuario-boton {
+  font: var(--peso-medio) var(--texto-sm)/normal var(--fuente-titulos);
   letter-spacing: var(--espaciado-letras);
   text-transform: uppercase;
   text-decoration: none;
+  color: var(--color-texto);
+}
+.menu a, .menu .menu-deshabilitado {
+  display: flex;
+  gap: var(--espacio-2);
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--espacio-7);
+  border-bottom: var(--borde-fino);
+}
+.menu li:last-child > * { border-bottom: 0; }
+.menu a:hover, .cabecera-enlace:hover { color: var(--color-primario); }
+.menu-deshabilitado { color: var(--color-texto-tenue); cursor: not-allowed; }
+.menu-pronto {
+  padding: var(--espacio-1) var(--espacio-2);
+  border: var(--borde-fino);
+  border-radius: var(--radio-redondo);
+  font-size: var(--texto-xs);
+  line-height: 1;
+}
+
+/* Selectores "Elegí local ▾" / "Elegí película ▾" (macro selectores_cartelera): texto sin caja, como en Figma */
+.selectores {
+  grid-area: selectores;
+  display: flex;
+  gap: var(--espacio-4);
+  align-items: center;
+  padding: var(--espacio-3) var(--espacio-4);
+  border-top: var(--borde-fino);
+}
+.selectores-local { display: flex; gap: var(--espacio-header-icono); align-items: center; margin-right: auto; }
+.selector { position: relative; display: inline-flex; flex: none; }
+.selector::after {
+  content: "▾";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: var(--texto-selector-mobile);
+}
+.selector select, .selectores-enviar {
+  font: var(--peso-medio) var(--texto-selector-mobile)/normal var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+  color: var(--color-texto);
+  cursor: pointer;
+}
+.selector select {
+  field-sizing: content; /* ancho del valor elegido, no de la opción más larga (si el navegador lo soporta) */
+  max-width: var(--ancho-selector-compacto);
+  padding: 0 var(--espacio-4) 0 0;
+  border: 0;
+  background: transparent;
+  text-overflow: ellipsis;
+  appearance: none;
+}
+.selector select option { background: var(--color-panel); color: var(--color-texto); text-transform: none; }
+.selector select:disabled, .selector:has(select:disabled)::after { color: var(--color-texto-secundario); cursor: not-allowed; }
+.selectores-enviar {
+  padding: 0 var(--espacio-2); /* sin alto extra: la fila mantiene la altura de Figma */
+  border: 1px solid var(--color-primario);
+  border-radius: var(--radio-sm);
+  background: transparent;
+  transition: background var(--transicion);
+}
+.selectores-enviar:hover { background: var(--color-primario); }
+
+/* Usuario: ícono siempre visible. Sin sesión lleva a Ingresar; con sesión abre un <details> con nombre y Salir */
+.cabecera-usuario, .cabecera-derecha > .cabecera-usuario-boton {
+  grid-area: usuario;
+  justify-self: end;
+  margin-right: calc(var(--espacio-4) - var(--espacio-2));
+}
+.cabecera-usuario-boton { list-style: none; }
+.cabecera-usuario-boton::-webkit-details-marker { display: none; }
+.cabecera-usuario-boton:focus-visible { outline: 2px solid var(--color-foco); outline-offset: 2px; }
+.cabecera-usuario-texto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* En mobile y tablet el panel se ancla al header entero (.marquesina es sticky, o sea posicionado): aparece debajo
+   de la fila de selectores y del menú abierto, sin taparlos, sea cual sea el alto del header en ese momento. */
+.cabecera-usuario-panel {
+  position: absolute;
+  top: calc(100% + var(--espacio-2));
+  right: var(--espacio-4);
+  z-index: 1;
+  display: grid;
+  gap: var(--espacio-3);
+  width: max-content;
+  min-width: var(--ancho-selector);
+  max-width: calc(100vw - var(--espacio-6));
+  padding: var(--espacio-4);
+  border: var(--borde-fino);
+  border-radius: var(--radio-md);
+  background: var(--color-panel);
+  box-shadow: var(--sombra-panel);
+}
+.cabecera-usuario-nombre { margin: 0; font-weight: var(--peso-medio); overflow-wrap: anywhere; }
+.cabecera-usuario-panel .boton { width: 100%; text-align: center; }
+
+/* Tablet: misma estructura que mobile, con el margen lateral del contenido */
+@media (min-width: 48rem) {
+  .cabecera-boton { margin-left: calc(var(--espacio-6) - var(--espacio-2)); }
+  .cabecera-usuario, .cabecera-derecha > .cabecera-usuario-boton { margin-right: calc(var(--espacio-6) - var(--espacio-2)); }
+  .menu, .selectores { padding-right: var(--espacio-6); padding-left: var(--espacio-6); }
+  .cabecera-usuario-panel { right: var(--espacio-6); }
+}
+
+/* Desktop: una fila de 74 px dentro del ancho de contenido (1152 px → 144 px de margen en 1440) */
+@media (min-width: 64rem) {
+  .marquesina { border-bottom: var(--borde-fino); }
+  .cabecera-barra {
+    display: flex;
+    gap: var(--espacio-5);
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--espacio-4) max(var(--espacio-6), calc((100% - var(--ancho-contenido)) / 2));
+  }
+  .cabecera-interruptor, .cabecera-boton { display: none; }
+  .cabecera-izquierda, .cabecera-derecha { display: flex; align-items: center; }
+  .cabecera-izquierda { gap: var(--espacio-header-grupo); }
+  .cabecera-derecha { gap: var(--espacio-5); }
+  .cabecera-marca { padding: 0; font-size: var(--texto-marca-header); }
+  .menu, .cabecera-interruptor:checked ~ .cabecera-barra .menu { display: block; padding: 0; border: 0; animation: none; }
+  .menu ul { display: flex; gap: var(--espacio-header-menu); }
+  .menu a, .menu .menu-deshabilitado { min-height: 0; border: 0; }
+  .menu-pronto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .selectores { gap: var(--espacio-5); padding: 0; border: 0; }
+  .selectores-local { gap: var(--espacio-5); margin-right: 0; }
+  .selector::after, .selector select, .selectores-enviar { font-size: var(--texto-sm); }
+  .menu a, .menu .menu-deshabilitado, .cabecera-marca { white-space: nowrap; }
+  .cabecera-usuario, .cabecera-derecha > .cabecera-usuario-boton { margin-right: 0; }
+  .cabecera-usuario { position: relative; } /* desktop: el panel vuelve a colgar del ícono de usuario */
+  .cabecera-usuario-panel { right: 0; }
+  .cabecera-usuario-boton { padding: var(--espacio-1); }
+  .cabecera-usuario-texto { position: static; width: auto; height: auto; clip-path: none; }
+  .cabecera-usuario-sesion {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+  }
+}
+
+/* Ancho: hay lugar para el nombre del usuario junto al ícono */
+@media (min-width: 90rem) {
+  .selector select { max-width: var(--ancho-selector); }
+  .cabecera-usuario-sesion {
+    position: static;
+    width: auto;
+    max-width: var(--ancho-nombre-header);
+    height: auto;
+    clip-path: none;
+    text-overflow: ellipsis;
+  }
 }
 
 /* Contenido */
@@ -741,32 +955,58 @@ span.butaca { cursor: not-allowed; }
 .formulario-linea-acciones { display: flex; gap: var(--espacio-4); align-items: center; }
 .formulario-linea-acciones .boton { flex: 1; }
 
+/* Filtro (macro filtro): misma etiqueta y caja que .campo, para usarlos juntos en un formulario GET */
 .filtro { display: grid; gap: var(--espacio-1); }
-.filtro > span { color: var(--color-texto-secundario); font-size: var(--texto-sm); }
+.filtro > span {
+  font: var(--peso-medio) var(--texto-xs) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+  color: var(--color-texto-tenue);
+}
 .filtro select {
-  padding: var(--espacio-2) var(--espacio-3);
+  padding: var(--espacio-3);
   border: var(--borde-fino);
   border-radius: var(--radio-sm);
   background: var(--color-superficie);
   color: var(--color-texto);
   font: inherit;
 }
+.filtro.campo-invalido > span { color: var(--color-error-texto); }
+.campo-invalido select { border-color: var(--color-error); }
+.campo-invalido select:focus-visible { outline-color: var(--color-error); }
+/* Horario de una función (macro chip_funcion, Figma Componentes 23:146): hora grande y debajo sala y precio.
+   Como opción de un grupo (radio oculto) la elegida va en blanco, igual que en el detalle 23:542. */
 .chip-funcion {
+  position: relative;
   display: inline-flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--espacio-1);
-  padding: var(--espacio-2) var(--espacio-3);
-  border: var(--borde-fino);
-  border-radius: var(--radio-redondo);
-  background: var(--color-panel);
+  min-width: var(--ancho-chip-funcion);
+  padding: var(--espacio-2) var(--espacio-4);
+  border: 1px solid var(--color-texto-tenue);
+  border-radius: var(--radio-sm);
+  background: transparent;
   color: var(--color-texto);
   text-decoration: none;
+  cursor: pointer;
+  transition: background var(--transicion), border-color var(--transicion), color var(--transicion);
 }
-.chip-funcion:hover { border-color: var(--color-primario); color: var(--color-texto); }
-.chip-funcion-deshabilitada { color: var(--color-texto-tenue); cursor: not-allowed; }
+.chip-funcion:hover { border-color: var(--color-texto); color: var(--color-texto); }
+.chip-funcion:has(:focus-visible) { outline: 2px solid var(--color-foco); outline-offset: 2px; }
+.chip-funcion:has(:checked) { border-color: var(--color-texto); background: var(--color-texto); color: var(--color-texto-invertido); }
+.chip-funcion-hora { font: var(--peso-medio) var(--texto-lg)/1 var(--fuente-titulos); }
+.chip-funcion-detalle { color: var(--color-texto-secundario); font-size: var(--texto-xs); line-height: 1.2; white-space: nowrap; }
+.chip-funcion:has(:checked) .chip-funcion-detalle { color: var(--color-texto-invertido); }
+.chip-funcion-deshabilitada, .chip-funcion-deshabilitada:hover {
+  border-style: dashed;
+  border-color: var(--color-borde);
+  color: var(--color-texto-tenue);
+  cursor: not-allowed;
+}
+.chip-funcion-deshabilitada .chip-funcion-detalle { color: var(--color-texto-tenue); }
 /* Tablet */
 @media (min-width: 48rem) {
-  .marquesina { padding: var(--espacio-3) var(--espacio-6); }
   .contenido { padding: var(--espacio-6); }
   .contenido-admin { padding: 0; }
   .admin-principal { padding: var(--espacio-6); }
@@ -833,6 +1073,44 @@ span.butaca { cursor: not-allowed; }
   .formulario-linea-acciones .boton { flex: none; }
 }
 
+.resultados-tmdb {
+  display: grid;
+  gap: var(--espacio-4);
+  margin-bottom: var(--espacio-5);
+}
+
+.resultado-tmdb {
+  display: grid;
+  gap: var(--espacio-4);
+}
+
+.resultado-tmdb-poster,
+.pelicula-edicion-poster {
+  width: 100px;
+  border-radius: var(--radio-md);
+}
+
+.resultado-tmdb-datos {
+  display: grid;
+  gap: var(--espacio-2);
+}
+
+.resultado-tmdb-formulario {
+  display: grid;
+  gap: var(--espacio-3);
+}
+
+@media (min-width: 48rem) {
+  .resultado-tmdb {
+    grid-template-columns: 100px 1fr;
+  }
+
+  .resultado-tmdb-formulario {
+    grid-column: 2;
+    grid-template-columns: 1fr 1fr auto;
+    align-items: end;
+  }
+}
 /* SCRUM-118: Locales y salas */
 
 .locales-lista {
@@ -931,4 +1209,321 @@ span.butaca { cursor: not-allowed; }
 
 .servicio-tarjeta:first-child {
   border: 1px solid var(--color-primario);
+}
+
+/* Cartelera y detalle de película (SCRUM-59). Figma Home 23:280 (desktop) / 26:1187 (mobile) y Detalle 23:542 /
+   26:1382. En el celular la grilla va en una columna (pedido del ticket): cada tarjeta es una fila con el póster
+   chico a la izquierda; desde tablet vuelve a ser la tarjeta vertical del mockup. */
+
+/* Póster (macro poster_pelicula): imagen real o degradé con el título cuando la película no tiene póster */
+.poster {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radio-md);
+  background: var(--color-superficie);
+  object-fit: cover;
+}
+.poster-vacio {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--espacio-4) var(--espacio-3);
+}
+.poster-tono-1 { background: linear-gradient(var(--poster-tono-1), var(--color-panel) 90%); }
+.poster-tono-2 { background: linear-gradient(var(--poster-tono-2), var(--color-panel) 90%); }
+.poster-tono-3 { background: linear-gradient(var(--poster-tono-3), var(--color-panel) 90%); }
+.poster-tono-4 { background: linear-gradient(var(--poster-tono-4), var(--color-panel) 90%); }
+.poster-tono-5 { background: linear-gradient(var(--poster-tono-5), var(--color-panel) 90%); }
+.poster-tono-6 { background: linear-gradient(var(--poster-tono-6), var(--color-panel) 90%); }
+.poster-titulo {
+  font: var(--peso-negrita) var(--texto-xl)/var(--interlineado-titulos) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-align: center;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+/* Película destacada: la primera de la cartelera, arriba de la grilla */
+.destacada {
+  display: grid;
+  margin-bottom: var(--espacio-7);
+  padding: var(--espacio-6) var(--espacio-5);
+  border-radius: var(--radio-md);
+  background: linear-gradient(var(--poster-tono-1), var(--color-panel));
+}
+.destacada-etiqueta {
+  margin: 0 0 var(--espacio-3);
+  color: var(--color-texto-secundario);
+  font: var(--peso-medio) var(--texto-xs) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras-ancho);
+  text-transform: uppercase;
+}
+.destacada-titulo { margin-bottom: var(--espacio-3); font-size: var(--texto-3xl); }
+.destacada-meta { margin: 0 0 var(--espacio-5); color: var(--color-texto-secundario); }
+.destacada .boton { display: block; text-align: center; }
+.destacada-poster { display: none; }
+
+/* Título de la sección, local elegido y filtros */
+.cartelera-titulo { margin-bottom: var(--espacio-4); font-size: var(--texto-xl); }
+.cartelera-contexto {
+  margin: 0 0 var(--espacio-5);
+  font: var(--peso-medio) var(--texto-sm) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+}
+.cartelera-contexto strong { font-weight: var(--peso-negrita); }
+.cartelera-contexto-accion { color: var(--color-primario-texto); text-decoration: none; }
+.cartelera-contexto-accion:hover { color: var(--color-primario-texto); text-decoration: underline; }
+
+.filtros-cartelera {
+  display: grid;
+  gap: var(--espacio-3);
+  margin-bottom: var(--espacio-6);
+  padding: var(--espacio-4);
+  border-radius: var(--radio-md);
+  background: var(--color-panel);
+  scroll-margin-top: calc(var(--alto-header) + var(--espacio-7)); /* el header es sticky */
+}
+.filtros-cartelera .campo { margin-bottom: 0; }
+.filtros-cartelera select, .filtros-cartelera input, .filtros-acciones .boton {
+  height: calc(var(--texto-md) * var(--interlineado) + 2 * var(--espacio-3) + 2px);
+}
+.filtros-cartelera select, .filtros-cartelera input { width: 100%; min-width: 0; color-scheme: dark; }
+.filtros-acciones { display: flex; flex-wrap: wrap; gap: var(--espacio-4); align-items: center; }
+.filtros-acciones .boton { flex: 1; }
+
+/* Grilla: una columna de filas en el celular */
+.grilla-peliculas {
+  display: grid;
+  gap: var(--espacio-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tarjeta-pelicula {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--ancho-poster-lista) minmax(0, 1fr);
+  gap: var(--espacio-4);
+  align-items: center;
+}
+.tarjeta-pelicula:has(a:focus-visible) { outline: 2px solid var(--color-foco); outline-offset: var(--espacio-1); border-radius: var(--radio-md); }
+.tarjeta-pelicula-poster { position: relative; }
+.tarjeta-pelicula-poster .poster { transition: filter var(--transicion), transform var(--transicion); }
+.tarjeta-pelicula:hover .poster { filter: brightness(1.15); }
+.tarjeta-pelicula .poster-vacio { padding: var(--espacio-2); }
+.tarjeta-pelicula .poster-titulo { font-size: var(--texto-xs); }
+.tarjeta-pelicula-duracion {
+  position: absolute;
+  top: var(--espacio-2);
+  right: var(--espacio-2);
+  padding: var(--espacio-1) var(--espacio-2);
+  border-radius: var(--radio-sm);
+  background: var(--color-fondo);
+  font: var(--peso-medio) var(--texto-xs)/1 var(--fuente-titulos);
+}
+.tarjeta-pelicula-cuerpo { display: grid; gap: var(--espacio-2); justify-items: start; }
+.tarjeta-pelicula-cuerpo p { margin: 0; }
+.tarjeta-pelicula-titulo { margin: 0; font-size: var(--texto-lg); font-weight: var(--peso-medio); }
+.tarjeta-pelicula-titulo a { text-decoration: none; }
+.tarjeta-pelicula-titulo a:focus-visible { outline: none; }
+/* El link del título cubre toda la tarjeta: un solo destino por película, sin links repetidos */
+.tarjeta-pelicula-titulo a::after { content: ""; position: absolute; inset: 0; }
+.tarjeta-pelicula-genero {
+  color: var(--color-texto-tenue);
+  font: var(--peso-medio) var(--texto-xs) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+}
+.badge-clasificacion { color: var(--color-texto-secundario); }
+
+/* Detalle */
+.migas ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-2);
+  margin: 0 0 var(--espacio-5);
+  padding: 0;
+  list-style: none;
+  color: var(--color-texto-secundario);
+  font: var(--peso-medio) var(--texto-xs) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+}
+.migas li + li::before { content: "/"; margin-right: var(--espacio-2); }
+.migas a { color: var(--color-texto-secundario); text-decoration: none; }
+.migas a:hover { color: var(--color-texto); }
+
+.pelicula { display: grid; grid-template-areas: "poster" "titulo" "info"; gap: var(--espacio-5); }
+.pelicula-titulo { grid-area: titulo; margin: 0; font-size: var(--texto-xl); }
+.pelicula-poster { grid-area: poster; }
+.pelicula-poster .poster { aspect-ratio: 1; }
+/* El título ya está en el h1: en el detalle el póster faltante queda solo con el degradé, como en Figma */
+.pelicula-poster .poster-titulo { display: none; }
+.pelicula-info { grid-area: info; min-width: 0; }
+.pelicula-sinopsis { margin: 0 0 var(--espacio-5); color: var(--color-texto-secundario); }
+
+/* Datos (macro datos): en el celular son etiquetas con borde, como el mockup 26:1382; desde tablet, etiqueta arriba */
+.pelicula-datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-2);
+  margin-bottom: var(--espacio-5);
+  padding-bottom: var(--espacio-5);
+  border-bottom: var(--borde-fino);
+}
+.pelicula-datos div { display: block; padding: 0; }
+.pelicula-datos dt {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.pelicula-datos dd {
+  padding: var(--espacio-1) var(--espacio-2);
+  border: var(--borde-fino);
+  border-radius: var(--radio-sm);
+  font: var(--peso-medio) var(--texto-xs)/1 var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.pelicula-funciones h2 { margin-bottom: var(--espacio-4); font-size: var(--texto-lg); }
+.filtros-funciones { margin-bottom: var(--espacio-5); }
+
+/* Funciones por local (macro funciones_por_local). Elegir un horario muestra su barra "Función elegida" +
+   "Elegir butacas" al pie de la lista (posición absoluta dentro de .funciones, que le reserva el lugar). */
+.funciones { position: relative; display: grid; gap: var(--espacio-4); padding-bottom: var(--espacio-8); }
+.funciones-local { padding: var(--espacio-4); border-radius: var(--radio-md); background: var(--color-panel); }
+.funciones-local h3 { margin-bottom: var(--espacio-4); font-size: var(--texto-lg); font-weight: var(--peso-medio); }
+.funciones-horarios { display: flex; flex-wrap: wrap; gap: var(--espacio-3); margin: 0; padding: 0; list-style: none; }
+/* Día de cada grupo de horarios: sin el filtro de fecha llegan varios días y la hora sola no alcanza */
+.funciones-dia + .funciones-dia { margin-top: var(--espacio-4); }
+.funciones-dia-titulo {
+  margin: 0 0 var(--espacio-2);
+  color: var(--color-texto-secundario);
+  font: var(--peso-medio) var(--texto-xs) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+}
+.funcion-elegida {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: none;
+  gap: var(--espacio-4);
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+}
+.funcion-opcion:has(:checked) .funcion-elegida { display: flex; }
+.funcion-elegida-texto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.funcion-elegida-etiqueta {
+  display: block;
+  color: var(--color-texto-secundario);
+  font: var(--peso-medio) var(--texto-xs) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+}
+.funcion-elegida strong {
+  display: block;
+  overflow: hidden;
+  font: var(--peso-medio) var(--texto-md)/var(--interlineado-titulos) var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.funcion-elegida .boton { flex: 1; text-align: center; }
+/* Sin :has (navegadores viejos) cada horario muestra su propio botón debajo, en vez de la barra única */
+@supports not selector(:has(*)) {
+  .funciones { padding-bottom: 0; }
+  .funcion-elegida { position: static; display: flex; margin-top: var(--espacio-2); }
+}
+.pelicula-nota { margin: var(--espacio-4) 0 0; color: var(--color-texto-tenue); font-size: var(--texto-xs); text-align: center; }
+
+.estado-vacio p { margin: 0 0 var(--espacio-4); }
+.estado-vacio p:only-child { margin: 0; }
+
+@media (min-width: 48rem) {
+  .grilla-peliculas { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--espacio-6) var(--espacio-5); }
+  .tarjeta-pelicula { grid-template-columns: 1fr; align-items: start; gap: var(--espacio-3); }
+  .tarjeta-pelicula .poster-vacio { padding: var(--espacio-5) var(--espacio-4); }
+  .tarjeta-pelicula .poster-titulo { font-size: var(--texto-xl); }
+
+  .filtros-cartelera {
+    grid-template-columns: repeat(2, minmax(0, var(--ancho-filtro))) auto;
+    align-items: end;
+    width: fit-content;
+    max-width: 100%;
+  }
+  .filtros-acciones { flex-wrap: nowrap; }
+  .filtros-acciones .boton { flex: none; }
+
+  .pelicula-titulo { font-size: var(--texto-2xl); }
+  .pelicula-funciones h2 { font-size: var(--texto-xl); }
+  .pelicula-datos { gap: var(--espacio-5) var(--espacio-7); }
+  .pelicula-datos div { display: grid; gap: var(--espacio-1); }
+  .pelicula-datos dt {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    color: var(--color-texto-tenue);
+    font: var(--peso-medio) var(--texto-xs) var(--fuente-titulos);
+    letter-spacing: var(--espaciado-letras);
+    text-transform: uppercase;
+  }
+  .pelicula-datos dd { padding: 0; border: 0; font-size: var(--texto-lg); }
+
+  .funcion-elegida-texto {
+    position: static;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    overflow: visible;
+    clip-path: none;
+  }
+  .funcion-elegida .boton { flex: none; }
+  .pelicula-nota { text-align: left; }
+}
+
+@media (min-width: 64rem) {
+  .destacada {
+    grid-template-columns: minmax(0, 1fr) var(--ancho-poster-destacada);
+    gap: var(--espacio-7);
+    align-items: center;
+    padding: var(--espacio-5) var(--espacio-5) var(--espacio-5) var(--espacio-8);
+    background: linear-gradient(90deg, var(--poster-tono-1), var(--color-fondo));
+  }
+  .destacada-titulo { font-size: var(--texto-5xl); }
+  .destacada-meta { max-width: var(--ancho-bajada-destacada); }
+  .destacada .boton { display: inline-block; }
+  .destacada-poster { display: block; }
+  .destacada-poster .poster-titulo { font-size: var(--texto-2xl); }
+
+  .cartelera-titulo { font-size: var(--texto-2xl); }
+  .grilla-peliculas { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  .pelicula {
+    grid-template-areas: "titulo titulo" "poster info";
+    grid-template-columns: var(--ancho-poster-detalle) minmax(0, 1fr);
+    gap: var(--espacio-6) var(--espacio-7);
+    align-items: start;
+  }
+  .pelicula-titulo { font-size: var(--texto-4xl); }
+  .pelicula-poster .poster { aspect-ratio: 2 / 3; }
 }
