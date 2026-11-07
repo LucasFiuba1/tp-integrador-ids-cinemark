@@ -26,6 +26,8 @@ src/
     static/css/     estilos responsive
   tests/              pruebas automatizadas con pytest
 docs/
+  entorno.md        variables, claves, MySQL y configuración local
+  deploy.md         publicación gratuita de las dos apps y la base
   endpoints.md      listado de endpoints con ejemplos
   base_de_datos.md  diagrama entidad-relación y reglas del negocio en la base
 init.sh             instala dependencias y prepara la configuración
@@ -41,9 +43,15 @@ init.sh             instala dependencias y prepara la configuración
 
 ```bash
 bash init.sh          # crea .venv, instala dependencias y genera .env
-# Completar .env con las credenciales de MySQL
-bash init.sh --db     # crea la base cine_paradiso y carga los datos iniciales
+# Completar .env: claves propias, MySQL y TMDB (ver la guía del entorno)
+bash init.sh --db     # SOLO base local descartable: borra tablas y carga datos de prueba
 ```
+
+Seguir [Configuración del entorno](docs/entorno.md) para generar `SECRET_KEY` y
+`FRONTEND_SECRET_KEY`, crear el usuario MySQL y completar todas las variables.
+Cada integrante usa su propio `.env`; no compartir credenciales ni subirlas a Git.
+**El schema borra las tablas** y fija el nombre `cine_paradiso`: no usar `--db` en
+una base con datos que se deban conservar ni en hosting.
 
 ## Ejecución
 
@@ -69,6 +77,12 @@ Usuarios de prueba que carga `seed.sql`:
 El seed también carga 8 películas, funciones de anteayer a dentro de 6 días en todas las salas (14:00, 17:30 y
 21:00) y 4 compras de ejemplo (dos con el QR ya validado y una cancelada). Las fechas son relativas al día de la
 carga: para tener funciones futuras de nuevo, volver a correr `bash init.sh --db`.
+
+Esto reinicia **todos los datos**; solo corresponde a una base local descartable.
+Para publicar, seguir [Deploy gratuito](docs/deploy.md): servidor WSGI, HTTPS,
+credenciales privadas y carga de la base sin usar el servidor de desarrollo.
+SMTP está configurado en la plantilla, pero el envío de correo todavía no está
+implementado en esta versión.
 
 ## Pruebas
 
@@ -114,6 +128,8 @@ valores esperados del seed están en [Dashboards](docs/endpoints.md#dashboards).
 ## Documentación
 
 - [Despliegue gratuito para demostraciones](docs/despliegue.md)
+- [Configuración del entorno (.env)](docs/entorno.md)
+- [Deploy gratuito, verificación y backups](docs/deploy.md)
 - [Endpoints de la API](docs/endpoints.md)
 - [Modelo de datos](docs/base_de_datos.md)
 - [Alcance, hipótesis y supuestos (Confluence)](https://tp-ids-final.atlassian.net/wiki/spaces/~7120200d86d4e20fe64bbfa6c0b78ff3290878/pages/2621441)
