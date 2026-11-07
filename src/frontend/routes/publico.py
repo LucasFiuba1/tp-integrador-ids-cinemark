@@ -1,7 +1,7 @@
 """Páginas para el cliente: cartelera, compra y perfil."""
-from datetime import date
+from datetime import date, datetime, timedelta
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 
 from src.frontend.api_client import llamar
 from src.frontend.ejemplos import servicios_ejemplo
@@ -244,7 +244,8 @@ QR_EJEMPLO = (
 def _compra_ejemplo(compra_id, confirmada=False):
     return {
         "id": compra_id, "estado": "confirmada" if confirmada else "pendiente", "vence_en": "2026-10-24T19:05:00",
-        "pelicula": "La noche del telón", "poster_url": None, "local": "Paradiso Centro", "sala": "Sala 1",
+        "pelicula": "La noche del telón",
+        "poster_url": None, "local": "Paradiso Centro", "sala": "Sala 1",
         "funcion": "2026-10-24T19:30:00", "butacas": ["D5", "D6", "D7"], "subtotal_entradas": 16500,
         "servicios": [{"nombre": "Combo pochoclos grande", "cantidad": 1, "subtotal": 6500}], "total": 23000,
         "email": "lucas@email.com", "qr_png_base64": QR_EJEMPLO if confirmada else None, "cancelable": confirmada,
@@ -287,3 +288,112 @@ def cancelar_compra(compra_id):
         flash(f"Cancelaste la compra #{compra_id}. Liberamos las butacas y el QR ya no es válido.", "exito")
         return redirect(url_for("publico.inicio"))
     return render_template("compra/cancelar.html", compra=_compra_ejemplo(compra_id, confirmada=True))
+
+
+# Perfil del cliente maquetado (SCRUM-116). Los datos de ejemplo tienen la forma de GET /api/auth/me,
+# GET /api/me/compras y GET /api/me/peliculas-vistas (más lo que pide el mockup y la API todavía no manda: el email,
+# la compra pendiente con vence_en y la duración y clasificación de las vistas). SCRUM-49 los reemplaza por llamar(...).
+PESTANAS_PERFIL = (("proximas", "Próximas"), ("historial", "Historial"), ("canceladas", "Canceladas"))
+
+
+def _perfil_ejemplo():
+    return {
+        "usuario": {"id": 7, "nombre": "Lucas Berardi", "email": "lucas@email.com", "rol": "cliente"},
+        "compras": [
+            {"id": 1042, "estado": "confirmada", "total": 23000.0, "utilizada_en": None,
+             "funcion": {"id": 13, "pelicula_id": 5, "fecha_hora": "2026-11-20T19:30:00",
+                         "pelicula": "La noche del telón",
+                         "poster_url": None, "sala": "Sala 1", "local": "Paradiso Centro"},
+             "butacas": ["D5", "D6", "D7"],
+             "servicios": [{"nombre": "Combo pochoclos grande", "cantidad": 1, "precio_unitario": 6500.0}],
+             "cancelable": True},
+            {"id": 1043, "estado": "confirmada", "total": 19000.0, "utilizada_en": None,
+             "funcion": {"id": 11, "pelicula_id": 6, "fecha_hora": "2026-11-21T21:00:00",
+                         "pelicula": "Código medianoche",
+                         "poster_url": None, "sala": "Sala VIP", "local": "Paradiso Palermo"},
+             "butacas": ["B4"], "servicios": [{"nombre": "Acceso VIP", "cantidad": 1, "precio_unitario": 8000.0}],
+             "cancelable": False},
+            {"id": 1044, "estado": "pendiente", "total": 6000.0, "utilizada_en": None,
+             "vence_en": "2026-11-07T19:42:00",
+             "funcion": {"id": 12, "pelicula_id": 1, "fecha_hora": "2026-11-23T17:00:00",
+                         "pelicula": "Pequeños gigantes",
+                         "poster_url": None, "sala": "Sala 2", "local": "Paradiso Belgrano"},
+             "butacas": ["F7"], "servicios": [], "cancelable": False},
+            {"id": 1031, "estado": "confirmada", "total": 16500.0, "utilizada_en": "2026-10-18T19:52:00",
+             "funcion": {"id": 6, "pelicula_id": 3, "fecha_hora": "2026-10-18T20:00:00",
+                         "pelicula": "Aventuras en el Plata",
+                         "poster_url": None, "sala": "Sala 3", "local": "Paradiso Centro"},
+             "butacas": ["E8", "E9"], "servicios": [], "cancelable": False},
+            {"id": 1035, "estado": "cancelada", "total": 8500.0, "utilizada_en": None,
+             "cancelada_en": "2026-10-20T12:10:00",
+             "funcion": {"id": 9, "pelicula_id": 7, "fecha_hora": "2026-10-21T18:00:00",
+                         "pelicula": "Sombras del pasado",
+                         "poster_url": None, "sala": "Sala 1", "local": "Paradiso Belgrano"},
+             "butacas": ["C7"], "servicios": [], "cancelable": False},
+        ],
+        "peliculas_vistas": [
+            {"pelicula_id": 3, "titulo": "Aventuras en el Plata", "poster_url": None, "duracion_min": 102,
+             "clasificacion": "ATP", "utilizada_en": "2026-10-18T19:52:00"},
+            {"pelicula_id": 4, "titulo": "El jardín de cristal", "poster_url": None, "duracion_min": 118,
+             "clasificacion": "+13", "utilizada_en": "2026-10-11T20:41:00"},
+            {"pelicula_id": 1, "titulo": "Pequeños gigantes", "poster_url": None, "duracion_min": 95,
+             "clasificacion": "ATP", "utilizada_en": "2026-10-04T17:02:00"},
+            {"pelicula_id": 2, "titulo": "Cuando cae la lluvia", "poster_url": None, "duracion_min": 124,
+             "clasificacion": "+16", "utilizada_en": "2026-09-27T21:55:00"},
+        ],
+    }
+
+
+def _fecha_funcion(fecha_hora):
+    """datetime de la función, o None si falta, no es ISO o trae zona horaria (no se puede comparar con ahora)."""
+    try:
+        fecha = datetime.fromisoformat(fecha_hora)
+    except (TypeError, ValueError):
+        return None
+    return fecha if fecha.tzinfo is None else None
+
+
+def _pestana_compra(compra, ahora):
+    """Canceladas aparte; las usadas, las de función ya pasada o sin fecha válida van al historial y el resto son
+    próximas."""
+    if compra["estado"] == "cancelada":
+        return "canceladas"
+    fecha = _fecha_funcion(compra["funcion"].get("fecha_hora"))
+    if compra.get("utilizada_en") or fecha is None or fecha < ahora.replace(microsecond=0):
+        return "historial"
+    return "proximas"
+
+
+def _cancelable_hasta(fecha_hora, horas_limite):
+    """Último momento para cancelar (datetime), o None si la fecha de la función no es válida."""
+    fecha = _fecha_funcion(fecha_hora)
+    return None if fecha is None else fecha - timedelta(hours=horas_limite)
+
+
+def _compra_perfil(compra, ahora, horas_limite):
+    # Igual que el backend: se puede cancelar una compra confirmada mientras ahora < límite.
+    hasta = _cancelable_hasta(compra["funcion"].get("fecha_hora"), horas_limite)
+    return dict(
+        compra,
+        cancelable_hasta=hasta.isoformat(timespec="seconds") if hasta else None,
+        cancelable=compra["estado"] == "confirmada" and hasta is not None and ahora < hasta,
+    )
+
+
+@publico_bp.get("/perfil")
+@requiere_sesion
+def perfil():
+    datos = _perfil_ejemplo()
+    claves = [clave for clave, _ in PESTANAS_PERFIL]
+    # Una pestaña que no existe (?estado=cualquiera) muestra las próximas en lugar de romper la página.
+    pestana = request.args.get("estado") if request.args.get("estado") in claves else claves[0]
+    ahora = datetime.now()
+    horas_limite = current_app.config["HORAS_LIMITE_CANCELACION"]
+    compras = [
+        _compra_perfil(compra, ahora, horas_limite)
+        for compra in datos["compras"] if _pestana_compra(compra, ahora) == pestana
+    ]
+    return render_template(
+        "perfil.html", usuario=datos["usuario"], compras=compras, peliculas_vistas=datos["peliculas_vistas"],
+        pestanas=PESTANAS_PERFIL, pestana=pestana, horas_limite=horas_limite,
+    )

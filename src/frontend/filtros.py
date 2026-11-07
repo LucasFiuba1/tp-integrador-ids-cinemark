@@ -24,6 +24,18 @@ def hora(valor):
     return _formatear(valor, "%H:%M")
 
 
+DIAS_SEMANA = ("Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom")
+
+
+def dia_semana(valor):
+    """2026-10-24T19:30:00 -> Sáb 24/10 (sin depender del idioma del sistema)."""
+    try:
+        fecha = datetime.fromisoformat(valor)
+    except (TypeError, ValueError):
+        return valor
+    return f"{DIAS_SEMANA[fecha.weekday()]} {fecha:%d/%m}"
+
+
 def _formato_argentino(valor, decimales):
     """Separador de miles con punto y decimales con coma. Si no es un número devuelve None."""
     try:
@@ -47,4 +59,4 @@ def precio(valor):
 
 
 def registrar_filtros(app):
-    app.jinja_env.filters.update(fecha_hora=fecha_hora, hora=hora, numero=numero, precio=precio)
+    app.jinja_env.filters.update(fecha_hora=fecha_hora, hora=hora, dia_semana=dia_semana, numero=numero, precio=precio)
