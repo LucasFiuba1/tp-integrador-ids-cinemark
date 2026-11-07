@@ -331,12 +331,13 @@ POST /api/admin/servicios
 { "error": { "codigo": "SERVICIO_DUPLICADO", "mensaje": "Ya existe un servicio con ese nombre." } }
 ```
 
-Reglas: `nombre` es obligatorio (texto no vacío de hasta 100 caracteres, sin espacios en los extremos) y único.
+Reglas: `nombre` es obligatorio (texto no vacío de hasta 100 caracteres; los espacios de los extremos se recortan, no
+se rechazan) y único sin distinguir mayúsculas (collation `utf8mb4_unicode_ci`: `"gaseosa"` choca con `"Gaseosa"` → 409).
 `descripcion` es opcional (hasta 255 caracteres; si falta, es `null` o queda vacía se guarda `null`). `precio` es un
 número mayor a 0 con hasta dos decimales y menor a 100.000.000 (no se aceptan textos ni `true`/`false`); se devuelve
 como número (`6500.0`). El `PUT` reemplaza nombre, descripción y precio, y no cambia `activo`. La baja es lógica
 (`activo = false`): el servicio deja de aparecer en `GET /api/servicios`, pero sigue en el listado del admin y las
-compras que ya lo incluían no cambian.
+compras que ya lo incluían no cambian. El `DELETE` es idempotente: responde 204 también si el servicio ya estaba inactivo.
 
 Errores: 400 `DATOS_INVALIDOS` (cuerpo que no es objeto, nombre vacío o largo, descripción inválida, precio inválido)
 · 401 sin token · 403 `SIN_PERMISO` si no es admin · 404 `NO_ENCONTRADO` (`PUT`/`DELETE` de un servicio

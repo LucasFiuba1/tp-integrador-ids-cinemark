@@ -14,6 +14,8 @@ from src.backend.services.validaciones import entero_positivo
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
+MENSAJE_SERVICIO_DUPLICADO = "Ya existe un servicio con ese nombre."
+
 
 @admin_bp.get("/locales")
 @requiere_rol("admin")
@@ -127,7 +129,7 @@ def crear_servicio():
     try:
         servicio = servicios.crear_servicio(nombre, descripcion, precio)
     except pymysql.err.IntegrityError:
-        return respuesta_error(409, "SERVICIO_DUPLICADO", "Ya existe un servicio con ese nombre.")
+        return respuesta_error(409, "SERVICIO_DUPLICADO", MENSAJE_SERVICIO_DUPLICADO)
     return jsonify(servicio), 201
 
 
@@ -144,7 +146,7 @@ def modificar_servicio(servicio_id):
     try:
         res = servicios.modificar_servicio(servicio_id, nombre, descripcion, precio, servicio["activo"])
     except pymysql.err.IntegrityError:
-        return respuesta_error(409, "SERVICIO_DUPLICADO", "Ya existe un servicio con ese nombre.")
+        return respuesta_error(409, "SERVICIO_DUPLICADO", MENSAJE_SERVICIO_DUPLICADO)
     return jsonify(res)
 
 

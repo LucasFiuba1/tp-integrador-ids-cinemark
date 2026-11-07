@@ -6,7 +6,6 @@ quedan intactas y el servicio deja de ofrecerse en GET /api/servicios.
 from src.backend import db
 from src.backend.services.validaciones import datos_invalidos, precio_valido, texto_no_vacio
 
-COLUMNAS = "id, nombre, descripcion, precio, activo"
 MAXIMO_DESCRIPCION = 255
 
 
@@ -35,17 +34,17 @@ def validar_servicio(nombre, descripcion, precio):
 
 
 def listar_servicios():
-    query = "SELECT " + COLUMNAS + " FROM servicios ORDER BY nombre"
+    query = "SELECT id, nombre, descripcion, precio, activo FROM servicios ORDER BY nombre"
     return [_a_json(fila) for fila in db.consultar(query)]
 
 
 def listar_servicios_activos():
-    query = "SELECT " + COLUMNAS + " FROM servicios WHERE activo = TRUE ORDER BY nombre"
+    query = "SELECT id, nombre, descripcion, precio, activo FROM servicios WHERE activo = TRUE ORDER BY nombre"
     return [_a_json(fila) for fila in db.consultar(query)]
 
 
 def obtener_servicio(servicio_id):
-    query = "SELECT " + COLUMNAS + " FROM servicios WHERE id = %s"
+    query = "SELECT id, nombre, descripcion, precio, activo FROM servicios WHERE id = %s"
     fila = db.consultar_uno(query, (servicio_id,))
     return None if fila is None else _a_json(fila)
 
