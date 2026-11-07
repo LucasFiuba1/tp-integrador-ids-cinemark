@@ -6,6 +6,7 @@ import pytest
 
 from src.frontend.routes.backoffice import _funciones_ejemplo
 
+FORMULARIO_VALIDO = {"pelicula_id": "1", "local_id": "1", "sala_id": "1", "precio": "5500"}
 RUTAS = [("get", "/admin/funciones"), ("post", "/admin/funciones"),
          ("get", "/admin/funciones/1"), ("post", "/admin/funciones/1/baja")]
 
@@ -61,7 +62,7 @@ def test_funciones_ofrece_editar_y_quitar_por_post(cliente_admin):
 
 @pytest.mark.parametrize("metodo, ruta", RUTAS[1:])
 def test_acciones_de_funciones_avisan_pendiente_y_vuelven_al_listado(cliente_admin, metodo, ruta):
-    respuesta = getattr(cliente_admin, metodo)(ruta, data={"pelicula_id": "1", "precio": "5500"})
+    respuesta = getattr(cliente_admin, metodo)(ruta, data=FORMULARIO_VALIDO)
     assert respuesta.status_code == 302
     assert respuesta.headers["Location"] == "/admin/funciones"
     html = cliente_admin.get("/admin/funciones").get_data(as_text=True)
@@ -70,6 +71,7 @@ def test_acciones_de_funciones_avisan_pendiente_y_vuelven_al_listado(cliente_adm
 
 # --- Bordes y casos adversariales (SCRUM-119) ---
 AVISO_PENDIENTE = "falta conectar el backend"
+AVISO_SALA = "Elegí una sala del local seleccionado."
 MACRO_TABLA = '{% from "macros.html" import tabla %}{{ tabla(columnas, filas) }}'
 COLUMNAS_LIBRES = [{"clave": "sala", "titulo": "Sala"}, {"clave": "libres", "titulo": "Libres", "tipo": "libres"}]
 
@@ -156,7 +158,8 @@ def test_acciones_con_formulario_vacio_o_invalido_redirigen_con_aviso(cliente_ad
     html = respuesta.get_data(as_text=True)
     assert respuesta.status_code == 200
     assert respuesta.request.path == "/admin/funciones"
-    assert AVISO_PENDIENTE in html
+    # Guardar valida primero que la sala sea del local; editar y quitar todavía solo avisan que falta el backend.
+    assert (AVISO_SALA if ruta == "/admin/funciones" else AVISO_PENDIENTE) in html
     assert "<script>alert(1)" not in html
 
 
@@ -175,8 +178,8 @@ def test_acciones_de_funciones_no_llaman_al_backend(cliente_admin):
 
 
 def test_dos_post_seguidos_muestran_el_aviso_y_luego_se_consume(cliente_admin):
-    cliente_admin.post("/admin/funciones", data={})
-    cliente_admin.post("/admin/funciones", data={})
+    cliente_admin.post("/admin/funciones", data=FORMULARIO_VALIDO)
+    cliente_admin.post("/admin/funciones", data=FORMULARIO_VALIDO)
     primera = cliente_admin.get("/admin/funciones").get_data(as_text=True)
     segunda = cliente_admin.get("/admin/funciones").get_data(as_text=True)
     assert AVISO_PENDIENTE in primera
@@ -253,23 +256,22 @@ def test_funciones_marca_la_sala_y_el_local_del_formulario(cliente_admin):
     ({"id": 1, "sala": "S1", "libres": 0, "capacidad": 132}, "0 / 132"),
     ({"id": 1, "sala": "S1", "libres": 0, "capacidad": 0}, "0 / 0"),
     ({"id": 1, "sala": "S1", "libres": 132, "capacidad": 132}, "132 / 132"),
-    ({"id": 1, "sala": "S1", "capacidad": 132}, "/ 132"),  # falta libres
-    ({"id": 1, "sala": "S1", "libres": 98}, "98 /"),       # falta capacidad
-    ({"id": 1, "sala": "S1"}, "/"),                        # faltan ambas
+    ({"id": 1, "sala": "S1", "capacidad": 132}, "132"),  # falta libres
+    ({"id": 1, "sala": "S1", "libres": 98}, "98"),       # falta capacidad
+    ({"id": 1, "sala": "S1"}, "—"),                      # faltan ambas
 ])
 def test_tabla_libres_no_rompe_si_faltan_datos(renderizar, fila, esperado):
     html = renderizar(MACRO_TABLA, columnas=COLUMNAS_LIBRES, filas=[fila])
     assert _celda_libres(html) == esperado
 
 
-@pytest.mark.xfail(
-    reason="BUG: la macro tabla con tipo 'libres' imprime 'None' cuando libres o capacidad llegan en null.",
-    raises=AssertionError, strict=True)
-@pytest.mark.parametrize("fila", [{"id": 1, "libres": None, "capacidad": 132},
-                                  {"id": 1, "libres": 98, "capacidad": None}])
-def test_tabla_libres_con_valores_nulos_no_muestra_none(renderizar, fila):
+@pytest.mark.parametrize("fila, esperado", [({"id": 1, "libres": None, "capacidad": 132}, "132"),
+                                           ({"id": 1, "libres": 98, "capacidad": None}, "98"),
+                                           ({"id": 1, "libres": None, "capacidad": None}, "—")])
+def test_tabla_libres_con_valores_nulos_no_muestra_none(renderizar, fila, esperado):
     html = renderizar(MACRO_TABLA, columnas=COLUMNAS_LIBRES, filas=[fila])
     assert "None" not in _celda_libres(html)
+    assert _celda_libres(html) == esperado
 
 
 def test_tabla_libres_escapa_los_valores(renderizar):
@@ -304,3 +306,54 @@ def test_otras_pantallas_del_backoffice_siguen_respondiendo(cliente_admin, ruta,
         respuesta = cliente_admin.get(ruta)
     assert respuesta.status_code == 200
     assert texto in respuesta.get_data(as_text=True)
+
+
+# Salas filtradas por local (?local_id=) y validación de que la sala sea del local
+def _opciones(html, nombre):
+    """Valores de las opciones del select con ese name."""
+    inicio = html.index(f'<select name="{nombre}"')
+    bloque = html[inicio:html.index("</select>", inicio)]
+    return [parte.split('"')[0] for parte in bloque.split('<option value="')[1:]]
+
+
+@pytest.mark.parametrize("local_id, salas", [("1", ["1", "2"]), ("2", ["3", "4"]), ("3", ["5"])])
+def test_funciones_con_local_id_valido_muestra_solo_sus_salas(cliente_admin, local_id, salas):
+    respuesta = cliente_admin.get(f"/admin/funciones?local_id={local_id}")
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 200
+    assert _opciones(html, "sala_id") == salas
+    assert f'<option value="{local_id}" selected>' in html
+    assert f'<input type="hidden" name="local_id" value="{local_id}">' in html
+
+
+@pytest.mark.parametrize("local_id", ["", "abc", "0", "-1", "999", "1.5", "9" * 5000, "<script>"])
+def test_funciones_con_local_id_invalido_usa_el_primer_local(cliente_admin, local_id):
+    respuesta = cliente_admin.get("/admin/funciones", query_string={"local_id": local_id})
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 200
+    assert _opciones(html, "sala_id") == ["1", "2"]
+    assert '<input type="hidden" name="local_id" value="1">' in html
+
+
+def test_funciones_el_selector_de_local_recarga_por_get(cliente_admin):
+    html = cliente_admin.get("/admin/funciones").get_data(as_text=True)
+    assert '<form method="get" action="/admin/funciones#formulario-funcion"' in html
+    assert ">Ver salas del local</button>" in html
+
+
+@pytest.mark.parametrize("local_id, sala_id", [("2", "1"), ("1", "3"), ("3", "4"), ("1", "99"), ("99", "1")])
+def test_guardar_funcion_con_sala_de_otro_local_avisa_error(cliente_admin, local_id, sala_id):
+    datos = dict(FORMULARIO_VALIDO, local_id=local_id, sala_id=sala_id)
+    respuesta = cliente_admin.post("/admin/funciones", data=datos, follow_redirects=True)
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.request.path == "/admin/funciones"
+    assert AVISO_SALA in html
+    assert AVISO_PENDIENTE not in html
+
+
+@pytest.mark.parametrize("local_id, sala_id", [("1", "2"), ("2", "3"), ("3", "5")])
+def test_guardar_funcion_con_sala_del_local_sigue_al_aviso_pendiente(cliente_admin, local_id, sala_id):
+    datos = dict(FORMULARIO_VALIDO, local_id=local_id, sala_id=sala_id)
+    html = cliente_admin.post("/admin/funciones", data=datos, follow_redirects=True).get_data(as_text=True)
+    assert AVISO_PENDIENTE in html
+    assert AVISO_SALA not in html

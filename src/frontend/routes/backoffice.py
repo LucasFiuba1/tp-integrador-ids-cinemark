@@ -61,8 +61,18 @@ def _locales_ejemplo():
 # Programación de funciones maquetada (SCRUM-119, Figma B3) con datos de ejemplo. "funciones" tiene la forma de
 # GET /api/admin/funciones más "libres" y "capacidad", que la API todavía no devuelve. Al conectarla se reemplaza
 # _funciones_ejemplo por llamar(...) y los flash de "pendiente" por POST / PUT / DELETE /api/admin/funciones.
-def _funciones_ejemplo():
+def _local_elegido(locales, local_id):
+    """El local con ese id; si no existe (o no vino), el primero, para que la pantalla nunca rompa."""
+    for local in locales:
+        if local["id"] == local_id:
+            return local
+    return locales[0]
+
+
+def _funciones_ejemplo(local_id=None):
+    """Datos de la pantalla; las opciones de sala son solo las del local elegido."""
     locales = _locales_ejemplo()
+    local = _local_elegido(locales, local_id)
     return {
         "peliculas": [
             {"valor": "", "texto": "Elegí una película"},
@@ -72,9 +82,9 @@ def _funciones_ejemplo():
             {"valor": 4, "texto": "Último tren a Lisboa"},
         ],
         "locales": [{"valor": local["id"], "texto": local["nombre"]} for local in locales],
-        "salas": [{"valor": sala["id"], "texto": sala["nombre"]} for sala in locales[0]["salas"]],
+        "salas": [{"valor": sala["id"], "texto": sala["nombre"]} for sala in local["salas"]],
         "formulario": {
-            "pelicula_id": "", "local_id": 1, "sala_id": 1, "fecha": "2026-10-24", "hora": "19:30", "precio": "5500",
+            "pelicula_id": "", "local_id": local["id"], "sala_id": local["salas"][0]["id"], "fecha": "2026-10-24", "hora": "19:30", "precio": "5500",
         },
         "funciones": [
             {"id": 1, "pelicula_id": 1, "pelicula": "La noche del telón", "sala_id": 1, "sala": "Sala 1", "local_id": 1,
@@ -96,6 +106,12 @@ def _funciones_ejemplo():
     }
 
 
+def _sala_del_local(local_id, sala_id):
+    """True si la sala existe y pertenece a ese local (los ids llegan como int o None)."""
+    return any(local["id"] == local_id and any(sala["id"] == sala_id for sala in local["salas"])
+               for local in _locales_ejemplo())
+
+
 def _funciones_pendiente():
     """Guardar, editar y quitar funciones esperan al backend: avisa y vuelve al listado (PRG)."""
     flash("Todavía no se pueden guardar cambios en las funciones: falta conectar el backend.", "info")
@@ -115,8 +131,12 @@ def locales():
 @requiere_admin
 def funciones():
     if request.method == "POST":
+        if not _sala_del_local(request.form.get("local_id", type=int), request.form.get("sala_id", type=int)):
+            flash("Elegí una sala del local seleccionado.", "error")
+            return redirect(url_for("backoffice.funciones"))
         return _funciones_pendiente()
-    return render_template("backoffice/funciones.html", **_funciones_ejemplo())
+    return render_template("backoffice/funciones.html",
+                           **_funciones_ejemplo(request.args.get("local_id", type=int)))
 
 
 @backoffice_bp.get("/funciones/<int:id>")

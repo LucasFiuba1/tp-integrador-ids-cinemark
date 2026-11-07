@@ -1,6 +1,7 @@
 {# Programación de funciones (Figma B3): formulario de nueva función y listado con disponibilidad y acciones.
    peliculas, locales y salas son opciones {"valor", "texto"}; formulario, los valores iniciales del formulario;
-   funciones, la respuesta de GET /api/admin/funciones (con libres y capacidad). #}
+   funciones, la respuesta de GET /api/admin/funciones (con libres y capacidad). salas son solo las del local elegido:
+   cambiar de local recarga la pantalla con el formulario GET ?local_id= (sin JS), y el POST lo envía oculto. #}
 {% extends "backoffice/base_admin.html" %}
 {% from "macros.html" import cabecera_pagina, campo, boton, filtro, tabla %}
 
@@ -12,10 +13,14 @@
 
   <section class="panel" id="formulario-funcion" aria-labelledby="titulo-formulario-funcion">
     <h2 id="titulo-formulario-funcion">Nueva función</h2>
+    <form method="get" action="{{ url_for('backoffice.funciones') }}#formulario-funcion" class="formulario-linea">
+      {{ filtro("local_id", "Local", locales, formulario.local_id) }}
+      <div class="formulario-linea-acciones">{{ boton("Ver salas del local", clase="boton boton-secundario") }}</div>
+    </form>
     <form method="post" action="{{ url_for('backoffice.funciones') }}" class="formulario-funcion" novalidate>
+      <input type="hidden" name="local_id" value="{{ formulario.local_id }}">
       <div class="formulario-linea formulario-funcion-selects">
         {{ filtro("pelicula_id", "Película", peliculas, formulario.pelicula_id) }}
-        {{ filtro("local_id", "Local", locales, formulario.local_id) }}
         {{ filtro("sala_id", "Sala", salas, formulario.sala_id) }}
       </div>
       <div class="formulario-linea">
