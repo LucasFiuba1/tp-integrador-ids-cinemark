@@ -1,5 +1,6 @@
-{# Mi perfil del cliente (SCRUM-116). Figma Mi perfil 26:781 (desktop) y 26:2237 (mobile).
-   Datos de cuenta, compras filtradas por pestaña (links ?estado=, sin JS) y películas vistas (QR validado). #}
+{# Mi perfil del cliente (SCRUM-116 maqueta, SCRUM-50 datos reales). Figma Mi perfil 26:781 (desktop) y 26:2237
+   (mobile). Datos de cuenta, compras filtradas por pestaña (links ?estado=, sin JS) y películas vistas (QR validado).
+   Si el backend falla, sin_datos muestra un aviso en lugar de los estados vacíos (que dirían algo falso). #}
 {% extends "base.html" %}
 {% from "macros.html" import tarjeta_compra, tarjeta_pelicula, dia_funcion %}
 
@@ -8,10 +9,10 @@
 {% block contenido %}
 <div class="perfil">
   <section class="panel perfil-cuenta" aria-label="Tu cuenta">
-    <span class="perfil-avatar" aria-hidden="true">{{ usuario.nombre[:1] | upper }}</span>
+    <span class="perfil-avatar" aria-hidden="true">{{ (usuario.nombre or "?")[:1] | upper }}</span>
     <div class="perfil-datos">
-      <h1>{{ usuario.nombre }}</h1>
-      <p>{{ usuario.email }}</p>
+      <h1>{{ usuario.nombre or "Mi perfil" }}</h1>
+      {% if usuario.email %}<p>{{ usuario.email }}</p>{% endif %}
     </div>
     <form method="post" action="{{ url_for('publico.salir') }}">
       <button type="submit" class="boton boton-secundario">Cerrar sesión</button>
@@ -28,7 +29,7 @@
     {% for compra in compras %}
       {{ tarjeta_compra(compra, horas_limite) }}
     {% else %}
-      <p class="panel estado-vacio">No tenés compras en esta sección.</p>
+      <p class="panel estado-vacio">{{ "No pudimos cargar tus compras. Probá de nuevo en unos minutos." if sin_datos else "No tenés compras en esta sección." }}</p>
     {% endfor %}
   </section>
 
@@ -41,6 +42,8 @@
           <li>{{ tarjeta_pelicula(dict(pelicula, id=pelicula.pelicula_id), bajada="Vista el " ~ dia_funcion(pelicula.utilizada_en), nivel=3) }}</li>
         {% endfor %}
       </ul>
+    {% elif sin_datos %}
+      <p class="panel estado-vacio">No pudimos cargar las películas que viste.</p>
     {% else %}
       <p class="panel estado-vacio">Todavía no viste películas con nosotros.</p>
     {% endif %}

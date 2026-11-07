@@ -1,5 +1,5 @@
 """Páginas para el cliente: cartelera, compra y perfil."""
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 
@@ -290,58 +290,24 @@ def cancelar_compra(compra_id):
     return render_template("compra/cancelar.html", compra=_compra_ejemplo(compra_id, confirmada=True))
 
 
-# Perfil del cliente maquetado (SCRUM-116). Los datos de ejemplo tienen la forma de GET /api/auth/me,
-# GET /api/me/compras y GET /api/me/peliculas-vistas (más lo que pide el mockup y la API todavía no manda: el email,
-# la compra pendiente con vence_en y la duración y clasificación de las vistas). SCRUM-49 los reemplaza por llamar(...).
+# Perfil del cliente (SCRUM-50 sobre la maqueta de SCRUM-116): cuenta, compras por pestaña y películas vistas.
+# Los tres datos salen del backend (GET /api/auth/me, /api/me/compras y /api/me/peliculas-vistas); el backend ya
+# dice si cada compra es cancelable y hasta cuándo, así la regla del plazo vive en un solo lugar.
 PESTANAS_PERFIL = (("proximas", "Próximas"), ("historial", "Historial"), ("canceladas", "Canceladas"))
+RUTAS_PERFIL = (
+    ("usuario", "/api/auth/me"), ("compras", "/api/me/compras"), ("peliculas_vistas", "/api/me/peliculas-vistas"),
+)
 
 
-def _perfil_ejemplo():
-    return {
-        "usuario": {"id": 7, "nombre": "Lucas Berardi", "email": "lucas@email.com", "rol": "cliente"},
-        "compras": [
-            {"id": 1042, "estado": "confirmada", "total": 23000.0, "utilizada_en": None,
-             "funcion": {"id": 13, "pelicula_id": 5, "fecha_hora": "2026-11-20T19:30:00",
-                         "pelicula": "La noche del telón",
-                         "poster_url": None, "sala": "Sala 1", "local": "Paradiso Centro"},
-             "butacas": ["D5", "D6", "D7"],
-             "servicios": [{"nombre": "Combo pochoclos grande", "cantidad": 1, "precio_unitario": 6500.0}],
-             "cancelable": True},
-            {"id": 1043, "estado": "confirmada", "total": 19000.0, "utilizada_en": None,
-             "funcion": {"id": 11, "pelicula_id": 6, "fecha_hora": "2026-11-21T21:00:00",
-                         "pelicula": "Código medianoche",
-                         "poster_url": None, "sala": "Sala VIP", "local": "Paradiso Palermo"},
-             "butacas": ["B4"], "servicios": [{"nombre": "Acceso VIP", "cantidad": 1, "precio_unitario": 8000.0}],
-             "cancelable": False},
-            {"id": 1044, "estado": "pendiente", "total": 6000.0, "utilizada_en": None,
-             "vence_en": "2026-11-07T19:42:00",
-             "funcion": {"id": 12, "pelicula_id": 1, "fecha_hora": "2026-11-23T17:00:00",
-                         "pelicula": "Pequeños gigantes",
-                         "poster_url": None, "sala": "Sala 2", "local": "Paradiso Belgrano"},
-             "butacas": ["F7"], "servicios": [], "cancelable": False},
-            {"id": 1031, "estado": "confirmada", "total": 16500.0, "utilizada_en": "2026-10-18T19:52:00",
-             "funcion": {"id": 6, "pelicula_id": 3, "fecha_hora": "2026-10-18T20:00:00",
-                         "pelicula": "Aventuras en el Plata",
-                         "poster_url": None, "sala": "Sala 3", "local": "Paradiso Centro"},
-             "butacas": ["E8", "E9"], "servicios": [], "cancelable": False},
-            {"id": 1035, "estado": "cancelada", "total": 8500.0, "utilizada_en": None,
-             "cancelada_en": "2026-10-20T12:10:00",
-             "funcion": {"id": 9, "pelicula_id": 7, "fecha_hora": "2026-10-21T18:00:00",
-                         "pelicula": "Sombras del pasado",
-                         "poster_url": None, "sala": "Sala 1", "local": "Paradiso Belgrano"},
-             "butacas": ["C7"], "servicios": [], "cancelable": False},
-        ],
-        "peliculas_vistas": [
-            {"pelicula_id": 3, "titulo": "Aventuras en el Plata", "poster_url": None, "duracion_min": 102,
-             "clasificacion": "ATP", "utilizada_en": "2026-10-18T19:52:00"},
-            {"pelicula_id": 4, "titulo": "El jardín de cristal", "poster_url": None, "duracion_min": 118,
-             "clasificacion": "+13", "utilizada_en": "2026-10-11T20:41:00"},
-            {"pelicula_id": 1, "titulo": "Pequeños gigantes", "poster_url": None, "duracion_min": 95,
-             "clasificacion": "ATP", "utilizada_en": "2026-10-04T17:02:00"},
-            {"pelicula_id": 2, "titulo": "Cuando cae la lluvia", "poster_url": None, "duracion_min": 124,
-             "clasificacion": "+16", "utilizada_en": "2026-09-27T21:55:00"},
-        ],
-    }
+def _datos_perfil():
+    """Pide al backend los datos del perfil. Devuelve (datos, error) con el primer error que aparezca."""
+    datos = {}
+    for clave, ruta in RUTAS_PERFIL:
+        respuesta, error = llamar("GET", ruta)
+        if error:
+            return None, error
+        datos[clave] = respuesta
+    return datos, None
 
 
 def _fecha_funcion(fecha_hora):
@@ -356,44 +322,29 @@ def _fecha_funcion(fecha_hora):
 def _pestana_compra(compra, ahora):
     """Canceladas aparte; las usadas, las de función ya pasada o sin fecha válida van al historial y el resto son
     próximas."""
-    if compra["estado"] == "cancelada":
+    if compra.get("estado") == "cancelada":
         return "canceladas"
-    fecha = _fecha_funcion(compra["funcion"].get("fecha_hora"))
+    fecha = _fecha_funcion((compra.get("funcion") or {}).get("fecha_hora"))
     if compra.get("utilizada_en") or fecha is None or fecha < ahora.replace(microsecond=0):
         return "historial"
     return "proximas"
 
 
-def _cancelable_hasta(fecha_hora, horas_limite):
-    """Último momento para cancelar (datetime), o None si la fecha de la función no es válida."""
-    fecha = _fecha_funcion(fecha_hora)
-    return None if fecha is None else fecha - timedelta(hours=horas_limite)
-
-
-def _compra_perfil(compra, ahora, horas_limite):
-    # Igual que el backend: se puede cancelar una compra confirmada mientras ahora < límite.
-    hasta = _cancelable_hasta(compra["funcion"].get("fecha_hora"), horas_limite)
-    return dict(
-        compra,
-        cancelable_hasta=hasta.isoformat(timespec="seconds") if hasta else None,
-        cancelable=compra["estado"] == "confirmada" and hasta is not None and ahora < hasta,
-    )
-
-
 @publico_bp.get("/perfil")
 @requiere_sesion
 def perfil():
-    datos = _perfil_ejemplo()
     claves = [clave for clave, _ in PESTANAS_PERFIL]
     # Una pestaña que no existe (?estado=cualquiera) muestra las próximas en lugar de romper la página.
     pestana = request.args.get("estado") if request.args.get("estado") in claves else claves[0]
+    datos, error = _datos_perfil()
+    if error:
+        flash(error["mensaje"], "error")
+        datos = {"usuario": {"nombre": session.get("nombre") or "Mi perfil"}, "compras": [], "peliculas_vistas": []}
     ahora = datetime.now()
-    horas_limite = current_app.config["HORAS_LIMITE_CANCELACION"]
-    compras = [
-        _compra_perfil(compra, ahora, horas_limite)
-        for compra in datos["compras"] if _pestana_compra(compra, ahora) == pestana
-    ]
+    compras = [compra for compra in datos["compras"] or [] if _pestana_compra(compra, ahora) == pestana]
     return render_template(
-        "perfil.html", usuario=datos["usuario"], compras=compras, peliculas_vistas=datos["peliculas_vistas"],
-        pestanas=PESTANAS_PERFIL, pestana=pestana, horas_limite=horas_limite,
+        "perfil.html", usuario=datos["usuario"] or {}, compras=compras,
+        peliculas_vistas=datos["peliculas_vistas"] or [],
+        pestanas=PESTANAS_PERFIL, pestana=pestana, horas_limite=current_app.config["HORAS_LIMITE_CANCELACION"],
+        sin_datos=error is not None,
     )
