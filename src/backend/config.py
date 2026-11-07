@@ -4,6 +4,11 @@ import os
 from dotenv import load_dotenv
 
 
+def _leer_booleano(nombre):
+    """True si la variable vale 1, true, yes, on o si (sin importar mayúsculas); si no está, False."""
+    return os.getenv(nombre, "").strip().lower() in ("1", "true", "yes", "on", "si")
+
+
 def cargar_configuracion():
     """Devuelve un diccionario con la configuración de la app."""
     load_dotenv()
@@ -14,6 +19,7 @@ def cargar_configuracion():
         "DB_USER": os.getenv("DB_USER", "root"),
         "DB_PASSWORD": os.getenv("DB_PASSWORD", ""),
         "DB_NAME": os.getenv("DB_NAME", "cine_paradiso"),
+        "DB_SSL": _leer_booleano("DB_SSL"),
         "TMDB_API_KEY": os.getenv("TMDB_API_KEY", ""),
         "MINUTOS_RESERVA": int(os.getenv("MINUTOS_RESERVA", "10")),
         "HORAS_LIMITE_CANCELACION": int(os.getenv("HORAS_LIMITE_CANCELACION", "2")),
