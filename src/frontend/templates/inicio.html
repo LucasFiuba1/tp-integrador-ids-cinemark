@@ -1,44 +1,81 @@
 {% extends "base.html" %}
-{% from "macros.html" import filtro, boton %}
+{% from "macros.html" import boton, campo, duracion, filtro, poster_pelicula, tarjeta_pelicula %}
+{# Cartelera (SCRUM-59). Figma Home desktop 23:280 y mobile 26:1187: película destacada, título de sección con el
+   local elegido, filtros y grilla de tarjetas. La grilla va en una sola columna en el celular (pedido del ticket,
+   aunque el mockup muestre dos) y en varias desde tablet.
+   Contexto de la ruta: peliculas, locales, local_id, fecha, pelicula_id, error_cartelera (el aviso ya lo muestra
+   el flash), header_locales, header_peliculas y, si la ruta los manda, errores_filtro por campo.
+   Los dos formularios GET (header: local/película; acá: local/fecha) conservan el filtro que no editan como
+   campo oculto. Las tarjetas llevan local_id y fecha al detalle (pelicula_id no hace falta: ya es esa película). #}
 {% block contenido %}
-<section class="portada">
-  <h1>Las películas que extrañabas, otra vez en la sala</h1>
-  <p>Elegí la función, tu butaca y entrá con un QR.</p>
-</section>
-<section class="cartelera">
-  <h2>En Cartelera</h2>
-  <form method="get" class="filtros-cartelera" action="{{ url_for('publico.inicio') }}">
-    {{ filtro("local_id", "Local", locales, local_id) }}
-    <label class="filtro">
-      <span>Fecha</span>
-      <input type="date" name="fecha" value="{{ fecha }}">
-    </label>
-    {{ boton("Filtrar") }}
-  </form>
-  {% if peliculas %}
-  <div class="grilla-peliculas">
-    {% for peli in peliculas %}
-    <article class="tarjeta-pelicula panel">
-      {% if peli.poster_url %}
-      <img src="{{ peli.poster_url }}" alt="Póster de {{ peli.titulo }}" class="tarjeta-poster">
-      {% else %}
-      <div class="tarjeta-poster sin-poster" aria-hidden="true"></div>
-      {% endif %}
-      <div class="tarjeta-cuerpo">
-        <h3>{{ peli.titulo }}</h3>
-        <p class="tarjeta-meta">
-          <span>{{ peli.genero }}</span> ·
-          <span>{{ peli.duracion_min }} min</span> ·
-          <span class="badge">{{ peli.clasificacion }}</span>
+  {% set filtrada = local_id or fecha or pelicula_id %}
+  {% set local_elegido = (locales | selectattr("valor", "equalto", local_id) | first) if local_id else none %}
+
+  {% if peliculas | length > 1 and not pelicula_id %}
+    {% set destacada = peliculas[0] %}
+    {% set url_destacada = url_for("publico.detalle_pelicula", id=destacada.id, local_id=local_id or none, fecha=fecha or none) %}
+    {% set tiempo = duracion(destacada.duracion_min) %}
+    <section class="destacada" aria-labelledby="destacada-titulo">
+      <div class="destacada-texto">
+        <p class="destacada-etiqueta">
+          Próxima función{% if destacada.proxima_funcion %} · {{ destacada.proxima_funcion | fecha_hora }}{% endif %}
         </p>
-        <a class="boton boton-bloque" href="{{ url_for('publico.detalle_pelicula', id=peli.id) }}">Ver funciones</a>
+        <h2 class="destacada-titulo" id="destacada-titulo">{{ destacada.titulo or "Película sin título" }}</h2>
+        {% set meta = [destacada.genero, tiempo, destacada.clasificacion] | select | join(" · ") %}
+        {% if meta %}<p class="destacada-meta">{{ meta }}</p>{% endif %}
+        <a class="boton" href="{{ url_destacada }}">Comprar entradas</a>
       </div>
-    </article>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p class="estado-vacio">Por el momento no hay funciones disponibles en cartelera.</p>
+      <div class="destacada-poster">{{ poster_pelicula(destacada, decorativo=true) }}</div>
+    </section>
   {% endif %}
-</section>
-<p class="estado">Estado de la API: <strong>{{ estado_api }}</strong></p>
+
+  <section class="cartelera" aria-labelledby="cartelera-titulo">
+    <h1 class="cartelera-titulo" id="cartelera-titulo">Películas en cartelera</h1>
+    <p class="cartelera-contexto">
+      Estás viendo películas de
+      <strong>{{ local_elegido.texto if local_elegido else "todos los locales" }}</strong>
+      {%- if fecha %} para el <strong>{{ fecha.split("-") | reverse | join("/") }}</strong>{% endif %},
+      {% if filtrada %}
+        <a class="cartelera-contexto-accion" href="{{ url_for('publico.inicio') }}">ver toda la cartelera</a>
+      {% else %}
+        <a class="cartelera-contexto-accion" href="#filtros-cartelera">seleccionar local</a>
+      {% endif %}
+    </p>
+
+    <form method="get" action="{{ url_for('publico.inicio') }}" class="filtros-cartelera" id="filtros-cartelera"
+      aria-label="Filtrar la cartelera">
+      {% set errores = errores_filtro if errores_filtro is defined and errores_filtro else {} %}
+      {{ filtro("local_id", "Local", locales, local_id, error=errores.get("local_id", "")) }}
+      {{ campo("fecha", "Fecha", tipo="date", valor=fecha, requerido=false, error=errores.get("fecha", "")) }}
+      {# La película elegida en el header no tiene selector acá: se conserva oculta (un solo name por formulario). #}
+      {% if pelicula_id %}<input type="hidden" name="pelicula_id" value="{{ pelicula_id }}">{% endif %}
+      <div class="filtros-acciones">
+        {{ boton("Filtrar") }}
+        {% if filtrada %}<a class="accion-texto" href="{{ url_for('publico.inicio') }}">Limpiar filtros</a>{% endif %}
+      </div>
+    </form>
+
+    {% if peliculas %}
+      <ul class="grilla-peliculas" role="list">
+        {% for pelicula in peliculas %}
+          <li>
+            {{ tarjeta_pelicula(pelicula, url_for("publico.detalle_pelicula", id=pelicula.id,
+                                                  local_id=local_id or none, fecha=fecha or none)) }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% elif error_cartelera %}
+      <div class="estado-vacio">
+        <p>La cartelera no se pudo cargar.</p>
+        <a class="boton boton-secundario" href="{{ request.full_path }}">Reintentar</a>
+      </div>
+    {% elif filtrada %}
+      <div class="estado-vacio">
+        <p>No hay funciones para los filtros que elegiste.</p>
+        <a class="boton boton-secundario" href="{{ url_for('publico.inicio') }}">Ver toda la cartelera</a>
+      </div>
+    {% else %}
+      <p class="estado-vacio">Por el momento no hay funciones disponibles en cartelera.</p>
+    {% endif %}
+  </section>
 {% endblock %}
