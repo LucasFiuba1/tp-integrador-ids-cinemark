@@ -100,6 +100,7 @@ Al implementar compras, reservas y permisos, agregar sus pruebas en `tests/`.
 
 ## Documentación
 
+- [Despliegue gratuito para demostraciones](docs/despliegue.md)
 - [Endpoints de la API](docs/endpoints.md)
 - [Modelo de datos](docs/base_de_datos.md)
 - [Alcance, hipótesis y supuestos (Confluence)](https://tp-ids-final.atlassian.net/wiki/spaces/~7120200d86d4e20fe64bbfa6c0b78ff3290878/pages/2621441)
