@@ -24,8 +24,10 @@ src/
     routes/         blueprints: público y backoffice
     templates/      base.html, macros y páginas
     static/css/     estilos responsive
-  tests/              pruebas automatizadas con unittest
+  tests/              pruebas automatizadas con pytest
 docs/
+  entorno.md        variables, claves, MySQL y configuración local
+  deploy.md         publicación gratuita de las dos apps y la base
   endpoints.md      listado de endpoints con ejemplos
   base_de_datos.md  diagrama entidad-relación y reglas del negocio en la base
 init.sh             instala dependencias y prepara la configuración
@@ -34,16 +36,22 @@ init.sh             instala dependencias y prepara la configuración
 
 ## Requisitos
 
-- Python 3.10 o superior
+- Python 3.9 o superior
 - MySQL 8 (o MariaDB 10.5+)
 
 ## Instalación
 
 ```bash
 bash init.sh          # crea .venv, instala dependencias y genera .env
-# Completar .env con las credenciales de MySQL
-bash init.sh --db     # crea la base cine_paradiso y carga los datos iniciales
+# Completar .env: claves propias, MySQL y TMDB (ver la guía del entorno)
+bash init.sh --db     # SOLO base local descartable: borra tablas y carga datos de prueba
 ```
+
+Seguir [Configuración del entorno](docs/entorno.md) para generar `SECRET_KEY` y
+`FRONTEND_SECRET_KEY`, crear el usuario MySQL y completar todas las variables.
+Cada integrante usa su propio `.env`; no compartir credenciales ni subirlas a Git.
+**El schema borra las tablas** y fija el nombre `cine_paradiso`: no usar `--db` en
+una base con datos que se deban conservar ni en hosting.
 
 ## Ejecución
 
@@ -61,24 +69,51 @@ flask --app src.frontend.app run --port 5001 --debug    # Sitio en http://localh
 
 Verificación rápida: `http://localhost:5000/api/salud` devuelve `{"estado": "ok"}` y la portada del sitio muestra el estado de la API.
 
-Usuario administrador de prueba: `admin@cineparadiso.com` / `admin1234`.
+Usuarios de prueba que carga `seed.sql`:
+
+- Administrador: `admin@cineparadiso.com` / `admin1234`
+- Clientes: `ana@mail.com` y `juan@mail.com` / `cliente1234`
+
+El seed también carga 8 películas, funciones de anteayer a dentro de 6 días en todas las salas (14:00, 17:30 y
+21:00) y 4 compras de ejemplo (dos con el QR ya validado y una cancelada). Las fechas son relativas al día de la
+carga: para tener funciones futuras de nuevo, volver a correr `bash init.sh --db`.
+
+Esto reinicia **todos los datos**; solo corresponde a una base local descartable.
+Para publicar, seguir [Deploy gratuito](docs/deploy.md): servidor WSGI, HTTPS,
+credenciales privadas y carga de la base sin usar el servidor de desarrollo.
+SMTP está configurado en la plantilla, pero el envío de correo todavía no está
+implementado en esta versión.
 
 ## Pruebas
 
 Desde la raíz, con el entorno virtual activado:
 
 ```bash
-python -m unittest discover -s src/tests -v
+python -m pytest src/tests -v
 ```
 
 Las pruebas iniciales verifican la API de salud, el formato de errores y la
 portada con la API disponible o caída, sin requerir MySQL ni servidores activos.
 Al implementar compras, reservas y permisos, agregar sus pruebas en `tests/`.
 
+Para verificar las consultas de dashboards contra el `seed.sql` real (SCRUM-76),
+hay pruebas MySQL opcionales. Requieren una base **descartable y aislada** en
+`127.0.0.1`, con usuario `root`, contraseña vacía y nombre `cine_paradiso`,
+cargada con `schema.sql` y `seed.sql`. No usar una base de trabajo ni producción.
+
+```bash
+PRUEBAS_MYSQL_PUERTO=33976 python -m pytest src/tests/test_dashboards_mysql.py -v
+```
+
+El puerto debe ser el de esa instancia aislada. Sin la variable, estas pruebas
+se omiten y la suite normal sigue sin necesitar MySQL. Los contratos y los
+valores esperados del seed están en [Dashboards](docs/endpoints.md#dashboards).
+
 ## Reglas del proyecto
 
 - El frontend se comunica con el backend **solo desde Python con `requests`**. Prohibido usar `fetch`, `axios` o `XMLHttpRequest` en el navegador.
 - **Sin ORM**: todas las consultas son SQL explícito y parametrizado (`src/backend/db.py`).
+- **Sin programación orientada a objetos**: ni en la app ni en las pruebas (`class`, `self`, herencia, `@dataclass`); solo funciones, `dict` y listas.
 - Las rutas manejan HTTP; los casos de uso van en `src/backend/services/`, en módulos por funcionalidad (por ejemplo, `compras.py`). Las operaciones atómicas usan una misma `transaccion()`.
 - Fechas y horas en un único campo `DATETIME`.
 - Sin variables globales ni código repetido: usar `create_app()`, macros de Jinja y los helpers comunes.
@@ -92,6 +127,9 @@ Al implementar compras, reservas y permisos, agregar sus pruebas en `tests/`.
 
 ## Documentación
 
+- [Despliegue gratuito para demostraciones](docs/despliegue.md)
+- [Configuración del entorno (.env)](docs/entorno.md)
+- [Deploy gratuito, verificación y backups](docs/deploy.md)
 - [Endpoints de la API](docs/endpoints.md)
 - [Modelo de datos](docs/base_de_datos.md)
 - [Alcance, hipótesis y supuestos (Confluence)](https://tp-ids-final.atlassian.net/wiki/spaces/~7120200d86d4e20fe64bbfa6c0b78ff3290878/pages/2621441)

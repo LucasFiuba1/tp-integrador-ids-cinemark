@@ -5,9 +5,10 @@ from src.backend.routes.auth import auth_bp
 from src.backend.routes.cartelera import cartelera_bp
 from src.backend.routes.compras import compras_bp
 from src.backend.routes.dashboards import dashboards_bp
+from src.backend.routes.perfil import perfil_bp
 from src.backend.routes.salud import salud_bp
 
 
 def registrar_rutas(app):
-    for blueprint in (salud_bp, auth_bp, cartelera_bp, compras_bp, admin_bp, dashboards_bp):
+    for blueprint in (salud_bp, auth_bp, cartelera_bp, compras_bp, perfil_bp, admin_bp, dashboards_bp):
         app.register_blueprint(blueprint)

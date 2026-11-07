@@ -51,7 +51,8 @@
 {# Tabla del backoffice dentro de un panel.
    columnas: [{"clave": "titulo", "titulo": "Título"}, {"clave": "estado", "titulo": "Estado", "tipo": "estado"}]
      tipo "estado" muestra un badge (con "textos": {valor: leyenda} opcional); "activo" hace lo mismo con un booleano
-     (true -> activa, false -> inactiva); "hora" y "fecha_hora" formatean ISO y "precio" muestra $6.500.
+     (true -> activa, false -> inactiva); "hora" y "fecha_hora" formatean ISO y "precio" muestra $6.500;
+     "libres" muestra "libres / capacidad" (ej. 98 / 132); si falta uno muestra solo el otro y sin ninguno, "—".
    filas: lista de dicts con "id" (y "activa" o "activo" si admite baja lógica).
    acciones: {"editar": "backoffice.editar_x", "baja": "backoffice.baja_x"}, endpoints que reciben id;
      "texto_baja" cambia la leyenda del botón de baja (por defecto "Dar de baja").
@@ -75,8 +76,10 @@
                   {% if columna.tipo == "activo" %}{% set valor = "activa" if valor else "inactiva" %}{% endif %}
                   {% if columna.tipo in ("estado", "activo") %}{{ badge_estado(valor, (columna.textos or {}).get(valor, '')) }}
                   {% elif columna.tipo == "precio" %}{{ valor | precio }}
+                  {% elif columna.tipo == "duracion" %}{{ valor // 60 }}h {{ valor % 60 }}m
                   {% elif columna.tipo == "hora" %}{{ valor | hora }}
                   {% elif columna.tipo == "fecha_hora" %}{{ valor | fecha_hora }}
+                  {% elif columna.tipo == "libres" %}{{ [valor, fila.capacidad] | select("defined") | reject("none") | join(" / ") or "—" }}
                   {% else %}{{ valor }}{% endif %}
                 </td>
               {% endfor %}
@@ -86,7 +89,11 @@
                     <a class="accion-texto" href="{{ url_for(acciones.editar, id=fila.id) }}">Editar</a>
                   {% endif %}
                   {% if acciones.baja and fila.activa is not sameas false and fila.activo is not sameas false %}
-                    <form method="post" action="{{ url_for(acciones.baja, id=fila.id) }}">
+                    {% if acciones.confirmacion %}
+                    <form method="post" action="{{ url_for(acciones.baja, id=fila.id) }}" onsubmit="return confirm('{{ acciones.confirmacion }}')">
+                      {% else %}
+                      <form method="post" action="{{ url_for(acciones.baja, id=fila.id) }}">
+                        {% endif %}
                       <button type="submit" class="accion-texto accion-peligro">{{ acciones.texto_baja or "Dar de baja" }}</button>
                     </form>
                   {% endif %}
@@ -117,8 +124,100 @@
   <div class="barra{% if destacada %} barra-destacada{% endif %}">
     <span class="barra-etiqueta">{{ etiqueta }}</span>
     <span class="barra-pista"><span class="barra-relleno" style="width: {{ porcentaje | round(1) }}%"></span></span>
-    <span class="barra-valor">{{ valor }}{{ sufijo }}</span>
+    <span class="barra-valor">{{ valor | numero }}{{ sufijo }}</span>
   </div>
+{% endmacro %}
+
+{% macro sala_tarjeta(sala) %}
+    <div class="panel sala-tarjeta">
+
+        <h3>{{ sala.nombre }}</h3>
+
+        <p>{{ sala.capacidad }} butacas</p>
+
+        {{ badge_estado("activa" if sala.activa else "inactiva") }}
+
+        <div class="sala-acciones">
+
+            <button type="button" class="accion-texto" disabled>
+                Editar
+            </button>
+
+            <button type="button" class="accion-texto accion-peligro" disabled>
+                Quitar
+            </button>
+
+        </div>
+
+    </div>
+{% endmacro %}
+
+
+{% macro local_tarjeta(local) %}
+    <section class="panel local-tarjeta">
+
+        <div class="local-cabecera">
+
+            <div>
+                <h2>{{ local.nombre }}</h2>
+                <p>{{ local.direccion }}</p>
+                {{ badge_estado("activa" if local.activa else "inactiva") }}
+            </div>
+
+            <div class="local-acciones">
+
+                <button type="button" class="accion-texto" disabled>
+                    Editar local
+                </button>
+
+                <button type="button" class="accion-texto accion-peligro" disabled>
+                    Eliminar
+                </button>
+
+            </div>
+
+        </div>
+
+        <div class="salas-lista">
+
+            {% for sala in local.salas %}
+                {{ sala_tarjeta(sala) }}
+            {% endfor %}
+
+            <div class="panel sala-tarjeta sala-agregar">
+
+                <button type="button" class="accion-texto" disabled>
+                    + Agregar sala
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+{% endmacro %}
+
+
+{# Gráfico de columnas de los dashboards (ej. entradas por franja horaria). filas: lista de diccionarios tal como
+   los devuelve la API; clave_etiqueta y clave_valor dicen qué dato va debajo y cuál define el alto.
+   El alto de cada columna es valor / máximo (menos el lugar del número, que va arriba) y la más alta se destaca
+   en rojo. #}
+{% macro columnas(filas, clave_etiqueta, clave_valor, titulo) %}
+  {% set maximo = filas | map(attribute=clave_valor) | max if filas else 0 %}
+  <ol class="columnas" aria-label="{{ titulo }}">
+    {% for fila in filas %}
+      {% set etiqueta = fila[clave_etiqueta] %}
+      {% set valor = fila[clave_valor] %}
+      {% set alto = valor / maximo * 100 if maximo else 0 %}
+      <li class="columna{% if valor == maximo %} columna-destacada{% endif %}">
+        <span class="columna-pista">
+          <span class="columna-valor">{{ valor | numero }}</span>
+          <span class="columna-relleno" style="height: calc({{ alto | round(1) }}% - var(--espacio-5))"></span>
+        </span>
+        <span class="columna-etiqueta">{{ etiqueta }}</span>
+      </li>
+    {% endfor %}
+  </ol>
 {% endmacro %}
 
 {# Casilla de verificación con su texto (ej. aceptar términos). Se marca si valor no está vacío. #}
@@ -155,6 +254,47 @@
   </ol>
 {% endmacro %}
 
+{# Grilla de butacas de una función, agrupada por fila y con la pantalla arriba. butacas tiene la forma de
+   GET /api/funciones/<id>/butacas ({"id", "fila", "numero", "estado"}). Cada libre es un checkbox butaca_ids
+   (HTML puro, sin JS) y seleccionadas son los ids que vuelven marcados si el formulario tuvo un error.
+   habilitada en falso (función ya comenzada) muestra las libres sin poder elegirlas. Además del color, la
+   seleccionada lleva ✓ y la ocupada ×. Las filas de 6 o más butacas se parten al medio con un pasillo. #}
+{% macro grilla_butacas(butacas, seleccionadas=[], habilitada=true) %}
+  <div class="butacas">
+    <p class="butacas-pantalla" aria-hidden="true">Pantalla</p>
+    <div class="butacas-filas">
+      {% for fila, butacas_fila in butacas | groupby("fila") %}
+        {% set pasillo = (butacas_fila | length) // 2 if butacas_fila | length >= 6 else 0 %}
+        <div class="butacas-fila" role="group" aria-label="Fila {{ fila }}">
+          <span class="butacas-fila-letra" aria-hidden="true">{{ fila }}</span>
+          {% for butaca in butacas_fila | sort(attribute="numero") %}
+            {% set nombre = fila ~ butaca.numero %}
+            {% set clase = "butaca butaca-pasillo" if loop.index == pasillo else "butaca" %}
+            {% if butaca.estado == "libre" and habilitada %}
+              <label class="{{ clase }}" title="{{ nombre }}">
+                <input class="visualmente-oculto" type="checkbox" name="butaca_ids" value="{{ butaca.id }}"
+                  {%- if butaca.id in seleccionadas %} checked{% endif %}>
+                <span class="butaca-marca" aria-hidden="true"></span>
+                <span class="visualmente-oculto">Butaca {{ nombre }}</span>
+              </label>
+            {% else %}
+              <span class="{{ clase }}" title="{{ nombre }}: {{ butaca.estado }}">
+                <span class="butaca-marca butaca-{{ butaca.estado }}" aria-hidden="true"></span>
+                <span class="visualmente-oculto">Butaca {{ nombre }}: {{ butaca.estado }}</span>
+              </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+    <ul class="butacas-leyenda" aria-label="Referencias">
+      <li><span class="butaca-marca" aria-hidden="true"></span>Libre</li>
+      <li><span class="butaca-marca butaca-seleccionada" aria-hidden="true"></span>Seleccionada</li>
+      <li><span class="butaca-marca butaca-ocupada" aria-hidden="true"></span>Ocupada</li>
+    </ul>
+  </div>
+{% endmacro %}
+
 {# Resumen lateral de la compra (servicios y pago): película, función, detalle de precios, total y vencimiento
    de la reserva. compra tiene la forma de GET /api/compras/<id>; el botón de la pantalla va en el caller(). #}
 {% macro resumen_compra(compra) %}
@@ -181,4 +321,282 @@
     <p class="resumen-vence">Tu reserva vence a las <strong>{{ compra.vence_en | hora }}</strong></p>
     {{ caller() }}
   </aside>
+{% endmacro %}
+
+{# Selector para usar dentro de un formulario (GET o POST). Cada opcion tiene "valor" y "texto". #}
+{% macro filtro(nombre, etiqueta, opciones, seleccionado='', error='') %}
+  <label class="filtro{% if error %} campo-invalido{% endif %}">
+    <span>{{ etiqueta }}</span>
+    <select name="{{ nombre }}"
+      {%- if error %} aria-invalid="true" aria-describedby="error-{{ nombre }}"{% endif %}>
+      {% for opcion in opciones %}
+        <option value="{{ opcion.valor }}"{% if opcion.valor|string == seleccionado|string %} selected{% endif %}>
+          {{ opcion.texto }}
+        </option>
+      {% endfor %}
+    </select>
+    {% if error %}<small class="campo-mensaje" id="error-{{ nombre }}">{{ error }}</small>{% endif %}
+  </label>
+{% endmacro %}
+
+{# Ícono decorativo (SVG de Figma en static/img). Con archivo_desktop cambia de archivo desde 64rem, porque Figma
+   exporta un SVG por tamaño. width/height son las dimensiones raíz del SVG; el texto accesible va aparte. #}
+{% macro icono(archivo, tamano, archivo_desktop='', tamano_desktop=0) %}
+  <picture class="icono">
+    {%- if archivo_desktop %}<source media="(min-width: 64rem)" srcset="{{ url_for('static', filename=archivo_desktop) }}" width="{{ tamano_desktop }}" height="{{ tamano_desktop }}">{% endif -%}
+    <img src="{{ url_for('static', filename=archivo) }}" width="{{ tamano }}" height="{{ tamano }}" alt="">
+  </picture>
+{%- endmacro %}
+
+{# Un selector de selectores_cartelera. Sin opciones queda deshabilitado con la misma indicación y una descripción
+   accesible que explica que todavía no hay datos para elegir. #}
+{% macro _selector(id_base, nombre, etiqueta, indicacion, sin_datos, opciones, seleccionado) %}
+  {% set id = id_base ~ "-" ~ nombre %}
+  <label class="visualmente-oculto" for="{{ id }}">{{ etiqueta }}</label>
+  <span class="selector">
+    <select id="{{ id }}" name="{{ nombre }}"{% if not opciones %} disabled aria-describedby="{{ id }}-ayuda"{% endif %}>
+      <option value="">{{ indicacion }}</option>
+      {% for opcion in opciones or [] %}
+        <option value="{{ opcion.valor }}"{% if opcion.valor|string == seleccionado|string %} selected{% endif %}>{{ opcion.texto }}</option>
+      {% endfor %}
+    </select>
+  </span>
+  {% if not opciones %}<span class="visualmente-oculto" id="{{ id }}-ayuda">{{ sin_datos }}</span>{% endif %}
+{% endmacro %}
+
+{# Selectores "Elegí local" y "Elegí película" (SCRUM-95, Figma 23:212 y 23:230), en un <form method="get"> hacia accion.
+   locales y peliculas: listas de {"valor": ..., "texto": ...} que arma la vista con datos reales; si una viene vacía
+   o en none, su selector queda deshabilitado. El botón "Ver" (sin JS hace falta para enviar) solo aparece si hay
+   algún catálogo.
+   local y pelicula: valores elegidos, normalmente request.args (local_id y pelicula_id) para mantener la selección.
+   id_base: prefijo de los id, para poder usar la macro más de una vez en la misma página.
+   ocultos: otros filtros activos que el formulario conserva como campos ocultos (ej. {"fecha": "2026-11-10"}); los
+   vacíos y los que ya tienen su selector (local_id, pelicula_id) se ignoran para no repetir el name. #}
+{% macro selectores_cartelera(accion, locales=none, peliculas=none, local='', pelicula='', id_base='selector', ocultos={}) %}
+  <form method="get" action="{{ accion }}" class="selectores" aria-label="Elegir local y película">
+    {% for nombre, valor in ocultos.items() if valor and nombre not in ("local_id", "pelicula_id") %}
+      <input type="hidden" name="{{ nombre }}" value="{{ valor }}">
+    {% endfor %}
+    <span class="selectores-local">
+      {{ icono("img/header/pin-mobile.svg", 14, "img/header/pin-desktop.svg", 16) }}
+      {{ _selector(id_base, "local_id", "Local", "Elegí local", "Todavía no hay locales para elegir.", locales, local) }}
+    </span>
+    {{ _selector(id_base, "pelicula_id", "Película", "Elegí película", "Todavía no hay películas para elegir.", peliculas, pelicula) }}
+    {% if locales or peliculas %}<button type="submit" class="selectores-enviar">Ver</button>{% endif %}
+  </form>
+{% endmacro %}
+
+{# Día de una fecha_hora ISO para mostrar: "2026-11-10T21:00:00" -> "10/11". Vacío si no hay fecha; si no tiene
+   formato ISO la devuelve tal cual (como los filtros de filtros.py). #}
+{% macro dia_funcion(fecha_hora) -%}
+  {%- if fecha_hora -%}
+    {%- set partes = (fecha_hora | string)[:10].split("-") -%}
+    {{- partes[2] ~ "/" ~ partes[1] if partes | length == 3 else fecha_hora -}}
+  {%- endif -%}
+{%- endmacro %}
+
+{# Horario de una función (Figma Componentes 23:146): hora grande y debajo "formato · idioma · sala · precio".
+   Funcion debe incluir id, fecha_hora, sala (o nombre_sala) y habilitada; formato, idioma y precio son opcionales y
+   los que vengan vacíos no se muestran. El llamador calcula habilitada como falso si la funcion empezo o no tiene
+   butacas libres. Sin grupo, la habilitada enlaza a la selección de butacas. Con grupo es una opción (radio) de ese
+   nombre para elegir entre varias funciones sin JS; elegida la deja marcada (ver funciones_por_local). #}
+{% macro chip_funcion(funcion, grupo='', elegida=false) %}
+  {% set habilitada = funcion.habilitada | default(false) and funcion.id is defined and funcion.id is not none %}
+  {% set sala = funcion.sala if funcion.sala is defined else funcion.nombre_sala | default('') %}
+  {% set partes = namespace(textos=[]) %}
+  {% for dato in (funcion.formato, funcion.idioma, sala) %}
+    {% if dato is defined and dato %}{% set partes.textos = partes.textos + [dato] %}{% endif %}
+  {% endfor %}
+  {% if funcion.precio is defined and funcion.precio is not none %}
+    {% set partes.textos = partes.textos + [funcion.precio | precio] %}
+  {% endif %}
+  {# Día y local no se ven en el chip (los da el grupo), pero van en su nombre accesible: así dos funciones a la
+     misma hora en días distintos no se anuncian igual. #}
+  {% set dia = dia_funcion(funcion.fecha_hora) %}
+  {% set lugar = funcion.nombre_local if funcion.nombre_local is defined else funcion.local | default('') %}
+  {% set contexto = [("Función del " ~ dia) if dia else "", lugar] | select | join(", ") %}
+  {% set contenido %}
+    {% if contexto %}<span class="visualmente-oculto">{{ contexto }}, a las </span>{% endif %}
+    <strong class="chip-funcion-hora">{{ funcion.fecha_hora | hora if funcion.fecha_hora else "A confirmar" }}</strong>
+    {%- if partes.textos %}<span class="visualmente-oculto">, </span><span class="chip-funcion-detalle">{{ partes.textos | join(" · ") }}</span>{% endif %}
+  {% endset %}
+  {% if habilitada and grupo %}
+    <label class="chip-funcion">
+      <input class="visualmente-oculto" type="radio" name="{{ grupo }}" value="{{ funcion.id }}"{% if elegida %} checked{% endif %}>
+      {{ contenido }}
+    </label>
+  {% elif habilitada %}
+    <a class="chip-funcion" href="{{ url_for('publico.butacas', funcion_id=funcion.id) }}">{{ contenido }}</a>
+  {% else %}
+    <span class="chip-funcion chip-funcion-deshabilitada" aria-disabled="true">{{ contenido }}</span>
+  {% endif %}
+{% endmacro %}
+
+{# Duración en minutos como en Figma: 116 -> "1h 56m", 124 -> "2h 04m". Sin un número positivo no escribe nada. #}
+{% macro duracion(minutos) -%}
+  {%- if minutos is number and minutos > 0 -%}
+    {{ (minutos // 60) | int }}h {{ "%02d" | format((minutos % 60) | int) }}m
+  {%- endif -%}
+{%- endmacro %}
+
+{# Póster de una película (cartelera, destacada y detalle). Sin poster_url muestra un fondo degradado con el título,
+   como los mockups de Figma (23:280 y 23:542); el tono sale del id para que las tarjetas vecinas no sean iguales.
+   decorativo: el título ya se lee al lado (tarjeta, destacada), así que la imagen no se anuncia dos veces. #}
+{% macro poster_pelicula(pelicula, decorativo=false, clase='') %}
+  {% set titulo = pelicula.titulo or "Película sin título" %}
+  {% set tono = ((pelicula.id - 1) % 6) + 1 if pelicula.id is number else 1 %}
+  {% if pelicula.poster_url %}
+    <img class="poster{% if clase %} {{ clase }}{% endif %}" src="{{ pelicula.poster_url }}" loading="lazy"
+      alt="{{ '' if decorativo else 'Póster de ' ~ titulo }}">
+  {% else %}
+    <div class="poster poster-vacio poster-tono-{{ tono }}{% if clase %} {{ clase }}{% endif %}"
+      {%- if decorativo %} aria-hidden="true"{% else %} role="img" aria-label="{{ titulo }} (sin póster)"{% endif %}>
+      <span class="poster-titulo" aria-hidden="true">{{ titulo }}</span>
+    </div>
+  {% endif %}
+{% endmacro %}
+
+{# Tarjeta de la grilla de cartelera (Figma Componentes 23:146 "Tarjeta película"): póster con la duración arriba,
+   clasificación, título (el link al detalle cubre toda la tarjeta) y género. Los datos en none no se muestran.
+   url: dirección del detalle, armada por la pantalla para conservar sus filtros; sin url el título no es link.
+   bajada: texto en lugar del género (en el perfil, "Vista el 18/10"). nivel: nivel del título (h2 por defecto). #}
+{% macro tarjeta_pelicula(pelicula, url=none, bajada='', nivel=2) %}
+  {% set tiempo = duracion(pelicula.duracion_min) %}
+  <article class="tarjeta-pelicula">
+    <div class="tarjeta-pelicula-poster">
+      {{ poster_pelicula(pelicula, decorativo=true) }}
+      {% if tiempo %}<span class="tarjeta-pelicula-duracion"><span class="visualmente-oculto">Duración: </span>{{ tiempo }}</span>{% endif %}
+    </div>
+    <div class="tarjeta-pelicula-cuerpo">
+      {% if pelicula.clasificacion %}
+        <p class="tarjeta-pelicula-etiquetas">{{ badge_estado("clasificacion", pelicula.clasificacion) }}</p>
+      {% endif %}
+      {% set titulo = pelicula.titulo or "Película sin título" %}
+      <h{{ nivel }} class="tarjeta-pelicula-titulo">{% if url %}<a href="{{ url }}">{{ titulo }}</a>{% else %}{{ titulo }}{% endif %}</h{{ nivel }}>
+      {% set detalle = bajada or pelicula.genero %}
+      {% if detalle %}<p class="tarjeta-pelicula-genero">{{ detalle }}</p>{% endif %}
+    </div>
+  </article>
+{% endmacro %}
+
+{# Funciones de una película agrupadas por local (Figma Detalle 23:542 / 26:1382): locales por nombre y, dentro de
+   cada uno, un subgrupo por día con su fecha visible ("10/11") y los horarios en el orden en que llegan. Sin el
+   filtro de fecha llegan funciones de varios días: sin el día, dos "21:00" serían indistinguibles.
+   Cada horario es un chip_funcion de un mismo grupo de radios: elegir uno muestra abajo "Función elegida" y el botón
+   "Elegir butacas" de esa función, solo con CSS (:has). La primera llega elegida para que siempre haya un botón.
+   funciones: lista con id, fecha_hora, nombre_sala, nombre_local y precio (GET /api/peliculas/<id>). #}
+{% macro funciones_por_local(funciones) %}
+  {% set primera = namespace(pendiente=true) %}
+  <div class="funciones">
+    {% for local, lista in funciones | groupby("nombre_local", default="Otro local") %}
+      {% set indice_local = loop.index %}
+      {% set dias = namespace(claves=[]) %}
+      {% for funcion in lista %}
+        {% set clave = (funcion.fecha_hora or "") | string %}
+        {% if clave[:10] not in dias.claves %}{% set dias.claves = dias.claves + [clave[:10]] %}{% endif %}
+      {% endfor %}
+      <section class="funciones-local" aria-labelledby="funciones-local-{{ indice_local }}">
+        <h3 id="funciones-local-{{ indice_local }}">{{ local }}</h3>
+        {% for dia in dias.claves %}
+        {% set id_dia = "funciones-dia-" ~ indice_local ~ "-" ~ loop.index %}
+        <div class="funciones-dia">
+        <p class="funciones-dia-titulo" id="{{ id_dia }}">{{ dia_funcion(dia) or "Fecha a confirmar" }}</p>
+        <ul class="funciones-horarios" role="list" aria-labelledby="{{ id_dia }}">
+          {% for funcion in lista if ((funcion.fecha_hora or "") | string)[:10] == dia %}
+            {% set vendible = funcion.id is not none %}
+            {% set elegida = vendible and primera.pendiente %}
+            {% if elegida %}{% set primera.pendiente = false %}{% endif %}
+            <li class="funcion-opcion">
+              {{ chip_funcion(dict(funcion, habilitada=vendible), grupo="funcion", elegida=elegida) }}
+              {% if vendible %}
+                {% set sala = funcion.nombre_sala or "" %}
+                <p class="funcion-elegida">
+                  <span class="funcion-elegida-texto">
+                    <span class="funcion-elegida-etiqueta">Función elegida</span>
+                    <strong>{{ funcion.fecha_hora | fecha_hora if funcion.fecha_hora else "Horario a confirmar" }} · {{ local }}{% if sala %} · {{ sala }}{% endif %}</strong>
+                  </span>
+                  <a class="boton" href="{{ url_for('publico.butacas', funcion_id=funcion.id) }}">Elegir butacas</a>
+                </p>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+        </div>
+        {% endfor %}
+      </section>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{# Detalle de una compra confirmada (compra confirmada y cancelación): título, datos de la función, total y número.
+   compra tiene la forma de GET /api/compras/<id>. #}
+{% macro detalle_compra(compra) %}
+  <div class="ticket-detalle">
+    <h2 id="titulo-ticket">{{ compra.pelicula }}</h2>
+    {% set servicios = namespace(textos=[]) %}
+    {% for servicio in compra.servicios %}
+      {% set servicios.textos = servicios.textos + [servicio.nombre ~ " × " ~ servicio.cantidad] %}
+    {% endfor %}
+    {{ datos([
+      ("Local", compra.local),
+      ("Sala", compra.sala),
+      ("Función", compra.funcion | fecha_hora),
+      ("Butaca" if compra.butacas | length == 1 else "Butacas", compra.butacas | join(", ")),
+      ("Servicios", servicios.textos | join(", ") or "Sin servicios"),
+    ]) }}
+    <p class="resumen-total"><span>Total</span><strong>{{ compra.total | precio }}</strong></p>
+    <p class="ticket-numero">N.º de compra #{{ compra.id }}</p>
+  </div>
+{% endmacro %}
+
+{# Compra en el perfil (Figma Mi perfil 26:781 / 26:2237): póster chico, película, función, butacas y servicios,
+   aviso de cancelación o de pago, estado, total y acciones. compra tiene la forma de GET /api/me/compras más
+   cancelable_hasta (ISO, lo calcula la ruta) y vence_en en las pendientes. horas_limite: plazo de cancelación. #}
+{% macro tarjeta_compra(compra, horas_limite) %}
+  {% set funcion = compra.funcion %}
+  {% set servicios = namespace(textos=[]) %}
+  {% for servicio in compra.servicios %}
+    {% set servicios.textos = servicios.textos + [servicio.nombre ~ " × " ~ servicio.cantidad] %}
+  {% endfor %}
+  {% set estados = {"confirmada": "Confirmada", "pendiente": "Pendiente de pago", "cancelada": "Cancelada"} %}
+  {% set estado = "utilizada" if compra.utilizada_en else compra.estado %}
+  <article class="panel tarjeta-compra" aria-labelledby="compra-{{ compra.id }}">
+    {{ poster_pelicula({"id": funcion.pelicula_id, "titulo": funcion.pelicula, "poster_url": funcion.poster_url},
+                       decorativo=true, clase="tarjeta-compra-poster") }}
+    <div class="tarjeta-compra-cuerpo">
+      <h2 class="tarjeta-compra-titulo" id="compra-{{ compra.id }}">{{ funcion.pelicula }}</h2>
+      <p class="tarjeta-compra-dato">{{ [funcion.local, funcion.sala, funcion.fecha_hora | dia_semana, funcion.fecha_hora | hora] | join(" · ") }}</p>
+      <p class="tarjeta-compra-dato">{{ "Butaca" if compra.butacas | length == 1 else "Butacas" }} {{ compra.butacas | join(", ") }}
+        {%- if servicios.textos %} · {{ servicios.textos | join(", ") }}{% endif %}</p>
+      {% if compra.estado == "pendiente" %}
+        <p class="tarjeta-compra-aviso">Las butacas se liberan a las {{ compra.vence_en | hora }} si no pagás</p>
+      {% elif compra.estado == "cancelada" %}
+        <p class="tarjeta-compra-aviso">Cancelada el {{ compra.cancelada_en | fecha_hora }}</p>
+      {% elif compra.utilizada_en %}
+        <p class="tarjeta-compra-nota">Ingresaste el {{ compra.utilizada_en | fecha_hora }}</p>
+      {% elif compra.cancelable %}
+        <p class="tarjeta-compra-aviso">Se puede cancelar hasta las {{ compra.cancelable_hasta | hora }}</p>
+      {% else %}
+        <p class="tarjeta-compra-nota">No se puede cancelar: faltan menos de {{ horas_limite }} horas</p>
+      {% endif %}
+    </div>
+    <div class="tarjeta-compra-cierre">
+      {{ badge_estado(estado, "Utilizada" if compra.utilizada_en else estados.get(compra.estado, compra.estado)) }}
+      <p class="tarjeta-compra-total"><span class="visualmente-oculto">Total: </span>{{ compra.total | precio }}</p>
+      {% if compra.estado == "pendiente" %}
+        <div class="tarjeta-compra-acciones">
+          <a class="boton" href="{{ url_for('publico.pago', compra_id=compra.id) }}">Pagar ahora</a>
+        </div>
+      {% elif compra.estado == "confirmada" and not compra.utilizada_en %}
+        <div class="tarjeta-compra-acciones">
+          <a class="boton" href="{{ url_for('publico.compra_confirmada', compra_id=compra.id) }}">Ver QR</a>
+          {% if compra.cancelable %}
+            <a class="boton boton-secundario" href="{{ url_for('publico.cancelar_compra', compra_id=compra.id) }}">Cancelar</a>
+          {% else %}
+            <span class="boton boton-secundario boton-deshabilitado" aria-disabled="true">Cancelar</span>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </article>
 {% endmacro %}

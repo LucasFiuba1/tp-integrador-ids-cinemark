@@ -64,6 +64,7 @@ Pesos: `--peso-normal` (400), `--peso-medio` (500), `--peso-negrita` (700). Inte
 | `--ancho-sidebar` | 256 px (backoffice) |
 | `--ancho-formulario` | 416 px (tarjeta de ingresar y crear cuenta) |
 | `--ancho-ticket` | 640 px (compra confirmada) |
+| `--alto-grafico` | 192 px (gráfico de columnas de los dashboards) |
 | `--transicion` | 150 ms para hover |
 
 ## Breakpoints (mobile-first)
@@ -76,6 +77,51 @@ CSS no admite variables dentro de `@media`, así que se usan estos valores liter
 | tablet | `@media (min-width: 48rem)` | 768 px |
 | desktop | `@media (min-width: 64rem)` | frames D/B (1440 px) |
 | ancho | `@media (min-width: 90rem)` | 1440 px en adelante |
+
+## Header público (SCRUM-95)
+
+Referencias: **Header/Desktop** `23:221` y **Header/Mobile** `23:237`, dentro de **Componentes** `23:146`.
+`base.html` incluye `templates/parciales/header.html`; el backoffice conserva su sidebar al reemplazar
+`block cabecera`. En mobile, la marca queda entre los íconos de menú y usuario, con los selectores siempre visibles
+en una segunda fila. En desktop, la barra se centra dentro de `--ancho-contenido`.
+El menú móvil se despliega con un checkbox y CSS; la cuenta usa `<details>`, sin JavaScript.
+
+El parcial muestra los accesos según la sesión: **Ingresar** sin sesión; nombre y **Salir** (formulario `POST`)
+con sesión (dentro del menú de cuenta); **Backoffice** para administradores y **Mi perfil** para clientes.
+`ruta_disponible(endpoint)`,
+registrada por `src/frontend/header.py`, permite ofrecer enlaces con `url_for` solo cuando existe una ruta
+sin parámetros obligatorios. Las secciones aún no implementadas se muestran deshabilitadas, no con enlaces `#`.
+
+La vista puede pasar `header_locales` y `header_peliculas`, listas de opciones con las claves `valor` y `texto`.
+El header no consulta la API ni inventa catálogos: sin esas listas, los selectores quedan deshabilitados.
+La selección se conserva desde `request.args` (`local_id`, `pelicula_id`) y se envía por `GET` a `publico.inicio`.
+El botón **Ver** aparece cuando al menos uno de los catálogos tiene opciones; sin opciones, los campos conservan
+su indicación y explican el estado mediante una descripción accesible.
+La carga de los catálogos y el filtrado real de la cartelera pertenecen a su integración, no a este componente.
+
+Macros reutilizables de `macros.html`:
+
+| Macro | Uso |
+|---|---|
+| `selectores_cartelera(accion, locales=none, peliculas=none, local='', pelicula='', id_base='selector')` | Formulario GET de local/película. `accion` se obtiene con `url_for`; `id_base` distingue los campos si hay varios formularios. |
+| `icono(archivo, tamano, archivo_desktop='', tamano_desktop=0)` | Ícono decorativo local en `<picture>`; la variante desktop se usa desde `64rem`. Conserva las dimensiones raíz del SVG y deja el texto accesible al control que lo contiene. |
+
+Los cinco SVG de `static/img/header/` se descargaron de Figma sin modificar: menú mobile (22 px), usuario
+mobile/desktop (22/20 px) y pin mobile/desktop (14/16 px). No se usan URLs temporales de Figma en la aplicación.
+
+| Token específico del header | Valor | Uso |
+|---|---|---|
+| `--texto-marca-header` | `1.75rem` | Marca desktop (28 px). |
+| `--texto-marca-header-mobile` | `1.375rem` | Marca mobile (22 px). |
+| `--texto-selector-mobile` | `.8125rem` | Selectores mobile (13 px). |
+| `--espaciado-marca-header` | `.07em` | Espaciado de letras de la marca. |
+| `--espacio-header-barra` | `.875rem` | Espaciado vertical de la barra mobile (14 px). |
+| `--espacio-header-grupo` | `2.25rem` | Separación entre marca y navegación (36 px). |
+| `--espacio-header-menu` | `1.75rem` | Separación entre enlaces desktop (28 px). |
+| `--espacio-header-icono` | `.375rem` | Separación pin/local en mobile (6 px). |
+| `--ancho-selector` | `10rem` | Tope de los selectores desde 1440 px y mínimo del menú de cuenta. |
+| `--ancho-selector-compacto` | `7.5rem` | Tope de selectores por debajo de 1440 px. |
+| `--ancho-nombre-header` | `10rem` | Tope del nombre junto al ícono desde 1440 px; los nombres largos se truncan. |
 
 ## Componentes del backoffice
 
@@ -93,10 +139,13 @@ flash se muestran dentro del panel principal. Las vistas se protegen con `@requi
 | `tabla(columnas, filas, acciones={}, vacio=...)` | Tabla dentro de un `.panel`. Columnas `{"clave", "titulo", "tipo"}`: `tipo: "estado"` muestra un badge (con `"textos": {valor: leyenda}` opcional), `"activo"` hace lo mismo a partir de un booleano (`true` → `activa`, `false` → `inactiva`), `"precio"` muestra `$6.500` y `"hora"` / `"fecha_hora"` formatean fechas ISO. Acciones `{"editar": endpoint, "baja": endpoint}` que reciben `id`: "Editar" es un link y "Dar de baja" un `<form method="post">` en rojo (`"texto_baja"` cambia la leyenda, ej. "Quitar"), que no se ofrece si `fila.activa` o `fila.activo` es `false`. Sin filas muestra `vacio`. En mobile cada fila se apila con la etiqueta de cada dato. |
 | `badge_estado(estado, texto='')` | Palabra en mayúscula con borde: `activa` (verde), `inactiva` (gris, borde punteado), `cancelada` (rojo), `utilizada` (blanco). Se distingue por el texto, no solo por el color; `texto` cambia la leyenda (ej. "En cartelera"). |
 | `tarjeta_kpi(titulo, valor, detalle='', tono='')` | Indicador de los dashboards; agrupar en `<div class="kpis">` (2 por fila en mobile, 4 en desktop). `tono` `positivo`/`negativo` colorea el detalle. |
-| `barra(etiqueta, valor, maximo=100, sufijo='', destacada=false)` | Fila etiqueta / pista / valor; ancho `valor / maximo` con tope 100 %. Relleno blanco y `destacada` en `--color-primario`. |
+| `barra(etiqueta, valor, maximo=100, sufijo='', destacada=false)` | Fila etiqueta / pista / valor; ancho `valor / maximo` con tope 100 %. Relleno blanco y `destacada` en `--color-primario`. El valor se muestra con el filtro `numero`. |
+| `filtro(nombre, etiqueta, opciones, seleccionado='')` | Selector para colocar dentro de un `<form method="get">`. Cada opción es `{"valor": ..., "texto": ...}`. |
+| `chip_funcion(funcion)` | Muestra hora, formato, idioma y sala; `formato` e `idioma` son opcionales. La función debe incluir `id`, `fecha_hora`, `sala` y `habilitada`; el llamador marca `habilitada` como falso si ya comenzó o no tiene butacas libres. Enlaza a selección de butacas solo cuando está habilitada. |
+| `columnas(filas, clave_etiqueta, clave_valor, titulo)` | Gráfico de columnas (ej. entradas por franja horaria): `filas` es la lista de diccionarios de la API y las claves indican qué dato va de etiqueta y cuál de valor; el alto es `valor / máximo` dentro de `--alto-grafico` y la más alta va en `--color-primario`; `titulo` es el `aria-label` de la lista. |
 
 Filtros de Jinja (`src/frontend/filtros.py`): `fecha_hora` (`2026-10-24T19:30:00` → `24/10 · 19:30`), `hora`
-(`19:30`) y `precio` (`6500` → `$6.500`, `6500.5` → `$6.500,50`). Si el valor no tiene el formato esperado lo muestran tal cual.
+(`19:30`), `numero` (`1742` → `1.742`, `4.2` → `4,2`) y `precio` (`6500` → `$6.500`, `6500.5` → `$6.500,50`). Si el valor no tiene el formato esperado lo muestran tal cual.
 
 Clases sueltas: `.panel` (tarjeta oscura para gráficos y formularios, con `h2`), `.formulario-linea` (formulario de
 alta/edición de los ABM: campos apilados en mobile y en una fila con el botón en desktop, acciones en

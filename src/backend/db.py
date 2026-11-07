@@ -3,6 +3,7 @@
 Cada función abre su propia conexión y la cierra al terminar, así no hay
 conexiones globales compartidas entre requests.
 """
+import ssl
 from contextlib import contextmanager
 
 import pymysql
@@ -11,6 +12,8 @@ from flask import current_app
 
 def _conectar():
     config = current_app.config
+    # Con DB_SSL se cifra la conexión verificando certificado y hostname contra los CA del sistema.
+    opciones_tls = {"ssl": ssl.create_default_context()} if config.get("DB_SSL") else {}
     return pymysql.connect(
         host=config["DB_HOST"],
         port=config["DB_PORT"],
@@ -20,24 +23,28 @@ def _conectar():
         charset="utf8mb4",
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=False,
+        **opciones_tls,
     )
 
 
-def consultar(sql, parametros=None):
-    """Ejecuta un SELECT y devuelve una lista de diccionarios."""
+def _leer(sql, parametros, leer_filas):
     conexion = _conectar()
     try:
         with conexion.cursor() as cursor:
             cursor.execute(sql, parametros or ())
-            return cursor.fetchall()
+            return leer_filas(cursor)
     finally:
         conexion.close()
 
 
+def consultar(sql, parametros=None):
+    """Ejecuta un SELECT y devuelve una lista de diccionarios."""
+    return _leer(sql, parametros, lambda cursor: cursor.fetchall())
+
+
 def consultar_uno(sql, parametros=None):
     """Ejecuta un SELECT y devuelve una sola fila (o None)."""
-    filas = consultar(sql, parametros)
-    return filas[0] if filas else None
+    return _leer(sql, parametros, lambda cursor: cursor.fetchone())
 
 
 def ejecutar(sql, parametros=None):

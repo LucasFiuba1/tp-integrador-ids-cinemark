@@ -6,6 +6,7 @@ from flask import Flask, render_template
 
 from src.frontend.config import cargar_configuracion
 from src.frontend.filtros import registrar_filtros
+from src.frontend.header import registrar_header
 from src.frontend.routes import registrar_rutas
 
 
@@ -13,7 +14,12 @@ def create_app():
     app = Flask(__name__)
     app.config.update(cargar_configuracion())
     registrar_filtros(app)
+    registrar_header(app)
     registrar_rutas(app)
+
+    @app.errorhandler(403)
+    def sin_permiso(_error):
+        return render_template("errores/403.html"), 403
 
     @app.errorhandler(404)
     def no_encontrado(_error):

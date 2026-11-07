@@ -35,7 +35,7 @@ erDiagram
     locales {
         int id PK
         varchar nombre UK
-        varchar direccion
+        varchar direccion UK
     }
     salas {
         int id PK
