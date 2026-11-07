@@ -6,6 +6,7 @@ import requests
 from werkzeug.exceptions import HTTPException
 
 from src.backend.services import tmdb
+from src.tests.utilidades import afirmar_error_json
 
 BUSQUEDA = {
     "results": [
@@ -40,12 +41,10 @@ def get(app_backend):
 
 
 def afirmar_error(status, codigo, funcion, *args):
-    """error_api corta con una HTTPException que lleva la respuesta JSON armada."""
+    """error_api corta con una HTTPException que lleva la respuesta JSON armada; se valida con el helper común."""
     with pytest.raises(HTTPException) as error:
         funcion(*args)
-    respuesta = error.value.response
-    assert respuesta.status_code == status
-    assert respuesta.get_json()["error"]["codigo"] == codigo
+    afirmar_error_json(error.value.response, status, codigo)
 
 
 # --- búsqueda ---
