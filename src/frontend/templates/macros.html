@@ -335,6 +335,48 @@
   </label>
 {% endmacro %}
 
+{# Ícono decorativo (SVG de Figma en static/img). Con archivo_desktop cambia de archivo desde 64rem, porque Figma
+   exporta un SVG por tamaño. width/height son las dimensiones raíz del SVG; el texto accesible va aparte. #}
+{% macro icono(archivo, tamano, archivo_desktop='', tamano_desktop=0) %}
+  <picture class="icono">
+    {%- if archivo_desktop %}<source media="(min-width: 64rem)" srcset="{{ url_for('static', filename=archivo_desktop) }}" width="{{ tamano_desktop }}" height="{{ tamano_desktop }}">{% endif -%}
+    <img src="{{ url_for('static', filename=archivo) }}" width="{{ tamano }}" height="{{ tamano }}" alt="">
+  </picture>
+{%- endmacro %}
+
+{# Un selector de selectores_cartelera. Sin opciones queda deshabilitado con la misma indicación y una descripción
+   accesible que explica que todavía no hay datos para elegir. #}
+{% macro _selector(id_base, nombre, etiqueta, indicacion, sin_datos, opciones, seleccionado) %}
+  {% set id = id_base ~ "-" ~ nombre %}
+  <label class="visualmente-oculto" for="{{ id }}">{{ etiqueta }}</label>
+  <span class="selector">
+    <select id="{{ id }}" name="{{ nombre }}"{% if not opciones %} disabled aria-describedby="{{ id }}-ayuda"{% endif %}>
+      <option value="">{{ indicacion }}</option>
+      {% for opcion in opciones or [] %}
+        <option value="{{ opcion.valor }}"{% if opcion.valor|string == seleccionado|string %} selected{% endif %}>{{ opcion.texto }}</option>
+      {% endfor %}
+    </select>
+  </span>
+  {% if not opciones %}<span class="visualmente-oculto" id="{{ id }}-ayuda">{{ sin_datos }}</span>{% endif %}
+{% endmacro %}
+
+{# Selectores "Elegí local" y "Elegí película" (SCRUM-95, Figma 23:212 y 23:230), en un <form method="get"> hacia accion.
+   locales y peliculas: listas de {"valor": ..., "texto": ...} que arma la vista con datos reales; si una viene vacía
+   o en none, su selector queda deshabilitado. El botón "Ver" (sin JS hace falta para enviar) solo aparece si hay
+   algún catálogo.
+   local y pelicula: valores elegidos, normalmente request.args (local_id y pelicula_id) para mantener la selección.
+   id_base: prefijo de los id, para poder usar la macro más de una vez en la misma página. #}
+{% macro selectores_cartelera(accion, locales=none, peliculas=none, local='', pelicula='', id_base='selector') %}
+  <form method="get" action="{{ accion }}" class="selectores" aria-label="Elegir local y película">
+    <span class="selectores-local">
+      {{ icono("img/header/pin-mobile.svg", 14, "img/header/pin-desktop.svg", 16) }}
+      {{ _selector(id_base, "local_id", "Local", "Elegí local", "Todavía no hay locales para elegir.", locales, local) }}
+    </span>
+    {{ _selector(id_base, "pelicula_id", "Película", "Elegí película", "Todavía no hay películas para elegir.", peliculas, pelicula) }}
+    {% if locales or peliculas %}<button type="submit" class="selectores-enviar">Ver</button>{% endif %}
+  </form>
+{% endmacro %}
+
 {# Funcion debe incluir id, fecha_hora, sala y habilitada; idioma y formato son opcionales.
    El llamador calcula habilitada como falso si la funcion empezo o no tiene butacas libres. #}
 {% macro chip_funcion(funcion) %}

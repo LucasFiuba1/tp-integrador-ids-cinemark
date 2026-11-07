@@ -1,0 +1,72 @@
+{# Header público (SCRUM-95). Figma, frame Componentes 23:146: Header/Desktop 23:221 y Header/Mobile 23:237.
+   Lo incluye base.html. Una sola navegación en el HTML para los dos tamaños.
+   Mobile: ☰ a la izquierda, marca al centro y usuario a la derecha; debajo, siempre visible, la fila de selectores.
+   El checkbox #cabecera-menu-abierto despliega el menú sin JS.
+   Desktop: marca y menú a la izquierda; pin, selectores y usuario a la derecha, dentro del ancho de contenido.
+
+   Contexto opcional que puede pasar la vista (el header no llama al backend):
+     header_locales, header_peliculas: listas de {"valor", "texto"} para los selectores. Sin ellas, deshabilitados.
+   La selección actual sale de request.args (local_id, pelicula_id) y el formulario va por GET a publico.inicio.
+   Las secciones sin pantalla todavía se muestran deshabilitadas hasta que exista su ruta (ver header.py).
+   Con sesión, el ícono de usuario abre un <details> con el nombre, Backoffice (admin) o Mi perfil, y Salir. #}
+{% from "macros.html" import icono, selectores_cartelera %}
+
+{% macro enlace(endpoint, texto) %}
+  {% if ruta_disponible(endpoint) %}
+    <a href="{{ url_for(endpoint) }}"{% if request.endpoint == endpoint %} aria-current="page"{% endif %}>{{ texto }}</a>
+  {% else %}
+    <span class="menu-deshabilitado" title="Próximamente">{{ texto }} <span class="menu-pronto">Pronto<span class="visualmente-oculto">: todavía no disponible</span></span></span>
+  {% endif %}
+{% endmacro %}
+
+{% set icono_usuario = icono("img/header/usuario-mobile.svg", 22, "img/header/usuario-desktop.svg", 20) %}
+
+<header class="marquesina">
+  <input type="checkbox" id="cabecera-menu-abierto" class="cabecera-interruptor visualmente-oculto" aria-controls="cabecera-menu">
+  <div class="cabecera-barra">
+    <label for="cabecera-menu-abierto" class="cabecera-boton">
+      {{ icono("img/header/menu-mobile.svg", 22) }}<span class="visualmente-oculto">Menú</span>
+    </label>
+
+    <div class="cabecera-izquierda">
+      <a class="cabecera-marca" href="{{ url_for('publico.inicio') }}">Cine Paradiso</a>
+      <nav class="menu" id="cabecera-menu" aria-label="Principal">
+        <ul>
+          <li>{{ enlace("publico.inicio", "Películas") }}</li>
+          <li>{{ enlace("publico.servicios", "Servicios") }}</li>
+          <li>{{ enlace("publico.mis_compras", "Mis compras") }}</li>
+        </ul>
+      </nav>
+    </div>
+
+    <div class="cabecera-derecha">
+      {{ selectores_cartelera(url_for("publico.inicio"), header_locales, header_peliculas,
+                              request.args.get("local_id", ""), request.args.get("pelicula_id", ""), "cabecera") }}
+
+      {% if session.get("token") %}
+        {% set es_admin = session.get("rol") == "admin" %}
+        {% set nombre = session.get("nombre") or ("Administrador" if es_admin else "Mi cuenta") %}
+        <details class="cabecera-usuario">
+          <summary class="cabecera-usuario-boton">
+            {{ icono_usuario }}<span class="cabecera-usuario-texto cabecera-usuario-sesion"><span class="visualmente-oculto">Cuenta de </span>{{ nombre }}</span>
+          </summary>
+          <div class="cabecera-usuario-panel">
+            <p class="cabecera-usuario-nombre">{{ nombre }}</p>
+            {% if es_admin %}
+              <a class="cabecera-enlace" href="{{ url_for('backoffice.inicio') }}">Backoffice</a>
+            {% else %}
+              {{ enlace("publico.perfil", "Mi perfil") }}
+            {% endif %}
+            <form method="post" action="{{ url_for('publico.salir') }}">
+              <button type="submit" class="boton boton-secundario">Salir</button>
+            </form>
+          </div>
+        </details>
+      {% else %}
+        <a class="cabecera-usuario-boton" href="{{ url_for('publico.ingresar') }}">
+          {{ icono_usuario }}<span class="cabecera-usuario-texto">Ingresar</span>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</header>
