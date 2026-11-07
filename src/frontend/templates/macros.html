@@ -51,7 +51,8 @@
 {# Tabla del backoffice dentro de un panel.
    columnas: [{"clave": "titulo", "titulo": "Título"}, {"clave": "estado", "titulo": "Estado", "tipo": "estado"}]
      tipo "estado" muestra un badge (con "textos": {valor: leyenda} opcional); "activo" hace lo mismo con un booleano
-     (true -> activa, false -> inactiva); "hora" y "fecha_hora" formatean ISO y "precio" muestra $6.500.
+     (true -> activa, false -> inactiva); "hora" y "fecha_hora" formatean ISO y "precio" muestra $6.500;
+     "libres" muestra "libres / capacidad" (ej. 98 / 132); si falta uno muestra solo el otro y sin ninguno, "—".
    filas: lista de dicts con "id" (y "activa" o "activo" si admite baja lógica).
    acciones: {"editar": "backoffice.editar_x", "baja": "backoffice.baja_x"}, endpoints que reciben id;
      "texto_baja" cambia la leyenda del botón de baja (por defecto "Dar de baja").
@@ -78,6 +79,7 @@
                   {% elif columna.tipo == "duracion" %}{{ valor // 60 }}h {{ valor % 60 }}m
                   {% elif columna.tipo == "hora" %}{{ valor | hora }}
                   {% elif columna.tipo == "fecha_hora" %}{{ valor | fecha_hora }}
+                  {% elif columna.tipo == "libres" %}{{ [valor, fila.capacidad] | select("defined") | reject("none") | join(" / ") or "—" }}
                   {% else %}{{ valor }}{% endif %}
                 </td>
               {% endfor %}
@@ -321,7 +323,7 @@
   </aside>
 {% endmacro %}
 
-{# Selector para usar dentro de un formulario GET. Cada opcion tiene "valor" y "texto". #}
+{# Selector para usar dentro de un formulario (GET o POST). Cada opcion tiene "valor" y "texto". #}
 {% macro filtro(nombre, etiqueta, opciones, seleccionado='', error='') %}
   <label class="filtro{% if error %} campo-invalido{% endif %}">
     <span>{{ etiqueta }}</span>
