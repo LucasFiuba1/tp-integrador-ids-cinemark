@@ -1,5 +1,5 @@
 """Páginas para el cliente: cartelera, compra y perfil."""
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
@@ -289,63 +289,82 @@ def cancelar_compra(compra_id):
     return render_template("compra/cancelar.html", compra=_compra_ejemplo(compra_id, confirmada=True))
 
 
-# SCRUM-116: Perfil del cliente maquetado con datos ficticios.
-@publico_bp.get("/perfil")
-@requiere_sesion
-def perfil():
-    datos = {
-        "cliente": {
-            "nombre": "Lucas Berardi",
-            "email": "lucas@email.com",
-            "inicial": "L",
-        },
+# Perfil del cliente maquetado (SCRUM-116). Los datos de ejemplo tienen la forma de GET /api/auth/me,
+# GET /api/me/compras y GET /api/me/peliculas-vistas (más lo que pide el mockup y la API todavía no manda: el email,
+# la compra pendiente con vence_en y la duración y clasificación de las vistas). SCRUM-49 los reemplaza por llamar(...).
+PESTANAS_PERFIL = (("proximas", "Próximas"), ("historial", "Historial"), ("canceladas", "Canceladas"))
+HORAS_LIMITE_CANCELACION = 2  # misma regla que el backend (config HORAS_LIMITE_CANCELACION)
+
+
+def _perfil_ejemplo():
+    return {
+        "usuario": {"id": 7, "nombre": "Lucas Berardi", "email": "lucas@email.com", "rol": "cliente"},
         "compras": [
-            {
-                "id": 1042,
-                "pelicula": "La noche del telón",
-                "local": "Paradiso Centro",
-                "sala": "Sala 1",
-                "fecha": "15/11/2026",
-                "hora": "19:30",
-                "butacas": ["D5", "D6"],
-                "combo": "Combo pochoclos grande",
-                "estado": "confirmada",
-                "precio": 23000,
-                "pestana": "proximas",
-            },
-            {
-                "id": 1038,
-                "pelicula": "El último viaje",
-                "local": "Paradiso Norte",
-                "sala": "Sala 2",
-                "fecha": "20/10/2026",
-                "hora": "20:00",
-                "butacas": ["B4", "B5"],
-                "combo": "",
-                "estado": "finalizada",
-                "precio": 16500,
-                "pestana": "historial",
-            },
-            {
-                "id": 1035,
-                "pelicula": "Sombras del pasado",
-                "local": "Paradiso Centro",
-                "sala": "Sala 3",
-                "fecha": "18/10/2026",
-                "hora": "18:00",
-                "butacas": ["C7"],
-                "combo": "",
-                "estado": "cancelada",
-                "precio": 8500,
-                "pestana": "canceladas",
-            },
+            {"id": 1042, "estado": "confirmada", "total": 23000.0, "utilizada_en": None,
+             "funcion": {"id": 13, "fecha_hora": "2026-11-20T19:30:00", "pelicula": "La noche del telón",
+                         "poster_url": None, "sala": "Sala 1", "local": "Paradiso Centro"},
+             "butacas": ["D5", "D6", "D7"],
+             "servicios": [{"nombre": "Combo pochoclos grande", "cantidad": 1, "precio_unitario": 6500.0}],
+             "cancelable": True},
+            {"id": 1043, "estado": "confirmada", "total": 19000.0, "utilizada_en": None,
+             "funcion": {"id": 11, "fecha_hora": "2026-11-21T21:00:00", "pelicula": "Código medianoche",
+                         "poster_url": None, "sala": "Sala VIP", "local": "Paradiso Palermo"},
+             "butacas": ["B4"], "servicios": [{"nombre": "Acceso VIP", "cantidad": 1, "precio_unitario": 8000.0}],
+             "cancelable": False},
+            {"id": 1044, "estado": "pendiente", "total": 6000.0, "utilizada_en": None,
+             "vence_en": "2026-11-07T19:42:00",
+             "funcion": {"id": 12, "fecha_hora": "2026-11-23T17:00:00", "pelicula": "Pequeños gigantes",
+                         "poster_url": None, "sala": "Sala 2", "local": "Paradiso Belgrano"},
+             "butacas": ["F7"], "servicios": [], "cancelable": False},
+            {"id": 1031, "estado": "confirmada", "total": 16500.0, "utilizada_en": "2026-10-18T19:52:00",
+             "funcion": {"id": 6, "fecha_hora": "2026-10-18T20:00:00", "pelicula": "Aventuras en el Plata",
+                         "poster_url": None, "sala": "Sala 3", "local": "Paradiso Centro"},
+             "butacas": ["E8", "E9"], "servicios": [], "cancelable": False},
+            {"id": 1035, "estado": "cancelada", "total": 8500.0, "utilizada_en": None,
+             "cancelada_en": "2026-10-20T12:10:00",
+             "funcion": {"id": 9, "fecha_hora": "2026-10-21T18:00:00", "pelicula": "Sombras del pasado",
+                         "poster_url": None, "sala": "Sala 1", "local": "Paradiso Belgrano"},
+             "butacas": ["C7"], "servicios": [], "cancelable": False},
         ],
         "peliculas_vistas": [
-            {"titulo": "El último viaje", "edad": "+13", "duracion": "120 min", "fecha": "20/10/2026"},
-            {"titulo": "Sombras del pasado", "edad": "+16", "duracion": "105 min", "fecha": "18/10/2026"},
-            {"titulo": "La ciudad perdida", "edad": "+13", "duracion": "110 min", "fecha": "05/10/2026"},
-            {"titulo": "Un nuevo comienzo", "edad": "ATP", "duracion": "98 min", "fecha": "28/09/2026"},
+            {"pelicula_id": 3, "titulo": "Aventuras en el Plata", "poster_url": None, "duracion_min": 102,
+             "clasificacion": "ATP", "utilizada_en": "2026-10-18T19:52:00"},
+            {"pelicula_id": 4, "titulo": "El jardín de cristal", "poster_url": None, "duracion_min": 118,
+             "clasificacion": "+13", "utilizada_en": "2026-10-11T20:41:00"},
+            {"pelicula_id": 1, "titulo": "Pequeños gigantes", "poster_url": None, "duracion_min": 95,
+             "clasificacion": "ATP", "utilizada_en": "2026-10-04T17:02:00"},
+            {"pelicula_id": 2, "titulo": "Cuando cae la lluvia", "poster_url": None, "duracion_min": 124,
+             "clasificacion": "+16", "utilizada_en": "2026-09-27T21:55:00"},
         ],
     }
 
-    return render_template("perfil.html", datos=datos)
+
+def _pestana_compra(compra, ahora):
+    """Canceladas aparte; las usadas o con la función ya pasada van al historial y el resto son próximas."""
+    if compra["estado"] == "cancelada":
+        return "canceladas"
+    if compra.get("utilizada_en") or compra["funcion"]["fecha_hora"] < ahora.isoformat(timespec="seconds"):
+        return "historial"
+    return "proximas"
+
+
+def _cancelable_hasta(fecha_hora):
+    return (datetime.fromisoformat(fecha_hora) - timedelta(hours=HORAS_LIMITE_CANCELACION)).isoformat()
+
+
+@publico_bp.get("/perfil")
+@requiere_sesion
+def perfil():
+    datos = _perfil_ejemplo()
+    claves = [clave for clave, _ in PESTANAS_PERFIL]
+    # Una pestaña que no existe (?estado=cualquiera) muestra las próximas en lugar de romper la página.
+    pestana = request.args.get("estado") if request.args.get("estado") in claves else claves[0]
+    ahora = datetime.now()
+    compras = [
+        dict(compra, cancelable_hasta=_cancelable_hasta(compra["funcion"]["fecha_hora"]))
+        for compra in datos["compras"] if _pestana_compra(compra, ahora) == pestana
+    ]
+    return render_template(
+        "perfil.html", usuario=datos["usuario"], compras=compras, peliculas_vistas=datos["peliculas_vistas"],
+        pestanas=PESTANAS_PERFIL, pestana=pestana, horas_limite=HORAS_LIMITE_CANCELACION,
+    )

@@ -456,8 +456,9 @@
 
 {# Tarjeta de la grilla de cartelera (Figma Componentes 23:146 "Tarjeta película"): póster con la duración arriba,
    clasificación, título (el link al detalle cubre toda la tarjeta) y género. Los datos en none no se muestran.
-   url: dirección del detalle, armada por la pantalla para conservar sus filtros. #}
-{% macro tarjeta_pelicula(pelicula, url) %}
+   url: dirección del detalle, armada por la pantalla para conservar sus filtros; sin url el título no es link.
+   bajada: texto en lugar del género (en el perfil, "Vista el 18/10"). nivel: nivel del título (h2 por defecto). #}
+{% macro tarjeta_pelicula(pelicula, url=none, bajada='', nivel=2) %}
   {% set tiempo = duracion(pelicula.duracion_min) %}
   <article class="tarjeta-pelicula">
     <div class="tarjeta-pelicula-poster">
@@ -468,8 +469,10 @@
       {% if pelicula.clasificacion %}
         <p class="tarjeta-pelicula-etiquetas">{{ badge_estado("clasificacion", pelicula.clasificacion) }}</p>
       {% endif %}
-      <h2 class="tarjeta-pelicula-titulo"><a href="{{ url }}">{{ pelicula.titulo or "Película sin título" }}</a></h2>
-      {% if pelicula.genero %}<p class="tarjeta-pelicula-genero">{{ pelicula.genero }}</p>{% endif %}
+      {% set titulo = pelicula.titulo or "Película sin título" %}
+      <h{{ nivel }} class="tarjeta-pelicula-titulo">{% if url %}<a href="{{ url }}">{{ titulo }}</a>{% else %}{{ titulo }}{% endif %}</h{{ nivel }}>
+      {% set detalle = bajada or pelicula.genero %}
+      {% if detalle %}<p class="tarjeta-pelicula-genero">{{ detalle }}</p>{% endif %}
     </div>
   </article>
 {% endmacro %}
@@ -542,4 +545,56 @@
     <p class="resumen-total"><span>Total</span><strong>{{ compra.total | precio }}</strong></p>
     <p class="ticket-numero">N.º de compra #{{ compra.id }}</p>
   </div>
+{% endmacro %}
+
+{# Compra en el perfil (Figma Mi perfil 26:781 / 26:2237): póster chico, película, función, butacas y servicios,
+   aviso de cancelación o de pago, estado, total y acciones. compra tiene la forma de GET /api/me/compras más
+   cancelable_hasta (ISO, lo calcula la ruta) y vence_en en las pendientes. horas_limite: plazo de cancelación. #}
+{% macro tarjeta_compra(compra, horas_limite) %}
+  {% set funcion = compra.funcion %}
+  {% set servicios = namespace(textos=[]) %}
+  {% for servicio in compra.servicios %}
+    {% set servicios.textos = servicios.textos + [servicio.nombre ~ " × " ~ servicio.cantidad] %}
+  {% endfor %}
+  {% set estados = {"confirmada": "Confirmada", "pendiente": "Pendiente de pago", "cancelada": "Cancelada"} %}
+  {% set estado = "utilizada" if compra.utilizada_en else compra.estado %}
+  <article class="panel tarjeta-compra" aria-labelledby="compra-{{ compra.id }}">
+    {{ poster_pelicula({"id": funcion.id, "titulo": funcion.pelicula, "poster_url": funcion.poster_url},
+                       decorativo=true, clase="tarjeta-compra-poster") }}
+    <div class="tarjeta-compra-cuerpo">
+      <h2 class="tarjeta-compra-titulo" id="compra-{{ compra.id }}">{{ funcion.pelicula }}</h2>
+      <p class="tarjeta-compra-dato">{{ [funcion.local, funcion.sala, funcion.fecha_hora | dia_semana, funcion.fecha_hora | hora] | join(" · ") }}</p>
+      <p class="tarjeta-compra-dato">{{ "Butaca" if compra.butacas | length == 1 else "Butacas" }} {{ compra.butacas | join(", ") }}
+        {%- if servicios.textos %} · {{ servicios.textos | join(", ") }}{% endif %}</p>
+      {% if compra.estado == "pendiente" %}
+        <p class="tarjeta-compra-aviso">Las butacas se liberan a las {{ compra.vence_en | hora }} si no pagás</p>
+      {% elif compra.estado == "cancelada" %}
+        <p class="tarjeta-compra-aviso">Cancelada el {{ compra.cancelada_en | fecha_hora }}</p>
+      {% elif compra.utilizada_en %}
+        <p class="tarjeta-compra-nota">Ingresaste el {{ compra.utilizada_en | fecha_hora }}</p>
+      {% elif compra.cancelable %}
+        <p class="tarjeta-compra-aviso">Se puede cancelar hasta las {{ compra.cancelable_hasta | hora }}</p>
+      {% else %}
+        <p class="tarjeta-compra-nota">No se puede cancelar: faltan menos de {{ horas_limite }} horas</p>
+      {% endif %}
+    </div>
+    <div class="tarjeta-compra-cierre">
+      {{ badge_estado(estado, "Utilizada" if compra.utilizada_en else estados.get(compra.estado, compra.estado)) }}
+      <p class="tarjeta-compra-total"><span class="visualmente-oculto">Total: </span>{{ compra.total | precio }}</p>
+      {% if compra.estado == "pendiente" %}
+        <div class="tarjeta-compra-acciones">
+          <a class="boton" href="{{ url_for('publico.pago', compra_id=compra.id) }}">Pagar ahora</a>
+        </div>
+      {% elif compra.estado == "confirmada" and not compra.utilizada_en %}
+        <div class="tarjeta-compra-acciones">
+          <a class="boton" href="{{ url_for('publico.compra_confirmada', compra_id=compra.id) }}">Ver QR</a>
+          {% if compra.cancelable %}
+            <a class="boton boton-secundario" href="{{ url_for('publico.cancelar_compra', compra_id=compra.id) }}">Cancelar</a>
+          {% else %}
+            <span class="boton boton-secundario boton-deshabilitado" aria-disabled="true">Cancelar</span>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </article>
 {% endmacro %}

@@ -1527,3 +1527,98 @@ span.butaca { cursor: not-allowed; }
   .pelicula-titulo { font-size: var(--texto-4xl); }
   .pelicula-poster .poster { aspect-ratio: 2 / 3; }
 }
+
+/* Mi perfil (SCRUM-116, Figma 26:781 desktop y 26:2237 mobile).
+   Mobile: cada compra apila póster y datos arriba; estado, total y botones debajo. Las vistas van de a dos.
+   Desde tablet el cierre de la compra (estado, total y botones) pasa a la derecha y las vistas van de a cuatro. */
+.perfil { display: grid; gap: var(--espacio-6); }
+.perfil-cuenta { display: flex; flex-wrap: wrap; gap: var(--espacio-4); align-items: center; margin: 0; }
+.perfil-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--tamano-avatar);
+  height: var(--tamano-avatar);
+  border-radius: var(--radio-redondo);
+  background: var(--color-texto);
+  color: var(--color-texto-invertido);
+  font: var(--peso-negrita) var(--texto-xl)/1 var(--fuente-titulos);
+}
+.perfil-datos { flex: 1; min-width: 0; }
+.perfil-datos h1 { margin: 0; font-size: var(--texto-xl); overflow-wrap: anywhere; }
+.perfil-datos p { margin: var(--espacio-1) 0 0; color: var(--color-texto-secundario); font-size: var(--texto-sm); }
+.perfil-cuenta form { flex-basis: 100%; }
+.perfil-cuenta .boton { width: 100%; }
+.perfil-compras { display: grid; gap: var(--espacio-4); }
+.perfil-compras .pestanas { margin-bottom: 0; }
+.perfil-compras .estado-vacio { margin: 0; color: var(--color-texto-secundario); }
+.perfil-seccion-titulo { margin: 0; font-size: var(--texto-xl); }
+.perfil-bajada { margin: var(--espacio-2) 0 var(--espacio-5); color: var(--color-texto-secundario); font-size: var(--texto-sm); }
+
+.tarjeta-compra {
+  display: grid;
+  grid-template-columns: var(--ancho-poster-compra) minmax(0, 1fr);
+  gap: var(--espacio-4);
+  margin: 0;
+}
+.tarjeta-compra-poster { border-radius: var(--radio-sm); }
+.tarjeta-compra-poster .poster-titulo { display: none; }
+.tarjeta-compra-cuerpo { display: grid; gap: var(--espacio-1); align-content: start; }
+.tarjeta-compra-cuerpo p { margin: 0; font-size: var(--texto-xs); }
+.tarjeta-compra-titulo { margin: 0 0 var(--espacio-1); font-size: var(--texto-lg); }
+.tarjeta-compra-dato { color: var(--color-texto-secundario); }
+.tarjeta-compra-aviso, .tarjeta-compra-nota {
+  margin-top: var(--espacio-1);
+  font-family: var(--fuente-titulos);
+  letter-spacing: var(--espaciado-letras);
+  text-transform: uppercase;
+}
+.tarjeta-compra-aviso { color: var(--color-primario-texto); }
+.tarjeta-compra-nota { color: var(--color-texto-tenue); }
+.tarjeta-compra-cierre {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: var(--espacio-3);
+  align-items: center;
+}
+.tarjeta-compra-total { order: -1; margin: 0; font: var(--peso-negrita) var(--texto-xl)/1 var(--fuente-titulos); }
+.tarjeta-compra-acciones { display: flex; flex-basis: 100%; gap: var(--espacio-2); }
+.tarjeta-compra-acciones .boton { flex: 1; text-align: center; }
+.badge-confirmada { color: var(--color-exito); }
+.badge-pendiente { color: var(--color-texto-secundario); }
+.boton-deshabilitado, .boton-deshabilitado:hover {
+  border-color: var(--color-borde);
+  background: transparent;
+  color: var(--color-texto-tenue);
+  cursor: not-allowed;
+}
+
+/* Películas vistas: misma tarjeta que la cartelera, pero vertical y de a dos desde el celular */
+.grilla-vistas { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--espacio-5) var(--espacio-4); }
+.grilla-vistas .tarjeta-pelicula { grid-template-columns: 1fr; align-items: start; gap: var(--espacio-3); }
+.grilla-vistas .tarjeta-pelicula-titulo { font-size: var(--texto-md); }
+.grilla-vistas .tarjeta-pelicula .poster-titulo { font-size: var(--texto-lg); }
+
+@media (min-width: 48rem) {
+  .perfil-cuenta { flex-wrap: nowrap; padding: var(--espacio-5); }
+  .perfil-cuenta form { flex-basis: auto; }
+  .perfil-cuenta .boton { width: auto; }
+  .perfil-datos h1 { font-size: var(--texto-2xl); }
+  .perfil-seccion-titulo { font-size: var(--texto-2xl); }
+
+  .tarjeta-compra { grid-template-columns: var(--ancho-poster-compra) minmax(0, 1fr) auto; padding: var(--espacio-5); }
+  .tarjeta-compra-cierre {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    grid-column: auto;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .tarjeta-compra-total { order: 0; font-size: var(--texto-2xl); }
+  .tarjeta-compra-acciones { flex-basis: auto; }
+  .tarjeta-compra-acciones .boton { flex: none; }
+
+  .grilla-vistas { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--espacio-5); }
+  .grilla-vistas .tarjeta-pelicula .poster-titulo { font-size: var(--texto-xl); }
+}

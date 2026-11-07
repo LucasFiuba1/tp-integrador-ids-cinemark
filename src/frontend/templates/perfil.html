@@ -1,138 +1,49 @@
+{# Mi perfil del cliente (SCRUM-116). Figma Mi perfil 26:781 (desktop) y 26:2237 (mobile).
+   Datos de cuenta, compras filtradas por pestaña (links ?estado=, sin JS) y películas vistas (QR validado). #}
 {% extends "base.html" %}
-{% from "macros.html" import badge_estado %}
+{% from "macros.html" import tarjeta_compra, tarjeta_pelicula, dia_funcion %}
 
-{% block titulo %}Mi perfil - Cine Paradiso{% endblock %}
+{% block titulo %}Mi perfil · Cine Paradiso{% endblock %}
 
 {% block contenido %}
-
-<section class="perfil">
-
-    <!-- Datos del cliente -->
-    <header class="perfil-usuario">
-        <div class="perfil-identidad">
-            <span class="perfil-avatar">{{ datos.cliente.inicial }}</span>
-            <div>
-                <h1>{{ datos.cliente.nombre }}</h1>
-                <p>{{ datos.cliente.email }}</p>
-            </div>
-        </div>
-
-        <form method="post" action="{{ url_for('publico.salir') }}">
-            <button type="submit" class="boton boton-secundario">Cerrar sesión</button>
-        </form>
-    </header>
-
-    <!-- Compras y consumos -->
-    <section class="perfil-seccion">
-        <h2>Compras y consumos</h2>
-
-        <nav class="perfil-pestanas" aria-label="Secciones de compras">
-            <span class="perfil-pestana perfil-pestana-activa">Próximas</span>
-            <span class="perfil-pestana">Historial</span>
-            <span class="perfil-pestana">Canceladas</span>
-        </nav>
-
-        <div class="perfil-compras">
-            {% for compra in datos.compras %}
-            <article class="perfil-compra">
-
-                <div class="perfil-poster" aria-hidden="true">
-                    <span>{{ compra.pelicula[0] }}</span>
-                </div>
-
-                <div class="perfil-compra-info">
-                    <div class="perfil-compra-titulo">
-                        <h3>{{ compra.pelicula }}</h3>
-                        {{ badge_estado(compra.estado) }}
-                    </div>
-
-                    <p>{{ compra.local }} · {{ compra.sala }}</p>
-                    <p>{{ compra.fecha }} · {{ compra.hora }} hs</p>
-                    <p>
-                        <strong>Butacas:</strong>
-                        {{ compra.butacas | join(", ") }}
-                    </p>
-
-                    {% if compra.combo %}
-                    <p><strong>Combo:</strong> {{ compra.combo }}</p>
-                    {% endif %}
-                </div>
-
-                <div class="perfil-compra-acciones">
-                    <strong class="perfil-precio">{{ compra.precio | precio }}</strong>
-
-                    {% if compra.estado == "confirmada" %}
-                    <button type="button" class="boton">Ver QR</button>
-                    <button type="button" class="boton boton-secundario">Cancelar</button>
-                    {% elif compra.estado == "pendiente" %}
-                    <button type="button" class="boton">Pagar ahora</button>
-                    {% else %}
-                    <span class="perfil-accion-inactiva">
-                        {% if compra.estado == "cancelada" %}
-                        Compra cancelada
-                        {% else %}
-                        Función finalizada
-                        {% endif %}
-                    </span>
-                    {% endif %}
-                </div>
-
-            </article>
-            {% endfor %}
-        </div>
-    </section>
-
-    <!-- Películas vistas -->
-    <section class="perfil-seccion">
-        <h2>Películas que viste</h2>
-
-        <div class="perfil-peliculas">
-            {% for pelicula in datos.peliculas_vistas %}
-            <article class="perfil-pelicula">
-
-                <div class="perfil-pelicula-poster" aria-hidden="true">
-                    <span>{{ pelicula.titulo[0] }}</span>
-                </div>
-
-                <span class="perfil-edad">{{ pelicula.edad }}</span>
-                <h3>{{ pelicula.titulo }}</h3>
-                <p>{{ pelicula.duracion }}</p>
-                <p>Vista el {{ pelicula.fecha }}</p>
-
-            </article>
-            {% endfor %}
-        </div>
-    </section>
-
-</section>
-{% endblock %}
-
-{% block pie %}
-<footer class="perfil-footer">
-    <div>
-        <h3>Cine Paradiso</h3>
-        <p>Películas que vuelven a la pantalla grande.</p>
+<div class="perfil">
+  <section class="panel perfil-cuenta" aria-label="Tu cuenta">
+    <span class="perfil-avatar" aria-hidden="true">{{ usuario.nombre[:1] | upper }}</span>
+    <div class="perfil-datos">
+      <h1>{{ usuario.nombre }}</h1>
+      <p>{{ usuario.email }}</p>
     </div>
+    <form method="post" action="{{ url_for('publico.salir') }}">
+      <button type="submit" class="boton boton-secundario">Cerrar sesión</button>
+    </form>
+  </section>
 
-    <div>
-        <h3>Locales</h3>
-        <p>Paradiso Centro</p>
-        <p>Paradiso Norte</p>
-    </div>
+  <section class="perfil-compras" aria-labelledby="titulo-compras">
+    <h2 class="visualmente-oculto" id="titulo-compras">Mis compras</h2>
+    <nav class="pestanas" aria-label="Compras">
+      {% for clave, texto in pestanas %}
+        <a href="{{ url_for('publico.perfil', estado=clave) }}"{% if clave == pestana %} aria-current="page"{% endif %}>{{ texto }}</a>
+      {% endfor %}
+    </nav>
+    {% for compra in compras %}
+      {{ tarjeta_compra(compra, horas_limite) }}
+    {% else %}
+      <p class="panel estado-vacio">No tenés compras en esta sección.</p>
+    {% endfor %}
+  </section>
 
-    <div>
-        <h3>Ayuda</h3>
-        <p>Preguntas frecuentes</p>
-        <p>Contacto</p>
-    </div>
-
-    <div>
-        <h3>Seguinos</h3>
-        <p>Instagram · Facebook</p>
-    </div>
-
-    <p class="perfil-footer-final">
-        Cine Paradiso · Proyecto Integrador
-    </p>
-</footer>
+  <section class="perfil-vistas" aria-labelledby="titulo-vistas">
+    <h2 class="perfil-seccion-titulo" id="titulo-vistas">Películas que viste</h2>
+    <p class="perfil-bajada">Se suman cuando se valida tu QR al ingresar a la sala.</p>
+    {% if peliculas_vistas %}
+      <ul class="grilla-peliculas grilla-vistas" role="list">
+        {% for pelicula in peliculas_vistas %}
+          <li>{{ tarjeta_pelicula(dict(pelicula, id=pelicula.pelicula_id), bajada="Vista el " ~ dia_funcion(pelicula.utilizada_en), nivel=3) }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="panel estado-vacio">Todavía no viste películas con nosotros.</p>
+    {% endif %}
+  </section>
+</div>
 {% endblock %}

@@ -98,6 +98,10 @@
   --poster-tono-4: #3e6157;
   --poster-tono-5: #5c3a5c;
   --poster-tono-6: #7b4526;
+
+  /* Mi perfil (SCRUM-116, Figma 26:781 / 26:2237) */
+  --tamano-avatar: 3.5rem;              /* 56 px: círculo con la inicial del cliente */
+  --ancho-poster-compra: 4rem;          /* 64 px: póster chico de cada compra */
 }
 
 /* Breakpoints (mobile-first, se usan como valores literales porque CSS no admite variables en @media):

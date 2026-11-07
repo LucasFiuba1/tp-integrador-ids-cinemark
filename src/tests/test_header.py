@@ -93,8 +93,9 @@ def test_iconos_son_svg_locales_con_su_tamano(cliente_frontend, backend_ok):
 
 def test_secciones_sin_pantalla_quedan_deshabilitadas(cliente_logueado, backend_ok):
     header = _header(cliente_logueado.get("/").get_data(as_text=True))
-    for texto in ("Servicios", "Mis compras", "Mi perfil"):
+    for texto in ("Servicios", "Mis compras"):
         assert f'<span class="menu-deshabilitado" title="Próximamente">{texto} ' in header
+    assert '<a href="/perfil">Mi perfil</a>' in header  # SCRUM-116: el perfil ya tiene pantalla
     assert 'href="/" aria-current="page">Películas</a>' in header
 
 
