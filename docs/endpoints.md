@@ -385,7 +385,7 @@ Motivos de rechazo (verificados en este orden): `QR_INVALIDO` · `CANCELADA` · 
 
 Todos aceptan los filtros opcionales `desde`, `hasta` y `local_id`.
 
-Para franjas horarias y cancelaciones, `desde` y `hasta` tienen formato
+En todos, `desde` y `hasta` tienen formato
 `YYYY-MM-DDTHH:MM:SS` y se aplican a la **fecha y hora de la función**, con ambos
 extremos incluidos. `local_id` es un entero positivo de hasta 18 dígitos y filtra
 por el local de la sala. Omitir un filtro lo deja sin restricción; enviarlo vacío o inválido, o
@@ -400,13 +400,53 @@ rol admin: sin token devuelve 401 y con otro rol, 403 `SIN_PERMISO`.
 | GET | `/api/admin/dashboards/franjas-horarias` | 🛠️ | Entradas vendidas por franja horaria. |
 | GET | `/api/admin/dashboards/cancelaciones` | 🛠️ | Cantidad y porcentaje de cancelaciones por película y período. |
 
+#### Ocupación (SCRUM-75)
+
+Devuelve dos agrupaciones: `por_pelicula` y `por_funcion`. `vendidas` cuenta las
+**entradas activas de compras confirmadas**; `capacidad` es `filas * columnas` de
+la sala (en `por_pelicula`, la suma de todas sus funciones); `ocupacion` es
+`100 * vendidas / capacidad`, redondeado a dos decimales y enviado como número.
+
+Las funciones **sin ventas también aparecen** y suman capacidad. Las funciones
+dadas de baja no se cuentan porque no se ofrecieron; sí se conservan las de
+películas y salas dadas de baja. Ambas listas se ordenan por `ocupacion`
+descendente; a igual ocupación, por `pelicula_id` en `por_pelicula` y
+cronológicamente en `por_funcion`.
+
 ```http
-GET /api/admin/dashboards/ventas-genero?desde=2026-11-01T00:00:00
+GET /api/admin/dashboards/ocupacion?local_id=2
 
 200 OK
-[ { "genero": "Ciencia ficción", "entradas": 340, "monto": 1700000.00 },
-  { "genero": "Drama", "entradas": 210, "monto": 1050000.00 } ]
+{
+  "por_pelicula": [
+    { "pelicula_id": 6, "pelicula": "Toy Story", "vendidas": 1, "capacidad": 420, "ocupacion": 0.24 }
+  ],
+  "por_funcion": [
+    { "funcion_id": 41, "pelicula": "Toy Story", "local": "Belgrano", "sala": "Sala 1",
+      "fecha_hora": "2026-11-06T17:30:00", "vendidas": 1, "capacidad": 140, "ocupacion": 0.71 }
+  ]
+}
 ```
+
+Sin funciones en el período devuelve `{ "por_pelicula": [], "por_funcion": [] }`.
+
+#### Ventas por género (SCRUM-75)
+
+Cuenta **entradas activas de compras confirmadas**. Como `peliculas.genero` puede
+tener varios géneros separados por coma, cada venta se asigna al **primero**: así
+la suma de las filas coincide con el total vendido. `monto` suma el precio de las
+entradas, sin servicios. Solo aparecen géneros con ventas, ordenados por
+`entradas` descendente y luego por `genero`.
+
+```http
+GET /api/admin/dashboards/ventas-genero
+
+200 OK
+[ { "genero": "Animación", "entradas": 3, "monto": 16500.0 },
+  { "genero": "Aventura", "entradas": 2, "monto": 11000.0 } ]
+```
+
+Estos son los valores de `seed.sql` recién cargado. Sin ventas devuelve `[]`.
 
 #### Franjas horarias (SCRUM-76)
 
