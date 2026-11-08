@@ -8,14 +8,22 @@ cd "$(dirname "$0")"
 
 if [ ! -d ".venv" ]; then
   echo "Creando entorno virtual en .venv..."
-  python3 -m venv .venv
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -m venv .venv
+  else
+    python -m venv .venv
+  fi
 fi
 
 # shellcheck disable=SC1091
-source .venv/bin/activate
+if [ -f ".venv/bin/activate" ]; then
+  source .venv/bin/activate
+else
+  source .venv/Scripts/activate
+fi
 echo "Instalando dependencias..."
-pip install --upgrade pip -q
-pip install -r requirements.txt -q
+python -m pip install --upgrade pip -q
+python -m pip install -r requirements.txt -q
 
 if [ ! -f ".env" ]; then
   cp .env.example .env
