@@ -279,15 +279,85 @@ def compra_confirmada(compra_id):
     return render_template("compra/confirmada.html", compra=_compra_ejemplo(compra_id, confirmada=True))
 
 
-# Cancelación maquetada (SCRUM-115) con la compra confirmada de ejemplo. SCRUM-70 reemplaza _compra_ejemplo por
-# llamar("GET", f"/api/compras/{compra_id}") y el POST por /api/compras/<id>/cancelar (errores 409 con flash).
+# Cancelación desde el perfil (con sesión) o desde el enlace firmado del email (sin sesión, SCRUM-70).
+# Abrir el enlace con GET solo muestra el resumen y el botón de confirmación; la cancelación ocurre solo con POST.
 @publico_bp.route("/compras/<int:compra_id>/cancelar", methods=["GET", "POST"])
 @requiere_sesion
 def cancelar_compra(compra_id):
+    volver_url = url_for("publico.perfil")
+    accion_url = url_for("publico.cancelar_compra", compra_id=compra_id)
     if request.method == "POST":
-        flash(f"Cancelaste la compra #{compra_id}. Liberamos las butacas y el QR ya no es válido.", "exito")
-        return redirect(url_for("publico.inicio"))
-    return render_template("compra/cancelar.html", compra=_compra_ejemplo(compra_id, confirmada=True))
+        _, error = llamar("POST", f"/api/compras/{compra_id}/cancelar")
+        if error is None:
+            flash(f"Cancelaste la compra #{compra_id}. Liberamos las butacas y el QR ya no es válido.", "exito")
+            return redirect(volver_url)
+        flash(error["mensaje"], "error")
+        compra, error_detalle = llamar("GET", f"/api/compras/{compra_id}")
+        if error_detalle is not None:
+            return redirect(volver_url)
+        return (
+            render_template(
+                "compra/cancelar.html",
+                compra=compra,
+                accion_url=accion_url,
+                volver_url=volver_url,
+                motivo_rechazo=error["mensaje"],
+            ),
+            error["status"],
+        )
+
+    compra, error = llamar("GET", f"/api/compras/{compra_id}")
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return redirect(volver_url)
+    return render_template("compra/cancelar.html", compra=compra, accion_url=accion_url, volver_url=volver_url)
+
+
+@publico_bp.route("/cancelar/<token>", methods=["GET", "POST"])
+def cancelar_por_token(token):
+    volver_url = url_for("publico.inicio")
+    accion_url = url_for("publico.cancelar_por_token", token=token)
+    if request.method == "POST":
+        resultado, error = llamar("POST", "/api/compras/cancelar-por-token", json={"token": token})
+        if error is None:
+            compra, _ = llamar("GET", "/api/compras/por-token", params={"token": token})
+            flash(f"Cancelaste la compra #{resultado['id']}. Liberamos las butacas y el QR ya no es válido.", "exito")
+            return render_template(
+                "compra/cancelar.html", compra=compra, cancelada_exito=True, volver_url=volver_url
+            )
+        if error["codigo"] == "TOKEN_INVALIDO":
+            return (
+                render_template(
+                    "compra/cancelar.html", compra=None, error_enlace=error["mensaje"], volver_url=volver_url
+                ),
+                error["status"],
+            )
+        compra, error_detalle = llamar("GET", "/api/compras/por-token", params={"token": token})
+        if error_detalle is not None:
+            return (
+                render_template(
+                    "compra/cancelar.html", compra=None, error_enlace=error_detalle["mensaje"], volver_url=volver_url
+                ),
+                error_detalle["status"],
+            )
+        return (
+            render_template(
+                "compra/cancelar.html",
+                compra=compra,
+                accion_url=accion_url,
+                volver_url=volver_url,
+                motivo_rechazo=error["mensaje"],
+            ),
+            error["status"],
+        )
+
+    compra, error = llamar("GET", "/api/compras/por-token", params={"token": token})
+    if error is not None:
+        return (
+            render_template("compra/cancelar.html", compra=None, error_enlace=error["mensaje"], volver_url=volver_url),
+            error["status"],
+        )
+    return render_template("compra/cancelar.html", compra=compra, accion_url=accion_url, volver_url=volver_url)
 
 
 # Perfil del cliente (SCRUM-50 sobre la maqueta de SCRUM-116): cuenta, compras por pestaña y películas vistas.
