@@ -292,13 +292,16 @@ POST /api/admin/ingresos/validar
 { "token_qr": "eyJjb21wcmFfaWQiOjg4fQ...", "funcion_id": 12 }
 
 200 OK
-{ "valido": true, "compra_id": 88, "butacas": ["D5", "D6"], "pelicula": "Volver al futuro" }
+{
+  "valido": true, "compra_id": 88, "butacas": ["D5", "D6"], "pelicula": "Volver al futuro",
+  "funcion": "2026-11-10T20:30:00", "local": "Paradiso Centro", "sala": "Sala 1", "titular": "Ana Pérez"
+}
 
 409 Conflict
 { "error": { "codigo": "YA_UTILIZADA", "mensaje": "Este QR ya se usó el 10/11 a las 20:21." } }
 ```
 
-Motivos de rechazo: `QR_INVALIDO` · `CANCELADA` · `YA_UTILIZADA` · `OTRA_FUNCION` · `FUERA_DE_FECHA`.
+Motivos de rechazo (verificados en este orden): `QR_INVALIDO` · `CANCELADA` · `YA_UTILIZADA` · `OTRA_FUNCION` · `FUERA_DE_FECHA`.
 
 ### Dashboards
 

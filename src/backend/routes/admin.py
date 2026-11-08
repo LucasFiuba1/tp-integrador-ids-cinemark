@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, request
 from src.backend.auth import requiere_rol
 from src.backend.errores import respuesta_error
 from src.backend.routes.comun import cuerpo_json
-from src.backend.services import dashboards, funciones, locales, peliculas, salas
+from src.backend.services import dashboards, funciones, ingresos, locales, peliculas, salas
 from src.backend.services.validaciones import entero_positivo
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
@@ -199,3 +199,9 @@ def dashboard_cancelaciones():
             request.args.get("local_id"),
         )
     )
+
+
+@admin_bp.post("/ingresos/validar")
+@requiere_rol("admin")
+def validar_ingreso():
+    return jsonify(ingresos.validar(cuerpo_json()))
