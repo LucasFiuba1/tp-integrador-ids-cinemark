@@ -12,6 +12,7 @@ def _leer_booleano(nombre):
 def cargar_configuracion():
     """Devuelve un diccionario con la configuración de la app."""
     load_dotenv()
+    smtp_user = os.getenv("SMTP_USER", "")
     return {
         "SECRET_KEY": os.getenv("SECRET_KEY", "dev-solo-para-desarrollo"),
         "DB_HOST": os.getenv("DB_HOST", "localhost"),
@@ -25,6 +26,8 @@ def cargar_configuracion():
         "HORAS_LIMITE_CANCELACION": int(os.getenv("HORAS_LIMITE_CANCELACION", "2")),
         "SMTP_HOST": os.getenv("SMTP_HOST", ""),
         "SMTP_PORT": int(os.getenv("SMTP_PORT", "587")),
-        "SMTP_USER": os.getenv("SMTP_USER", ""),
+        "SMTP_USER": smtp_user,
         "SMTP_PASSWORD": os.getenv("SMTP_PASSWORD", ""),
+        "MAIL_FROM": os.getenv("MAIL_FROM", "") or smtp_user or "no-responder@cineparadiso.local",
+        "FRONTEND_URL": os.getenv("FRONTEND_URL", "http://localhost:5001").rstrip("/"),
     }

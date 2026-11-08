@@ -23,6 +23,8 @@ erDiagram
     funciones ||--o{ entradas : "ocupa"
     compras ||--o{ compra_servicios : "agrega"
     servicios ||--o{ compra_servicios : "se vende en"
+    compras |o--o{ validaciones_ingreso : "registra"
+    funciones |o--o{ validaciones_ingreso : "registra"
 
     usuarios {
         int id PK
@@ -106,6 +108,13 @@ erDiagram
         smallint cantidad
         decimal precio_unitario
     }
+    validaciones_ingreso {
+        int id PK
+        int compra_id FK "NULL si el QR es inválido"
+        int funcion_id FK
+        enum resultado "valida | qr_invalido | cancelada | ya_utilizada | otra_funcion | fuera_de_fecha"
+        datetime fecha_hora
+    }
 ```
 
 ## Tablas
@@ -122,6 +131,7 @@ erDiagram
 | `compras` | Compra de un cliente para una función: estado, total, token del QR y fechas de cada etapa. |
 | `entradas` | Cada butaca vendida dentro de una compra. |
 | `compra_servicios` | Servicios agregados a una compra, con cantidad y precio del momento. |
+| `validaciones_ingreso` | Historial de intentos de validación de QR al ingresar a la sala (válidos y rechazados). |
 
 ## Cómo se resuelven las reglas del negocio
 
@@ -131,7 +141,7 @@ erDiagram
 | Funciones superpuestas en la misma sala | Se valida en el backend con una consulta sobre `funciones` (índice `sala_id, fecha_hora`) usando la duración de la película más 15 minutos de margen. |
 | Reserva temporal de butacas | `compras.vence_en`: si una compra `pendiente` vence, sus entradas se liberan. |
 | Cancelación con plazo | `compras.cancelada_en` y estado `cancelada`; el plazo se compara contra `funciones.fecha_hora`. |
-| QR único y de un solo uso | `compras.token_qr` es único; `compras.utilizada_en` registra el ingreso. |
+| QR único y de un solo uso | `compras.token_qr` es único; `compras.utilizada_en` registra el ingreso y `validaciones_ingreso` guarda cada intento (válido o rechazado). |
 | Películas vistas del cliente | Compras con `utilizada_en` no nulo. |
 | Dashboards | Se calculan con `GROUP BY` sobre `entradas`, `funciones`, `peliculas.genero` y `compras`. |
 | Entrada de la misma función que su compra | `compras` tiene `UNIQUE (id, funcion_id)` y `entradas` una FK compuesta `(compra_id, funcion_id)` hacia ese par: la base rechaza una entrada de otra función. |

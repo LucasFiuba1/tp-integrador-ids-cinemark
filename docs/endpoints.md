@@ -117,6 +117,15 @@ Una butaca está `ocupada` si tiene una entrada vigente de una compra `confirmad
 las de compras canceladas o vencidas cuentan como libres. No expone datos de los compradores.
 `vendible` es `false` si la función ya empezó. Función inexistente o dada de baja → 404 `NO_ENCONTRADO`.
 
+```http
+GET /api/servicios
+
+200 OK
+[ { "id": 1, "nombre": "Combo pochoclos grande", "descripcion": "Pochoclos grandes y gaseosa de 500 ml", "precio": 6500.0, "activo": true } ]
+```
+
+Solo devuelve los servicios activos (los dados de baja no aparecen), ordenados por nombre.
+
 ## Compras (cliente)
 
 | Método | Ruta | Rol | Descripción |
@@ -157,6 +166,8 @@ POST /api/compras/88/confirmar
 200 OK
 { "id": 88, "estado": "confirmada", "total": 23000.00, "qr_png_base64": "iVBORw0...", "email_enviado": true }
 ```
+
+Errores de confirmación: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `COMPRA_NO_PENDIENTE` · 409 `RESERVA_VENCIDA` (libera las butacas). Si el envío por SMTP falla, la compra queda confirmada igual con `"email_enviado": false`.
 
 Errores de cancelación: 400 `TOKEN_INVALIDO` (en las rutas por token, cuando falta o la firma no es válida) · 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `FUERA_DE_PLAZO` · 409 `YA_CANCELADA` · 409 `YA_UTILIZADA` · 409 `COMPRA_NO_CONFIRMADA`.
 
@@ -282,24 +293,93 @@ POST /api/admin/funciones
 | PUT | `/api/admin/servicios/<id>` | 🛠️ | Modifica un servicio. |
 | DELETE | `/api/admin/servicios/<id>` | 🛠️ | Baja lógica. |
 
+```http
+POST /api/admin/servicios
+{ "nombre": "Combo pochoclos grande", "descripcion": "Pochoclos grandes y gaseosa de 500 ml", "precio": 6500 }
+
+201 Created
+{ "id": 1, "nombre": "Combo pochoclos grande", "descripcion": "Pochoclos grandes y gaseosa de 500 ml",
+  "precio": 6500.0, "activo": true }
+```
+
+```http
+GET /api/admin/servicios
+
+200 OK
+[
+  { "id": 4, "nombre": "Acceso VIP", "descripcion": "Butaca reclinable y servicio en sala", "precio": 8000.0, "activo": false },
+  { "id": 1, "nombre": "Combo pochoclos grande", "descripcion": "Pochoclos grandes y gaseosa de 500 ml", "precio": 6500.0, "activo": true }
+]
+```
+
+```http
+PUT /api/admin/servicios/1
+{ "nombre": "Combo pochoclos grande", "descripcion": null, "precio": 7000.5 }
+
+200 OK
+{ "id": 1, "nombre": "Combo pochoclos grande", "descripcion": null, "precio": 7000.5, "activo": true }
+```
+
+```http
+DELETE /api/admin/servicios/1
+
+204 No Content
+```
+
+```http
+POST /api/admin/servicios
+{ "nombre": "Gaseosa", "precio": 2500 }
+
+409 Conflict
+{ "error": { "codigo": "SERVICIO_DUPLICADO", "mensaje": "Ya existe un servicio con ese nombre." } }
+```
+
+Reglas: `nombre` es obligatorio (texto no vacío de hasta 100 caracteres; los espacios de los extremos se recortan, no
+se rechazan) y único sin distinguir mayúsculas (collation `utf8mb4_unicode_ci`: `"gaseosa"` choca con `"Gaseosa"` → 409).
+`descripcion` es opcional (hasta 255 caracteres; si falta, es `null` o queda vacía se guarda `null`). `precio` es un
+número mayor a 0 con hasta dos decimales y menor a 100.000.000 (no se aceptan textos ni `true`/`false`); se devuelve
+como número (`6500.0`). El `PUT` reemplaza nombre, descripción y precio, y no cambia `activo`. La baja es lógica
+(`activo = false`): el servicio deja de aparecer en `GET /api/servicios`, pero sigue en el listado del admin y las
+compras que ya lo incluían no cambian. El `DELETE` es idempotente: responde 204 también si el servicio ya estaba inactivo.
+
+Errores: 400 `DATOS_INVALIDOS` (cuerpo que no es objeto, nombre vacío o largo, descripción inválida, precio inválido)
+· 401 sin token · 403 `SIN_PERMISO` si no es admin · 404 `NO_ENCONTRADO` (`PUT`/`DELETE` de un servicio
+inexistente) · 409 `SERVICIO_DUPLICADO` (nombre repetido, también al modificar).
+
 ### Validación de ingreso
 
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
-| POST | `/api/admin/ingresos/validar` | 🛠️ | Valida el QR para una función y lo marca como utilizado. |
+| GET | `/api/admin/ingresos?funcion_id=&limite=` | 🛠️ | Últimos intentos de validación registrados (`limite` entre 1 y 100, por defecto 20; ordenado por fecha descendente). |
+| POST | `/api/admin/ingresos/validar` | 🛠️ | Valida el QR para una función, registra el intento y lo marca como utilizado si es válido. |
+
+```http
+GET /api/admin/ingresos?funcion_id=12&limite=20
+
+200 OK
+[
+  {
+    "id": 5, "compra_id": 88, "funcion_id": 12, "hora": "2026-11-10T20:21:00",
+    "pelicula": "Volver al futuro", "butacas": "D5, D6", "resultado": "valida"
+  }
+]
+```
 
 ```http
 POST /api/admin/ingresos/validar
 { "token_qr": "eyJjb21wcmFfaWQiOjg4fQ...", "funcion_id": 12 }
 
 200 OK
-{ "valido": true, "compra_id": 88, "butacas": ["D5", "D6"], "pelicula": "Volver al futuro" }
+{
+  "valido": true, "compra_id": 88, "butacas": ["D5", "D6"], "pelicula": "Volver al futuro",
+  "funcion": "2026-11-10T20:30:00", "local": "Paradiso Centro", "sala": "Sala 1", "titular": "Ana Pérez"
+}
 
 409 Conflict
 { "error": { "codigo": "YA_UTILIZADA", "mensaje": "Este QR ya se usó el 10/11 a las 20:21." } }
 ```
 
-Motivos de rechazo: `QR_INVALIDO` · `CANCELADA` · `YA_UTILIZADA` · `OTRA_FUNCION` · `FUERA_DE_FECHA`.
+Motivos de rechazo (verificados en este orden): `QR_INVALIDO` · `CANCELADA` · `YA_UTILIZADA` · `OTRA_FUNCION` · `FUERA_DE_FECHA`.
 
 ### Dashboards
 

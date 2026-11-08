@@ -1,10 +1,10 @@
-"""Cartelera pública, detalle de películas, funciones y butacas (SCRUM-20, SCRUM-21).
+"""Cartelera pública, detalle de películas, funciones, butacas y servicios (SCRUM-20, SCRUM-21, SCRUM-71).
 
 Los endpoints de este módulo están listados en docs/endpoints.md.
 """
 from flask import Blueprint, jsonify, request
 
-from src.backend.services import cartelera, funciones
+from src.backend.services import cartelera, funciones, servicios
 
 cartelera_bp = Blueprint("cartelera", __name__, url_prefix="/api")
 
@@ -27,3 +27,8 @@ def obtener_funcion(funcion_id):
 @cartelera_bp.get("/funciones/<int:funcion_id>/butacas")
 def obtener_butacas(funcion_id):
     return jsonify(cartelera.mapa_de_butacas(funcion_id))
+
+
+@cartelera_bp.get("/servicios")
+def listar_servicios():
+    return jsonify(servicios.listar_servicios_activos())

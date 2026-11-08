@@ -151,10 +151,12 @@ def _registrar_e_iniciar_sesion(formulario):
 
 
 def _abrir_sesion(usuario):
+    # siguiente es la página que pidió el login (la guarda sesion.ir_al_login): se vuelve ahí en vez de al inicio.
+    siguiente = session.get("siguiente")
     session.clear()
     session.update(token=usuario["token"], rol=usuario["rol"], nombre=usuario["nombre"])
     flash(f"¡Hola, {usuario['nombre']}!", "exito")
-    return _ir_al_inicio(usuario["rol"])
+    return redirect(siguiente) if siguiente else _ir_al_inicio(usuario["rol"])
 
 
 def _ir_al_inicio(rol):

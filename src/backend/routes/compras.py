@@ -34,3 +34,9 @@ def cancelar_compra(compra_id):
 @compras_bp.post("/compras/cancelar-por-token")
 def cancelar_compra_por_token():
     return jsonify(compras.cancelar_por_token(cuerpo_json()))
+
+
+@compras_bp.post("/compras/<int:compra_id>/confirmar")
+@requiere_rol("cliente")
+def confirmar_compra(compra_id):
+    return jsonify(compras.confirmar(g.usuario, compra_id))

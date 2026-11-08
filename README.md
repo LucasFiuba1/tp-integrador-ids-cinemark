@@ -55,7 +55,7 @@ una base con datos que se deban conservar ni en hosting.
 
 ## Ejecución
 
-En dos terminales, desde la raíz del repo:
+En dos terminales, desde la raíz del repo (en Windows con PowerShell usar `.\.venv\Scripts\Activate.ps1`, o en Git Bash `source .venv/Scripts/activate`):
 
 ```bash
 source .venv/bin/activate
@@ -67,7 +67,13 @@ source .venv/bin/activate
 flask --app src.frontend.app run --port 5001 --debug    # Sitio en http://localhost:5001
 ```
 
-Verificación rápida: `http://localhost:5000/api/salud` devuelve `{"estado": "ok"}` y la portada del sitio muestra el estado de la API.
+Verificación rápida: `http://localhost:5000/api/salud` devuelve `{"estado": "ok"}` y la portada del sitio muestra la cartelera sin avisos de conexión.
+
+### Verificación de extremo a extremo (compra y validación de QR)
+
+1. Abrir `http://localhost:5001/ingresar` e iniciar sesión como cliente (`ana@mail.com` / `cliente1234`).
+2. Elegir una película de la cartelera, seleccionar una función futura, marcar al menos una butaca libre y continuar hasta confirmar el pago simulado para obtener el código QR y la factura.
+3. Cerrar sesión, ingresar como administrador (`admin@cineparadiso.com` / `admin1234`), ir a `/admin/validar` y validar el código QR de la entrada para la función reservada.
 
 Usuarios de prueba que carga `seed.sql`:
 
