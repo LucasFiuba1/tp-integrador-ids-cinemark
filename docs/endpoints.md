@@ -117,6 +117,15 @@ Una butaca está `ocupada` si tiene una entrada vigente de una compra `confirmad
 las de compras canceladas o vencidas cuentan como libres. No expone datos de los compradores.
 `vendible` es `false` si la función ya empezó. Función inexistente o dada de baja → 404 `NO_ENCONTRADO`.
 
+```http
+GET /api/servicios
+
+200 OK
+[ { "id": 1, "nombre": "Combo pochoclos grande", "descripcion": "Pochoclos grandes y gaseosa de 500 ml", "precio": 6500.0, "activo": true } ]
+```
+
+Solo devuelve los servicios activos (los dados de baja no aparecen), ordenados por nombre.
+
 ## Compras (cliente)
 
 | Método | Ruta | Rol | Descripción |
@@ -280,6 +289,59 @@ POST /api/admin/funciones
 | POST | `/api/admin/servicios` | 🛠️ | Crea un servicio. |
 | PUT | `/api/admin/servicios/<id>` | 🛠️ | Modifica un servicio. |
 | DELETE | `/api/admin/servicios/<id>` | 🛠️ | Baja lógica. |
+
+```http
+POST /api/admin/servicios
+{ "nombre": "Combo pochoclos grande", "descripcion": "Pochoclos grandes y gaseosa de 500 ml", "precio": 6500 }
+
+201 Created
+{ "id": 1, "nombre": "Combo pochoclos grande", "descripcion": "Pochoclos grandes y gaseosa de 500 ml",
+  "precio": 6500.0, "activo": true }
+```
+
+```http
+GET /api/admin/servicios
+
+200 OK
+[
+  { "id": 4, "nombre": "Acceso VIP", "descripcion": "Butaca reclinable y servicio en sala", "precio": 8000.0, "activo": false },
+  { "id": 1, "nombre": "Combo pochoclos grande", "descripcion": "Pochoclos grandes y gaseosa de 500 ml", "precio": 6500.0, "activo": true }
+]
+```
+
+```http
+PUT /api/admin/servicios/1
+{ "nombre": "Combo pochoclos grande", "descripcion": null, "precio": 7000.5 }
+
+200 OK
+{ "id": 1, "nombre": "Combo pochoclos grande", "descripcion": null, "precio": 7000.5, "activo": true }
+```
+
+```http
+DELETE /api/admin/servicios/1
+
+204 No Content
+```
+
+```http
+POST /api/admin/servicios
+{ "nombre": "Gaseosa", "precio": 2500 }
+
+409 Conflict
+{ "error": { "codigo": "SERVICIO_DUPLICADO", "mensaje": "Ya existe un servicio con ese nombre." } }
+```
+
+Reglas: `nombre` es obligatorio (texto no vacío de hasta 100 caracteres; los espacios de los extremos se recortan, no
+se rechazan) y único sin distinguir mayúsculas (collation `utf8mb4_unicode_ci`: `"gaseosa"` choca con `"Gaseosa"` → 409).
+`descripcion` es opcional (hasta 255 caracteres; si falta, es `null` o queda vacía se guarda `null`). `precio` es un
+número mayor a 0 con hasta dos decimales y menor a 100.000.000 (no se aceptan textos ni `true`/`false`); se devuelve
+como número (`6500.0`). El `PUT` reemplaza nombre, descripción y precio, y no cambia `activo`. La baja es lógica
+(`activo = false`): el servicio deja de aparecer en `GET /api/servicios`, pero sigue en el listado del admin y las
+compras que ya lo incluían no cambian. El `DELETE` es idempotente: responde 204 también si el servicio ya estaba inactivo.
+
+Errores: 400 `DATOS_INVALIDOS` (cuerpo que no es objeto, nombre vacío o largo, descripción inválida, precio inválido)
+· 401 sin token · 403 `SIN_PERMISO` si no es admin · 404 `NO_ENCONTRADO` (`PUT`/`DELETE` de un servicio
+inexistente) · 409 `SERVICIO_DUPLICADO` (nombre repetido, también al modificar).
 
 ### Validación de ingreso
 

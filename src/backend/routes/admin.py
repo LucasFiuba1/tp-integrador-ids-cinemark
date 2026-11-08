@@ -9,10 +9,12 @@ from flask import Blueprint, jsonify, request
 from src.backend.auth import requiere_rol
 from src.backend.errores import respuesta_error
 from src.backend.routes.comun import cuerpo_json
-from src.backend.services import dashboards, funciones, locales, peliculas, salas
+from src.backend.services import dashboards, funciones, locales, peliculas, salas, servicios
 from src.backend.services.validaciones import entero_positivo
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
+
+MENSAJE_SERVICIO_DUPLICADO = "Ya existe un servicio con ese nombre."
 
 
 @admin_bp.get("/locales")
@@ -108,6 +110,52 @@ def eliminar_sala(sala_id):
     if salas.tiene_funciones_futuras(sala_id):
         return respuesta_error(409, "SALA_CON_FUNCIONES", "No se puede dar de baja una sala con funciones futuras.")
     salas.eliminar_sala(sala_id)
+    return "", 204
+
+
+@admin_bp.get("/servicios")
+@requiere_rol("admin")
+def listar_servicios():
+    return jsonify(servicios.listar_servicios())
+
+
+@admin_bp.post("/servicios")
+@requiere_rol("admin")
+def crear_servicio():
+    datos = cuerpo_json()
+    nombre, descripcion, precio = servicios.validar_servicio(
+        datos.get("nombre"), datos.get("descripcion"), datos.get("precio")
+    )
+    try:
+        servicio = servicios.crear_servicio(nombre, descripcion, precio)
+    except pymysql.err.IntegrityError:
+        return respuesta_error(409, "SERVICIO_DUPLICADO", MENSAJE_SERVICIO_DUPLICADO)
+    return jsonify(servicio), 201
+
+
+@admin_bp.put("/servicios/<int:servicio_id>")
+@requiere_rol("admin")
+def modificar_servicio(servicio_id):
+    servicio = servicios.obtener_servicio(servicio_id)
+    if servicio is None:
+        return respuesta_error(404, "NO_ENCONTRADO", "El servicio no existe.")
+    datos = cuerpo_json()
+    nombre, descripcion, precio = servicios.validar_servicio(
+        datos.get("nombre"), datos.get("descripcion"), datos.get("precio")
+    )
+    try:
+        res = servicios.modificar_servicio(servicio_id, nombre, descripcion, precio, servicio["activo"])
+    except pymysql.err.IntegrityError:
+        return respuesta_error(409, "SERVICIO_DUPLICADO", MENSAJE_SERVICIO_DUPLICADO)
+    return jsonify(res)
+
+
+@admin_bp.delete("/servicios/<int:servicio_id>")
+@requiere_rol("admin")
+def eliminar_servicio(servicio_id):
+    if servicios.obtener_servicio(servicio_id) is None:
+        return respuesta_error(404, "NO_ENCONTRADO", "El servicio no existe.")
+    servicios.dar_de_baja_servicio(servicio_id)
     return "", 204
 
 

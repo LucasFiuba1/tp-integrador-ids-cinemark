@@ -1,11 +1,10 @@
 
 """Consultas publicas y ABM administrativo de funciones (SCRUM-56)."""
 from datetime import datetime, timedelta
-from decimal import Decimal
 
 from src.backend.db import consultar, consultar_uno, transaccion
 from src.backend.errores import error_api
-from src.backend.services.validaciones import (datos_invalidos, entero_positivo, entero_positivo_texto, fecha_hora_iso, requerir_campos,)
+from src.backend.services.validaciones import (datos_invalidos, entero_positivo, entero_positivo_texto, fecha_hora_iso, precio_valido, requerir_campos,)
 
 MARGEN_MINUTOS = 15
 
@@ -50,20 +49,6 @@ def _a_json(fila):
     return fila
 
 
-def _precio_valido(valor):
-    if type(valor) not in (int, float, Decimal):
-        datos_invalidos("precio debe ser un número positivo.")
-    precio = Decimal(str(valor))
-    if (
-        not precio.is_finite()
-        or precio <= 0
-        or precio > Decimal("99999999.99")
-        or precio != precio.quantize(Decimal("0.01"))
-    ):
-        datos_invalidos("precio debe ser positivo y tener como máximo dos decimales.")
-    return precio
-
-
 def _validar_datos(datos, actual=None):
     campos = ("pelicula_id", "sala_id", "fecha_hora", "precio") if actual is None else ()
     requerir_campos(datos, campos)
@@ -72,7 +57,7 @@ def _validar_datos(datos, actual=None):
     sala_id = entero_positivo(datos.get("sala_id", actual["sala_id"] if actual else None), "sala_id")
     fecha = datos.get("fecha_hora", actual["fecha_hora"] if actual else None)
     fecha_hora = fecha if isinstance(fecha, datetime) else fecha_hora_iso(fecha, "fecha_hora")
-    precio = _precio_valido(datos.get("precio", actual["precio"] if actual else None))
+    precio = precio_valido(datos.get("precio", actual["precio"] if actual else None))
 
     if fecha_hora <= datetime.now():
         datos_invalidos("fecha_hora debe ser futura.")

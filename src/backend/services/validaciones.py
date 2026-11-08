@@ -5,6 +5,7 @@ de repetir sus propios chequeos.
 """
 import re
 from datetime import datetime
+from decimal import Decimal
 
 from src.backend.errores import error_api
 
@@ -72,3 +73,18 @@ def fecha_hora_iso(valor, campo):
     if fecha.strftime(FORMATO_FECHA_HORA) != valor:
         datos_invalidos(mensaje)
     return fecha
+
+
+def precio_valido(valor):
+    """Precio de DECIMAL(10, 2): número positivo con hasta dos decimales. type() deja afuera a True y False."""
+    if type(valor) not in (int, float, Decimal):
+        datos_invalidos("precio debe ser un número positivo.")
+    precio = Decimal(str(valor))
+    if (
+        not precio.is_finite()
+        or precio <= 0
+        or precio > Decimal("99999999.99")
+        or precio != precio.quantize(Decimal("0.01"))
+    ):
+        datos_invalidos("precio debe ser positivo y tener como máximo dos decimales.")
+    return precio
