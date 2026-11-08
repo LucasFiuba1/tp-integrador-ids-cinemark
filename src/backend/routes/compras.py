@@ -12,3 +12,9 @@ compras_bp = Blueprint("compras", __name__, url_prefix="/api")
 @requiere_rol("cliente")
 def reservar_butacas():
     return jsonify(compras.reservar(g.usuario["id"], cuerpo_json())), 201
+
+
+@compras_bp.post("/compras/<int:compra_id>/confirmar")
+@requiere_rol("cliente")
+def confirmar_compra(compra_id):
+    return jsonify(compras.confirmar(g.usuario, compra_id))

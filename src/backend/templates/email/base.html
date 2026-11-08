@@ -1,0 +1,53 @@
+{# Plantilla base de los emails de compra (SCRUM-67): reutilizada por la factura y por la confirmación de cancelación.
+   Los clientes de correo ignoran las hojas externas y las variables CSS, así que los colores (los de tokens.css)
+   van en un bloque <style> simple. #}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{% block titulo %}Cine Paradiso{% endblock %}</title>
+  <style>
+    body { margin: 0; padding: 24px; background: #14120f; color: #ffffff; font-family: Arial, sans-serif; }
+    .tarjeta { max-width: 560px; margin: 0 auto; background: #1f1c19; border: 1px solid #3a3631; border-radius: 8px; padding: 24px; }
+    .marca { margin: 0 0 16px; color: #e0332a; font-size: 20px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    h2 { margin: 16px 0 8px; font-size: 18px; }
+    .bajada, .nota { margin: 0 0 16px; color: #b4aca2; font-size: 14px; line-height: 1.5; }
+    .qr { display: block; margin: 16px auto; padding: 12px; background: #ffffff; border-radius: 4px; width: 180px; height: 180px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+    th, td { padding: 8px 0; border-bottom: 1px solid #3a3631; text-align: left; }
+    th { color: #a19a91; font-weight: 400; width: 40%; }
+    td { text-align: right; color: #ffffff; }
+    .total th, .total td { border-bottom: none; padding-top: 12px; font-size: 16px; font-weight: 700; }
+    .numero { color: #a19a91; font-size: 12px; margin: 8px 0 16px; }
+    .boton { display: inline-block; margin-top: 8px; padding: 10px 18px; background: #2b2723; color: #ffffff; text-decoration: none; border: 1px solid #3a3631; border-radius: 4px; font-weight: 700; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="tarjeta">
+    <p class="marca">Cine Paradiso</p>
+    <h1>{% block encabezado %}{% endblock %}</h1>
+    <p class="bajada">{% block bajada %}{% endblock %}</p>
+
+    {% block antes_detalle %}{% endblock %}
+
+    {% set funcion = compra.funcion %}
+    {% set textos_servicios = namespace(items=[]) %}
+    {% for servicio in compra.servicios %}
+      {% set textos_servicios.items = textos_servicios.items + [servicio.nombre ~ " × " ~ servicio.cantidad ~ " (" ~ (servicio.precio_unitario | precio) ~ ")"] %}
+    {% endfor %}
+    <h2>{{ funcion.pelicula }}</h2>
+    <table>
+      <tr><th>Local</th><td>{{ funcion.local }}</td></tr>
+      <tr><th>Sala</th><td>{{ funcion.sala }}</td></tr>
+      <tr><th>Función</th><td>{{ funcion.fecha_hora | fecha_hora }}</td></tr>
+      <tr><th>{{ "Butaca" if compra.butacas | length == 1 else "Butacas" }}</th><td>{{ compra.butacas | join(", ") }}</td></tr>
+      <tr><th>Servicios</th><td>{{ textos_servicios.items | join(", ") or "Sin servicios" }}</td></tr>
+      <tr class="total"><th>Total</th><td>{{ compra.total | precio }}</td></tr>
+    </table>
+    <p class="numero">N.º de compra #{{ compra.id }}</p>
+
+    {% block pie %}{% endblock %}
+  </div>
+</body>
+</html>
