@@ -124,3 +124,27 @@ def validar_servicio(datos):
         else f"La descripción puede tener hasta {MAXIMO_DESCRIPCION} caracteres.",
         "precio": _error_precio(datos["precio"]),
     })
+
+
+def _fecha_o_none(texto):
+    try:
+        return date.fromisoformat(texto)
+    except ValueError:
+        return None
+
+
+def _error_hasta(desde, hasta):
+    if not hasta:
+        return "Ingresá una fecha válida."
+    if desde and hasta < desde:
+        return "Tiene que ser igual o posterior a la fecha desde."
+    return None
+
+
+def validar_filtros_dashboards(datos):
+    """Fechas desde y hasta de los filtros GET de los dashboards, en YYYY-MM-DD (input date)."""
+    desde, hasta = _fecha_o_none(datos["desde"]), _fecha_o_none(datos["hasta"])
+    return _sin_vacios({
+        "desde": None if desde else "Ingresá una fecha válida.",
+        "hasta": _error_hasta(desde, hasta),
+    })

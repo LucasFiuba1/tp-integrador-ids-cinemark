@@ -51,7 +51,7 @@
 {# Tabla del backoffice dentro de un panel.
    columnas: [{"clave": "titulo", "titulo": "Título"}, {"clave": "estado", "titulo": "Estado", "tipo": "estado"}]
      tipo "estado" muestra un badge (con "textos": {valor: leyenda} opcional); "activo" hace lo mismo con un booleano
-     (true -> activa, false -> inactiva); "hora" y "fecha_hora" formatean ISO y "precio" muestra $6.500.
+     (true -> activa, false -> inactiva); "hora" y "fecha_hora" formatean ISO, "precio" muestra $6.500 y "porcentaje" 74%.
    filas: lista de dicts con "id" (y "activa" o "activo" si admite baja lógica).
    acciones: {"editar": "backoffice.editar_x", "baja": "backoffice.baja_x"}, endpoints que reciben id;
      "texto_baja" cambia la leyenda del botón de baja (por defecto "Dar de baja").
@@ -75,6 +75,7 @@
                   {% if columna.tipo == "activo" %}{% set valor = "activa" if valor else "inactiva" %}{% endif %}
                   {% if columna.tipo in ("estado", "activo") %}{{ badge_estado(valor, (columna.textos or {}).get(valor, '')) }}
                   {% elif columna.tipo == "precio" %}{{ valor | precio }}
+                  {% elif columna.tipo == "porcentaje" %}{{ valor | numero }}%
                   {% elif columna.tipo == "hora" %}{{ valor | hora }}
                   {% elif columna.tipo == "fecha_hora" %}{{ valor | fecha_hora }}
                   {% else %}{{ valor }}{% endif %}

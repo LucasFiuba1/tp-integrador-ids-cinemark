@@ -1,31 +1,32 @@
-{# Dashboards (Figma B1 desktop y M1 mobile): KPI de la semana y los cuatro tableros del enunciado.
-   franjas_horarias, ocupacion, ventas_genero y cancelaciones tienen la forma de las respuestas de
-   GET /api/admin/dashboards/<tablero>; resumen trae los totales y la variación contra la semana anterior. #}
+{# Dashboards (Figma B1 desktop y M1 mobile): filtros del período y local, KPI y los cuatro tableros del enunciado.
+   franjas_horarias, ventas_genero y cancelaciones son las respuestas de GET /api/admin/dashboards/<tablero>;
+   ocupacion y ocupacion_funciones son por_pelicula y por_funcion de /ocupacion. resumen trae los totales del
+   período, calculados en la ruta a partir de esas respuestas. #}
 {% extends "backoffice/base_admin.html" %}
-{% from "macros.html" import cabecera_pagina, tarjeta_kpi, barra, columnas %}
+{% from "macros.html" import cabecera_pagina, campo, filtro, boton, tabla, tarjeta_kpi, barra, columnas %}
 
 {% block titulo %}Dashboards · Backoffice · Cine Paradiso{% endblock %}
 
-{# Tablero sin datos en el período (ej. una semana sin ventas). #}
+{# Tablero sin datos en el período (ej. una semana sin ventas o el backend sin responder). #}
 {% macro sin_datos() %}<p class="estado-vacio">Todavía no hay datos para este período.</p>{% endmacro %}
 
-{# Variación contra la semana anterior: ▲ / ▼ con el número sin signo. #}
-{% macro variacion(valor, sufijo) %}{{ "▲" if valor >= 0 else "▼" }} {{ valor | abs | numero }}{{ sufijo }} vs. semana anterior{% endmacro %}
-
 {% block admin %}
-  {{ cabecera_pagina("Dashboards", bajada="Resumen de ventas y ocupación · últimos 7 días") }}
+  {{ cabecera_pagina("Dashboards", bajada="Ventas y ocupación del período elegido") }}
+
+  {# Formulario GET: los filtros quedan en la URL, así se puede recargar o compartir la vista filtrada. #}
+  <form method="get" action="{{ url_for('backoffice.dashboards') }}" class="panel formulario-linea dashboards-filtros"
+    aria-label="Filtros de los dashboards" novalidate>
+    {{ campo("desde", "Desde", "date", filtros.desde, error=errores.desde) }}
+    {{ campo("hasta", "Hasta", "date", filtros.hasta, error=errores.hasta) }}
+    {{ filtro("local_id", "Local", opciones_locales, filtros.local_id) }}
+    <div class="formulario-linea-acciones">{{ boton("Filtrar") }}</div>
+  </form>
 
   <div class="kpis">
-    {{ tarjeta_kpi("Entradas vendidas", resumen.entradas | numero, variacion(resumen.entradas_variacion, "%"),
-                   "positivo" if resumen.entradas_variacion >= 0 else "negativo") }}
-    {{ tarjeta_kpi("Ingresos", resumen.monto | precio, variacion(resumen.monto_variacion, "%"),
-                   "positivo" if resumen.monto_variacion >= 0 else "negativo") }}
-    {{ tarjeta_kpi("Ocupación promedio", resumen.ocupacion | numero ~ "%", variacion(resumen.ocupacion_variacion, " pts"),
-                   "positivo" if resumen.ocupacion_variacion >= 0 else "negativo") }}
-    {# Que suban las cancelaciones es malo: el tono va al revés que en el resto. #}
-    {{ tarjeta_kpi("Compras canceladas", resumen.cancelaciones | numero ~ "%",
-                   variacion(resumen.cancelaciones_variacion, " pts"),
-                   "negativo" if resumen.cancelaciones_variacion > 0 else "positivo") }}
+    {{ tarjeta_kpi("Entradas vendidas", resumen.entradas | numero) }}
+    {{ tarjeta_kpi("Ingresos", resumen.monto | precio) }}
+    {{ tarjeta_kpi("Ocupación promedio", resumen.ocupacion | numero ~ "%") }}
+    {{ tarjeta_kpi("Compras canceladas", resumen.cancelaciones | numero ~ "%") }}
   </div>
 
   <div class="dashboards">
@@ -67,4 +68,17 @@
       <p class="panel-nota">Porcentaje de compras canceladas sobre las vendidas.</p>
     </section>
   </div>
+
+  <section class="dashboards-funciones" aria-labelledby="titulo-funciones">
+    <h2 id="titulo-funciones">Ocupación por función</h2>
+    {{ tabla([
+         {"clave": "pelicula", "titulo": "Película"},
+         {"clave": "local", "titulo": "Local"},
+         {"clave": "sala", "titulo": "Sala"},
+         {"clave": "fecha_hora", "titulo": "Función", "tipo": "fecha_hora"},
+         {"clave": "vendidas", "titulo": "Vendidas"},
+         {"clave": "capacidad", "titulo": "Capacidad"},
+         {"clave": "ocupacion", "titulo": "Ocupación", "tipo": "porcentaje"},
+       ], ocupacion_funciones, vacio="Todavía no hay datos para este período.") }}
+  </section>
 {% endblock %}

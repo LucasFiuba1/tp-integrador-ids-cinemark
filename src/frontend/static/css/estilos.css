@@ -356,6 +356,7 @@ h3 { font-size: var(--texto-lg); }
 .dashboards { display: grid; gap: var(--espacio-4); }
 .dashboards .panel { margin-bottom: 0; }
 .dashboards h2 { margin-bottom: var(--espacio-4); }
+.dashboards-funciones { margin-top: var(--espacio-5); }
 .panel-nota { margin: var(--espacio-2) 0 0; color: var(--color-texto-tenue); font-size: var(--texto-xs); }
 
 /* Ingresar y Crear cuenta: tarjeta centrada con pestañas */

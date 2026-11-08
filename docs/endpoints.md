@@ -302,7 +302,9 @@ Motivos de rechazo: `QR_INVALIDO` · `CANCELADA` · `YA_UTILIZADA` · `OTRA_FUNC
 
 ### Dashboards
 
-Todos aceptan los filtros opcionales `desde`, `hasta` y `local_id`.
+Todos aceptan los filtros opcionales `desde` y `hasta` (DATETIME ISO `YYYY-MM-DDTHH:MM:SS`, sobre la fecha y hora
+de la función) y `local_id`. Cada lista viene ordenada de mayor a menor por su valor principal; el frontend
+(`/admin/dashboards`) calcula los KPI del período sumando estas mismas respuestas.
 
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
@@ -318,3 +320,35 @@ GET /api/admin/dashboards/ventas-genero?desde=2026-11-01T00:00:00
 [ { "genero": "Ciencia ficción", "entradas": 340, "monto": 1700000.00 },
   { "genero": "Drama", "entradas": 210, "monto": 1050000.00 } ]
 ```
+
+```http
+GET /api/admin/dashboards/ocupacion?desde=2026-11-01T00:00:00&hasta=2026-11-07T23:59:59&local_id=1
+
+200 OK
+{
+  "por_pelicula": [
+    { "pelicula": "La noche del telón", "vendidas": 412, "capacidad": 560, "ocupacion": 73.6 }
+  ],
+  "por_funcion": [
+    { "funcion_id": 12, "pelicula": "La noche del telón", "local": "Paradiso Centro", "sala": "Sala 1",
+      "fecha_hora": "2026-11-03T19:30:00", "vendidas": 120, "capacidad": 132, "ocupacion": 90.9 }
+  ]
+}
+```
+
+```http
+GET /api/admin/dashboards/franjas-horarias
+
+200 OK
+[ { "franja": "18 a 21 h", "entradas": 742 }, { "franja": "21 a 24 h", "entradas": 510 } ]
+```
+
+```http
+GET /api/admin/dashboards/cancelaciones
+
+200 OK
+[ { "pelicula": "Código Medianoche", "compras": 295, "cancelaciones": 18, "porcentaje": 6.1 } ]
+```
+
+`ocupacion` y `porcentaje` van de 0 a 100 con un decimal. `compras` cuenta las compras confirmadas o canceladas del
+período (las pendientes vencidas no cuentan). Filtros inválidos: 400 `DATOS_INVALIDOS`.
