@@ -390,10 +390,10 @@ def test_historial_con_funcion_id_y_limite_filtra_por_ambos(cliente_backend, cab
     assert parametros == (12, 5)
 
 
-def test_template_validar_renderiza_los_registros_del_endpoint(
+def test_template_ingreso_renderiza_los_registros_del_endpoint(
     app_frontend, cliente_backend, cabeceras_admin, bd
 ):
-    """CA 5 de SCRUM-125: verifica que backoffice/validar.html renderice todos los estados devueltos por el endpoint."""
+    """CA 5 de SCRUM-125: verifica que backoffice/ingreso.html renderice todos los estados devueltos por el endpoint."""
     bd.consultar.return_value = [
         {
             "id": 6, "compra_id": 88, "funcion_id": 12, "resultado": "valida",
@@ -421,11 +421,12 @@ def test_template_validar_renderiza_los_registros_del_endpoint(
         },
     ]
     historial = cliente_backend.get(RUTA_HISTORIAL, headers=cabeceras_admin).get_json()
-    with app_frontend.test_request_context("/admin/validar"):
+    with app_frontend.test_request_context("/admin/ingreso"):
         html = render_template(
-            "backoffice/validar.html",
-            seccion="validar",
-            formulario={"codigo": ""},
+            "backoffice/ingreso.html",
+            seccion="ingreso",
+            funciones=[{"valor": "", "texto": "Elegí la función"}],
+            formulario={"funcion_id": "", "token": ""},
             errores={},
             resultado=None,
             historial=historial,

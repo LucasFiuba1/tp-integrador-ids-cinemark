@@ -2,9 +2,10 @@
    El QR abre /admin/ingreso?token=...: el campo llega cargado y recién el botón "Validar" (POST) gasta la entrada.
    funciones son opciones {"valor", "texto"} con las funciones de hoy; formulario, {"funcion_id", "token"};
    resultado, none hasta validar, o {"valido": true, "pelicula", "butacas", "compra_id"} (respuesta de
-   POST /api/admin/ingresos/validar) o {"valido": false, "motivo", "mensaje"} si la API rechazó el QR. #}
+   POST /api/admin/ingresos/validar) o {"valido": false, "motivo", "mensaje"} si la API rechazó el QR;
+   historial, los últimos intentos de GET /api/admin/ingresos (SCRUM-125). #}
 {% extends "backoffice/base_admin.html" %}
-{% from "macros.html" import cabecera_pagina, campo, boton, filtro, datos %}
+{% from "macros.html" import cabecera_pagina, campo, boton, filtro, datos, tabla %}
 
 {% block titulo %}Validar ingreso · Backoffice · Cine Paradiso{% endblock %}
 
@@ -46,4 +47,14 @@
       <p class="resultado-nota">La función se recuerda para los próximos ingresos. Abrir el link del QR no usa la entrada: se usa al validar.</p>
     </section>
   </div>
+
+  <h2 class="visualmente-oculto">Últimos ingresos</h2>
+  {{ tabla([
+       {"clave": "hora", "titulo": "Hora", "tipo": "hora"},
+       {"clave": "pelicula", "titulo": "Película"},
+       {"clave": "butacas", "titulo": "Butaca"},
+       {"clave": "resultado", "titulo": "Resultado", "tipo": "estado",
+        "textos": {"valida": "Válida", "ya_utilizada": "Ya usada", "cancelada": "Cancelada", "qr_invalido": "Inválida",
+                   "otra_funcion": "Otra función", "fuera_de_fecha": "Fuera de fecha"}},
+     ], historial, vacio="Todavía no hubo ingresos en esta jornada.") }}
 {% endblock %}
