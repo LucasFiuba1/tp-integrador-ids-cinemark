@@ -159,6 +159,18 @@ def eliminar_servicio(servicio_id):
     return "", 204
 
 
+@admin_bp.post("/servicios/<int:servicio_id>/reactivar")
+@requiere_rol("admin")
+def reactivar_servicio(servicio_id):
+    servicio = servicios.obtener_servicio(servicio_id)
+    if servicio is None:
+        return respuesta_error(
+            404, "NO_ENCONTRADO", "El servicio no existe."
+        )
+    servicios.reactivar_servicio(servicio_id)
+    return "", 204
+
+
 @admin_bp.get("/tmdb/buscar")
 @requiere_rol("admin")
 def buscar_tmdb():

@@ -556,3 +556,24 @@ def test_error_de_integridad_en_put_devuelve_409_sin_filtrar_el_detalle_de_mysql
     respuesta = cliente_backend.put("/api/admin/servicios/1", json=SERVICIO_NUEVO, headers=cabeceras_admin)
     afirmar_error_json(respuesta, 409, "SERVICIO_DUPLICADO")
     assert "Duplicate" not in respuesta.get_json()["error"]["mensaje"]
+
+
+# --- reactivación ---
+def test_reactivar_servicio_devuelve_204_y_actualiza_estado(cliente_backend, cabeceras_admin, db):
+    db.consultar_uno.return_value = fila(activo=0)
+    respuesta = cliente_backend.post("/api/admin/servicios/1/reactivar", headers=cabeceras_admin)
+    assert respuesta.status_code == 204
+    sql, parametros = db.ejecutar.call_args.args
+    assert sql == "UPDATE servicios SET activo = TRUE WHERE id = %s"
+    assert parametros == (1,)
+
+def test_reactivar_servicio_inexistente_devuelve_404(cliente_backend, cabeceras_admin, db):
+    db.consultar_uno.return_value = None
+    respuesta = cliente_backend.post("/api/admin/servicios/99/reactivar", headers=cabeceras_admin)
+    afirmar_error_json(respuesta, 404, "NO_ENCONTRADO")
+    db.ejecutar.assert_not_called()
+
+def test_reactivar_servicio_sin_permisos(cliente_backend, cabeceras_cliente, db):
+    respuesta = cliente_backend.post("/api/admin/servicios/1/reactivar", headers=cabeceras_cliente)
+    afirmar_error_json(respuesta, 403, "SIN_PERMISO")
+    db.ejecutar.assert_not_called()
