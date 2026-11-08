@@ -134,6 +134,7 @@ Solo devuelve los servicios activos (los dados de baja no aparecen), ordenados p
 | PUT | `/api/compras/<id>/servicios` | 👤 | Define los servicios de una compra pendiente y recalcula el total. |
 | POST | `/api/compras/<id>/confirmar` | 👤 | Checkout con pago simulado: confirma, genera el QR y envía el email con la factura. |
 | GET | `/api/compras/<id>` | 👤 | Detalle de una compra propia (incluye el QR si está confirmada). |
+| GET | `/api/compras/por-token?token=` | 🌐 | Detalle de la compra identificada por el token firmado del enlace del email (sin requerir sesión). |
 | POST | `/api/compras/<id>/cancelar` | 👤 | Cancela una compra propia dentro del plazo permitido. |
 | POST | `/api/compras/cancelar-por-token` | 🌐 | Cancela desde el enlace del email (el token firmado identifica la compra). |
 
@@ -168,7 +169,7 @@ POST /api/compras/88/confirmar
 
 Errores de confirmación: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `COMPRA_NO_PENDIENTE` · 409 `RESERVA_VENCIDA` (libera las butacas). Si el envío por SMTP falla, la compra queda confirmada igual con `"email_enviado": false`.
 
-Errores de cancelación: 409 `FUERA_DE_PLAZO` · 409 `YA_CANCELADA` · 409 `YA_UTILIZADA` · 403 compra de otro usuario.
+Errores de cancelación: 400 `TOKEN_INVALIDO` (en las rutas por token, cuando falta o la firma no es válida) · 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `FUERA_DE_PLAZO` · 409 `YA_CANCELADA` · 409 `YA_UTILIZADA` · 409 `COMPRA_NO_CONFIRMADA`.
 
 ## Perfil (cliente)
 
