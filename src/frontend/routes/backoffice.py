@@ -57,65 +57,15 @@ def _locales_ejemplo():
         }
     ]
 
+# Programación de funciones del backoffice (SCRUM-57).
 
-# Programación de funciones maquetada (SCRUM-119, Figma B3) con datos de ejemplo. "funciones" tiene la forma de
-# GET /api/admin/funciones más "libres" y "capacidad", que la API todavía no devuelve. Al conectarla se reemplaza
-# _funciones_ejemplo por llamar(...) y los flash de "pendiente" por POST / PUT / DELETE /api/admin/funciones.
 def _local_elegido(locales, local_id):
-    """El local con ese id; si no existe (o no vino), el primero, para que la pantalla nunca rompa."""
     for local in locales:
         if local["id"] == local_id:
             return local
-    return locales[0]
-
-
-def _funciones_ejemplo(local_id=None):
-    """Datos de la pantalla; las opciones de sala son solo las del local elegido."""
-    locales = _locales_ejemplo()
-    local = _local_elegido(locales, local_id)
-    return {
-        "peliculas": [
-            {"valor": "", "texto": "Elegí una película"},
-            {"valor": 1, "texto": "La noche del telón"},
-            {"valor": 2, "texto": "Código Medianoche"},
-            {"valor": 3, "texto": "Pequeños gigantes"},
-            {"valor": 4, "texto": "Último tren a Lisboa"},
-        ],
-        "locales": [{"valor": local["id"], "texto": local["nombre"]} for local in locales],
-        "salas": [{"valor": sala["id"], "texto": sala["nombre"]} for sala in local["salas"]],
-        "formulario": {
-            "pelicula_id": "", "local_id": local["id"], "sala_id": local["salas"][0]["id"], "fecha": "2026-10-24", "hora": "19:30", "precio": "5500",
-        },
-        "funciones": [
-            {"id": 1, "pelicula_id": 1, "pelicula": "La noche del telón", "sala_id": 1, "sala": "Sala 1", "local_id": 1,
-             "local": "Paradiso Centro", "fecha_hora": "2026-10-24T19:30:00", "precio": 5500.00, "activa": True,
-             "libres": 98, "capacidad": 132},
-            {"id": 2, "pelicula_id": 1, "pelicula": "La noche del telón", "sala_id": 2, "sala": "Sala 2", "local_id": 1,
-             "local": "Paradiso Centro", "fecha_hora": "2026-10-24T22:15:00", "precio": 5500.00, "activa": True,
-             "libres": 120, "capacidad": 132},
-            {"id": 3, "pelicula_id": 2, "pelicula": "Código Medianoche", "sala_id": 5, "sala": "Sala VIP", "local_id": 3,
-             "local": "Paradiso Palermo", "fecha_hora": "2026-11-28T21:00:00", "precio": 9500.00, "activa": True,
-             "libres": 18, "capacidad": 36},
-            {"id": 4, "pelicula_id": 3, "pelicula": "Pequeños gigantes", "sala_id": 3, "sala": "Sala 1", "local_id": 2,
-             "local": "Paradiso Belgrano", "fecha_hora": "2026-11-29T15:00:00", "precio": 6000.00, "activa": True,
-             "libres": 84, "capacidad": 96},
-            {"id": 5, "pelicula_id": 4, "pelicula": "Último tren a Lisboa", "sala_id": 4, "sala": "Sala 2", "local_id": 2,
-             "local": "Paradiso Belgrano", "fecha_hora": "2026-11-29T20:45:00", "precio": 6000.00, "activa": True,
-             "libres": 70, "capacidad": 96},
-        ],
-    }
-
-
-def _sala_del_local(local_id, sala_id):
-    """True si la sala existe y pertenece a ese local (los ids llegan como int o None)."""
-    return any(local["id"] == local_id and any(sala["id"] == sala_id for sala in local["salas"])
-               for local in _locales_ejemplo())
-
-
-def _funciones_pendiente():
-    """Guardar, editar y quitar funciones esperan al backend: avisa y vuelve al listado (PRG)."""
-    flash("Todavía no se pueden guardar cambios en las funciones: falta conectar el backend.", "info")
-    return redirect(url_for("backoffice.funciones"))
+    if locales:
+        return locales[0]
+    return None
 
 
 @backoffice_bp.get("/locales")
@@ -126,29 +76,186 @@ def locales():
         locales=_locales_ejemplo()
     )
 
+def _listar_locales():
+    locales, error = llamar("GET", "/api/admin/locales")
+
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
+
+    return locales
+
+
+def _listar_salas(local_id):
+    salas, error = llamar("GET", "/api/admin/salas", params={"local_id": local_id},)
+
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
+
+    return salas
+
+
+def _listar_funciones(local_id=None, desde=None, hasta=None):
+    params = {
+        "local_id": local_id,
+        "desde": desde,
+        "hasta": hasta,
+    }
+
+    funciones, error = llamar("GET", "/api/admin/funciones", params=params)
+
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
+
+    return [funcion for funcion in funciones if funcion["activa"]]
+
+
+def _obtener_funcion(funcion_id):
+    funciones = _listar_funciones()
+
+    for funcion in funciones:
+        if funcion["id"] == funcion_id:
+            return funcion
+
+    return None
+
+
+def _opciones(registros, campo_texto):
+    return [
+        {"valor": registro["id"], "texto": registro[campo_texto]}
+        for registro in registros
+    ]
 
 @backoffice_bp.route("/funciones", methods=["GET", "POST"])
 @requiere_admin
 def funciones():
     if request.method == "POST":
-        if not _sala_del_local(request.form.get("local_id", type=int), request.form.get("sala_id", type=int)):
-            flash("Elegí una sala del local seleccionado.", "error")
-            return redirect(url_for("backoffice.funciones"))
-        return _funciones_pendiente()
-    return render_template("backoffice/funciones.html",
-                           **_funciones_ejemplo(request.args.get("local_id", type=int)))
+        pelicula_id = request.form.get("pelicula_id", type=int)
+        sala_id = request.form.get("sala_id", type=int)
+        fecha_hora = request.form.get("fecha_hora", "")
+        precio = request.form.get("precio", type=float)
+
+        datos = {
+            "pelicula_id": pelicula_id,
+            "sala_id": sala_id,
+            "fecha_hora": fecha_hora + ":00",
+            "precio": precio,
+        }
+
+        funcion, error = llamar("POST", "/api/admin/funciones", json=datos)
+
+        if error is not None:
+            flash(error["mensaje"], "error")
+        else:
+            flash("La función fue creada correctamente.", "exito")
+
+        return redirect(url_for("backoffice.funciones"))
+
+    local_id = request.args.get("local_id", type=int)
+    fecha = request.args.get("fecha", "")
+
+    locales = _listar_locales()
+    local = _local_elegido(locales, local_id)
+
+    if local is not None:
+        local_id = local["id"]
+        salas = _listar_salas(local_id)
+    else:
+        salas = []
+
+    peliculas = _listar_peliculas()
+
+    desde = None
+    hasta = None
+
+    if fecha:
+        desde = fecha + "T00:00:00"
+        hasta = fecha + "T23:59:59"
+
+    funciones = _listar_funciones(local_id=local_id, desde=desde, hasta=hasta)
+
+    formulario = {
+        "pelicula_id": "",
+        "local_id": local_id or "",
+        "sala_id": salas[0]["id"] if salas else "",
+        "fecha_hora": "",
+        "precio": "",
+    }
+
+    return render_template(
+        "backoffice/funciones.html",
+        peliculas=_opciones(peliculas, "titulo"),
+        locales=_opciones(locales, "nombre"),
+        salas=_opciones(salas, "nombre"),
+        formulario=formulario,
+        funciones=funciones,
+        fecha=fecha,
+    )
 
 
-@backoffice_bp.get("/funciones/<int:id>")
+@backoffice_bp.route("/funciones/<int:id>", methods=["GET", "POST"])
 @requiere_admin
 def editar_funcion(id):
-    return _funciones_pendiente()
+    funcion = _obtener_funcion(id)
+
+    if funcion is None:
+        flash("La función no existe.", "error")
+        return redirect(url_for("backoffice.funciones"))
+
+    if request.method == "POST":
+        pelicula_id = request.form.get("pelicula_id", type=int)
+        sala_id = request.form.get("sala_id", type=int)
+        fecha_hora = request.form.get("fecha_hora", "")
+        precio = request.form.get("precio", type=float)
+
+        datos = {
+            "pelicula_id": pelicula_id,
+            "sala_id": sala_id,
+            "fecha_hora": fecha_hora + ":00",
+            "precio": precio,
+        }
+
+        funcion_modificada, error = llamar("PUT", f"/api/admin/funciones/{id}", json=datos)
+
+        if error is not None:
+            flash(error["mensaje"], "error")
+        else:
+            flash("La función fue modificada correctamente.", "exito")
+
+        return redirect(url_for("backoffice.funciones"))
+
+    peliculas = _listar_peliculas()
+    salas = _listar_salas(funcion["local_id"])
+
+    formulario = {
+        "pelicula_id": funcion["pelicula_id"],
+        "sala_id": funcion["sala_id"],
+        "fecha_hora": funcion["fecha_hora"][:16],
+        "precio": funcion["precio"],
+    }
+
+    return render_template(
+        "backoffice/funcion_editar.html",
+        funcion=funcion,
+        peliculas=_opciones(peliculas, "titulo"),
+        salas=_opciones(salas, "nombre"),
+        formulario=formulario,
+    )
 
 
 @backoffice_bp.post("/funciones/<int:id>/baja")
 @requiere_admin
 def baja_funcion(id):
-    return _funciones_pendiente()
+    resultado, error = llamar("DELETE", f"/api/admin/funciones/{id}")
+
+    if error is not None:
+        flash(error["mensaje"], "error")
+    else:
+        flash("La función fue eliminada correctamente.", "exito")
+
+    return redirect(url_for("backoffice.funciones"))
 
 
 @backoffice_bp.context_processor
