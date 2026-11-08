@@ -519,6 +519,18 @@ def _validar_ingreso(formulario):
     return None
 
 
+def _historial_ingresos(funcion_id):
+    """Últimos intentos de validación (SCRUM-125), de la función que se controla si ya se eligió una."""
+    params = {"limite": 20}
+    if funcion_id:
+        params["funcion_id"] = funcion_id
+    historial, error = llamar("GET", "/api/admin/ingresos", params=params)
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
+    return historial
+
+
 @backoffice_bp.route("/ingreso", methods=["GET", "POST"])
 @requiere_admin
 def ingreso():
@@ -537,6 +549,7 @@ def ingreso():
     pagina = render_template(
         "backoffice/ingreso.html",
         funciones=_funciones_de_hoy(), formulario=formulario, errores=errores, resultado=resultado,
+        historial=_historial_ingresos(session.get("funcion_ingreso")),
     )
     return pagina, 400 if errores else 200
 

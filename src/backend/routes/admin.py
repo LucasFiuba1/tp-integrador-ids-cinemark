@@ -249,6 +249,12 @@ def dashboard_cancelaciones():
     )
 
 
+@admin_bp.get("/ingresos")
+@requiere_rol("admin")
+def listar_ingresos():
+    return jsonify(ingresos.listar(request.args.get("funcion_id"), request.args.get("limite")))
+
+
 @admin_bp.post("/ingresos/validar")
 @requiere_rol("admin")
 def validar_ingreso():

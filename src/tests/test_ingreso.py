@@ -21,20 +21,27 @@ def error_backend(status, codigo, mensaje):
 
 @pytest.fixture
 def respuestas():
-    """Lo que devuelve la API simulada: funciones de hoy y resultado de validar. Cada prueba cambia lo que necesita."""
-    return {"funciones": (FUNCIONES_HOY, None), "validar": (ENTRADA_VALIDA, None)}
+    """Lo que devuelve la API simulada: funciones de hoy, resultado de validar e historial. Cada prueba cambia lo que necesita."""
+    return {"funciones": (FUNCIONES_HOY, None), "validar": (ENTRADA_VALIDA, None), "historial": ([], None)}
+
+
+RUTAS_SIMULADAS = {"/api/admin/ingresos/validar": "validar", "/api/admin/ingresos": "historial"}
 
 
 @pytest.fixture
 def llamar(respuestas):
     def responder(metodo, ruta, json=None, params=None):
-        return respuestas["validar" if ruta == "/api/admin/ingresos/validar" else "funciones"]
+        return respuestas[RUTAS_SIMULADAS.get(ruta, "funciones")]
     with patch("src.frontend.routes.backoffice.llamar", side_effect=responder) as simulado:
         yield simulado
 
 
+def llamadas_a(llamar, ruta):
+    return [llamada for llamada in llamar.call_args_list if llamada.args[1] == ruta]
+
+
 def llamadas_a_validar(llamar):
-    return [llamada for llamada in llamar.call_args_list if llamada.args[1] == "/api/admin/ingresos/validar"]
+    return llamadas_a(llamar, "/api/admin/ingresos/validar")
 
 
 def elegir_funcion(cliente, funcion_id=12):
@@ -95,10 +102,34 @@ def test_get_con_token_lo_precarga_y_no_valida(cliente_admin, llamar):
 
 def test_get_pide_las_funciones_de_hoy(cliente_admin, llamar):
     cliente_admin.get("/admin/ingreso")
-    params = llamar.call_args.kwargs["params"]
-    assert llamar.call_args.args == ("GET", "/api/admin/funciones")
+    [llamada] = llamadas_a(llamar, "/api/admin/funciones")
+    params = llamada.kwargs["params"]
+    assert llamada.args == ("GET", "/api/admin/funciones")
     assert params["desde"].endswith("T00:00:00") and params["hasta"].endswith("T23:59:59")
     assert params["desde"][:10] == params["hasta"][:10]
+
+
+def test_get_pide_el_historial_de_la_funcion_elegida(cliente_admin, llamar, respuestas):
+    elegir_funcion(cliente_admin)
+    respuestas["historial"] = ([{"id": 1, "compra_id": 88, "funcion_id": 12, "hora": "2026-11-10T20:21:00",
+                                 "pelicula": "Volver al futuro", "butacas": "D5, D6", "resultado": "valida"}], None)
+    html = cliente_admin.get("/admin/ingreso").get_data(as_text=True)
+    [llamada] = llamadas_a(llamar, "/api/admin/ingresos")
+    assert llamada.kwargs["params"] == {"limite": 20, "funcion_id": 12}
+    assert 'badge-valida">Válida</span>' in html and "D5, D6" in html
+
+
+def test_get_sin_funcion_elegida_pide_el_historial_general(cliente_admin, llamar):
+    cliente_admin.get("/admin/ingreso")
+    [llamada] = llamadas_a(llamar, "/api/admin/ingresos")
+    assert llamada.kwargs["params"] == {"limite": 20}
+
+
+def test_historial_caido_muestra_la_pagina_igual(cliente_admin, llamar, respuestas):
+    respuestas["historial"] = (None, error_backend(503, "SERVICIO_NO_DISPONIBLE", "El backend no responde."))
+    respuesta = cliente_admin.get("/admin/ingreso")
+    assert respuesta.status_code == 200
+    assert "Todavía no hubo ingresos en esta jornada." in respuesta.get_data(as_text=True)
 
 
 def test_get_con_token_sin_funcion_elegida_pide_elegirla(cliente_admin, llamar):

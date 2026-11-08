@@ -349,7 +349,20 @@ inexistente) · 409 `SERVICIO_DUPLICADO` (nombre repetido, también al modificar
 
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
-| POST | `/api/admin/ingresos/validar` | 🛠️ | Valida el QR para una función y lo marca como utilizado. |
+| GET | `/api/admin/ingresos?funcion_id=&limite=` | 🛠️ | Últimos intentos de validación registrados (`limite` entre 1 y 100, por defecto 20; ordenado por fecha descendente). |
+| POST | `/api/admin/ingresos/validar` | 🛠️ | Valida el QR para una función, registra el intento y lo marca como utilizado si es válido. |
+
+```http
+GET /api/admin/ingresos?funcion_id=12&limite=20
+
+200 OK
+[
+  {
+    "id": 5, "compra_id": 88, "funcion_id": 12, "hora": "2026-11-10T20:21:00",
+    "pelicula": "Volver al futuro", "butacas": "D5, D6", "resultado": "valida"
+  }
+]
+```
 
 ```http
 POST /api/admin/ingresos/validar

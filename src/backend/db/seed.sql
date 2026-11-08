@@ -150,3 +150,9 @@ INSERT INTO compras (usuario_id, funcion_id, estado, total, creada_en, vence_en,
 SET @compra = LAST_INSERT_ID();
 INSERT INTO entradas (compra_id, funcion_id, butaca_id, precio)
 SELECT @compra, @funcion_futura, id, 5500.00 FROM butacas WHERE sala_id = 1 AND fila = 'E' AND numero IN (7, 8);
+
+-- Validaciones de ingreso de las funciones de ayer (SCRUM-125).
+INSERT INTO validaciones_ingreso (compra_id, funcion_id, resultado, fecha_hora) VALUES
+(1, @funcion_pasada, 'valida', @ayer_21 - INTERVAL 12 MINUTE),
+(1, @funcion_pasada, 'ya_utilizada', @ayer_21 - INTERVAL 10 MINUTE),
+(2, @funcion_pasada_belgrano, 'valida', @ayer_1730 - INTERVAL 8 MINUTE);

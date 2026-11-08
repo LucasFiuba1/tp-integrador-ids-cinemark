@@ -7,6 +7,7 @@ CREATE DATABASE IF NOT EXISTS cine_paradiso CHARACTER SET utf8mb4 COLLATE utf8mb
 USE cine_paradiso;
 
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS validaciones_ingreso;
 DROP TABLE IF EXISTS compra_servicios;
 DROP TABLE IF EXISTS entradas;
 DROP TABLE IF EXISTS compras;
@@ -146,4 +147,18 @@ CREATE TABLE compra_servicios (
     FOREIGN KEY (compra_id) REFERENCES compras (id) ON DELETE CASCADE,
     FOREIGN KEY (servicio_id) REFERENCES servicios (id),
     CHECK (cantidad > 0)
+);
+
+-- Historial de intentos de validación de QR en el ingreso a la sala (SCRUM-125).
+-- Guarda tanto los ingresos válidos como los rechazados; compra_id es NULL cuando el QR no corresponde a ninguna compra.
+CREATE TABLE validaciones_ingreso (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    compra_id  INT NULL,
+    funcion_id INT NULL,
+    resultado  ENUM('valida', 'qr_invalido', 'cancelada', 'ya_utilizada', 'otra_funcion', 'fuera_de_fecha') NOT NULL,
+    fecha_hora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_validacion_fecha (fecha_hora),
+    INDEX idx_validacion_funcion (funcion_id, fecha_hora),
+    FOREIGN KEY (compra_id) REFERENCES compras (id) ON DELETE SET NULL,
+    FOREIGN KEY (funcion_id) REFERENCES funciones (id) ON DELETE SET NULL
 );
