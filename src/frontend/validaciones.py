@@ -96,13 +96,22 @@ def validar_pago(datos, hoy=None):
     })
 
 
-def validar_codigo_qr(datos):
-    codigo = datos["codigo"]
-    if not codigo:
-        return {"codigo": "Ingresá o escaneá el código de la entrada."}
-    if len(codigo) > MAXIMO_CODIGO_QR:
-        return {"codigo": "El código es demasiado largo; revisá que sea el de la entrada."}
-    return {}
+def _error_token_qr(token):
+    if not token:
+        return "Escaneá el QR con la cámara o pegá el código de la entrada."
+    if len(token) > MAXIMO_CODIGO_QR:
+        return "El código es demasiado largo; revisá que sea el de la entrada."
+    return None
+
+
+def validar_ingreso(datos):
+    """Formulario de validar ingreso: {"funcion_id", "token"} -> errores por campo (vacío si está bien)."""
+    funcion_id = datos["funcion_id"]
+    return _sin_vacios({
+        "funcion_id": None if funcion_id.isdecimal() and int(funcion_id) > 0
+        else "Elegí la función que estás controlando.",
+        "token": _error_token_qr(datos["token"]),
+    })
 
 
 def _error_precio(texto):

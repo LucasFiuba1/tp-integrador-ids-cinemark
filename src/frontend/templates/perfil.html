@@ -1,0 +1,52 @@
+{# Mi perfil del cliente (SCRUM-116 maqueta, SCRUM-50 datos reales). Figma Mi perfil 26:781 (desktop) y 26:2237
+   (mobile). Datos de cuenta, compras filtradas por pestaña (links ?estado=, sin JS) y películas vistas (QR validado).
+   Si el backend falla, sin_datos muestra un aviso en lugar de los estados vacíos (que dirían algo falso). #}
+{% extends "base.html" %}
+{% from "macros.html" import tarjeta_compra, tarjeta_pelicula, dia_funcion %}
+
+{% block titulo %}Mi perfil · Cine Paradiso{% endblock %}
+
+{% block contenido %}
+<div class="perfil">
+  <section class="panel perfil-cuenta" aria-label="Tu cuenta">
+    <span class="perfil-avatar" aria-hidden="true">{{ (usuario.nombre or "?")[:1] | upper }}</span>
+    <div class="perfil-datos">
+      <h1>{{ usuario.nombre or "Mi perfil" }}</h1>
+      {% if usuario.email %}<p>{{ usuario.email }}</p>{% endif %}
+    </div>
+    <form method="post" action="{{ url_for('publico.salir') }}">
+      <button type="submit" class="boton boton-secundario">Cerrar sesión</button>
+    </form>
+  </section>
+
+  <section class="perfil-compras" aria-labelledby="titulo-compras">
+    <h2 class="visualmente-oculto" id="titulo-compras">Mis compras</h2>
+    <nav class="pestanas" aria-label="Compras">
+      {% for clave, texto in pestanas %}
+        <a href="{{ url_for('publico.perfil', estado=clave) }}"{% if clave == pestana %} aria-current="page"{% endif %}>{{ texto }}</a>
+      {% endfor %}
+    </nav>
+    {% for compra in compras %}
+      {{ tarjeta_compra(compra, horas_limite) }}
+    {% else %}
+      <p class="panel estado-vacio">{{ "No pudimos cargar tus compras. Probá de nuevo en unos minutos." if sin_datos else "No tenés compras en esta sección." }}</p>
+    {% endfor %}
+  </section>
+
+  <section class="perfil-vistas" aria-labelledby="titulo-vistas">
+    <h2 class="perfil-seccion-titulo" id="titulo-vistas">Películas que viste</h2>
+    <p class="perfil-bajada">Se suman cuando se valida tu QR al ingresar a la sala.</p>
+    {% if peliculas_vistas %}
+      <ul class="grilla-peliculas grilla-vistas" role="list">
+        {% for pelicula in peliculas_vistas %}
+          <li>{{ tarjeta_pelicula(dict(pelicula, id=pelicula.pelicula_id), bajada="Vista el " ~ dia_funcion(pelicula.utilizada_en), nivel=3) }}</li>
+        {% endfor %}
+      </ul>
+    {% elif sin_datos %}
+      <p class="panel estado-vacio">No pudimos cargar las películas que viste.</p>
+    {% else %}
+      <p class="panel estado-vacio">Todavía no viste películas con nosotros.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -24,7 +24,7 @@
 
   <div class="kpis">
     {{ tarjeta_kpi("Entradas vendidas", resumen.entradas | numero) }}
-    {{ tarjeta_kpi("Ingresos", resumen.monto | precio) }}
+    {{ tarjeta_kpi("Ingresos por entradas", resumen.monto | precio) }}
     {{ tarjeta_kpi("Ocupación promedio", resumen.ocupacion | numero ~ "%") }}
     {{ tarjeta_kpi("Compras canceladas", resumen.cancelaciones | numero ~ "%") }}
   </div>
@@ -54,7 +54,7 @@
       {% else %}
         {{ sin_datos() }}
       {% endfor %}
-      <p class="panel-nota">Entradas vendidas por género de la película.</p>
+      <p class="panel-nota">Cada venta se cuenta en el género principal de la película.</p>
     </section>
 
     <section class="panel" aria-labelledby="titulo-cancelaciones">
@@ -71,6 +71,7 @@
 
   <section class="dashboards-funciones" aria-labelledby="titulo-funciones">
     <h2 id="titulo-funciones">Ocupación por función</h2>
+    <p class="panel-nota">Las 10 funciones con mayor ocupación del período.</p>
     {{ tabla([
          {"clave": "pelicula", "titulo": "Película"},
          {"clave": "local", "titulo": "Local"},

@@ -9,10 +9,12 @@ from flask import Blueprint, jsonify, request
 from src.backend.auth import requiere_rol
 from src.backend.errores import respuesta_error
 from src.backend.routes.comun import cuerpo_json
-from src.backend.services import locales, peliculas, salas
+from src.backend.services import dashboards, funciones, ingresos, locales, peliculas, salas, servicios
 from src.backend.services.validaciones import entero_positivo
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
+
+MENSAJE_SERVICIO_DUPLICADO = "Ya existe un servicio con ese nombre."
 
 
 @admin_bp.get("/locales")
@@ -111,6 +113,52 @@ def eliminar_sala(sala_id):
     return "", 204
 
 
+@admin_bp.get("/servicios")
+@requiere_rol("admin")
+def listar_servicios():
+    return jsonify(servicios.listar_servicios())
+
+
+@admin_bp.post("/servicios")
+@requiere_rol("admin")
+def crear_servicio():
+    datos = cuerpo_json()
+    nombre, descripcion, precio = servicios.validar_servicio(
+        datos.get("nombre"), datos.get("descripcion"), datos.get("precio")
+    )
+    try:
+        servicio = servicios.crear_servicio(nombre, descripcion, precio)
+    except pymysql.err.IntegrityError:
+        return respuesta_error(409, "SERVICIO_DUPLICADO", MENSAJE_SERVICIO_DUPLICADO)
+    return jsonify(servicio), 201
+
+
+@admin_bp.put("/servicios/<int:servicio_id>")
+@requiere_rol("admin")
+def modificar_servicio(servicio_id):
+    servicio = servicios.obtener_servicio(servicio_id)
+    if servicio is None:
+        return respuesta_error(404, "NO_ENCONTRADO", "El servicio no existe.")
+    datos = cuerpo_json()
+    nombre, descripcion, precio = servicios.validar_servicio(
+        datos.get("nombre"), datos.get("descripcion"), datos.get("precio")
+    )
+    try:
+        res = servicios.modificar_servicio(servicio_id, nombre, descripcion, precio, servicio["activo"])
+    except pymysql.err.IntegrityError:
+        return respuesta_error(409, "SERVICIO_DUPLICADO", MENSAJE_SERVICIO_DUPLICADO)
+    return jsonify(res)
+
+
+@admin_bp.delete("/servicios/<int:servicio_id>")
+@requiere_rol("admin")
+def eliminar_servicio(servicio_id):
+    if servicios.obtener_servicio(servicio_id) is None:
+        return respuesta_error(404, "NO_ENCONTRADO", "El servicio no existe.")
+    servicios.dar_de_baja_servicio(servicio_id)
+    return "", 204
+
+
 @admin_bp.get("/tmdb/buscar")
 @requiere_rol("admin")
 def buscar_tmdb():
@@ -145,3 +193,69 @@ def modificar_pelicula(pelicula_id):
 @requiere_rol("admin")
 def eliminar_pelicula(pelicula_id):
     return jsonify(peliculas.dar_de_baja(pelicula_id))
+
+
+@admin_bp.get("/funciones")
+@requiere_rol("admin")
+def listar_funciones():
+    return jsonify(
+        funciones.listar(
+            request.args.get("local_id"),
+            request.args.get("desde"),
+            request.args.get("hasta"),
+        )
+    )
+
+
+@admin_bp.post("/funciones")
+@requiere_rol("admin")
+def crear_funcion():
+    return jsonify(funciones.crear(cuerpo_json())), 201
+
+
+@admin_bp.put("/funciones/<int:funcion_id>")
+@requiere_rol("admin")
+def modificar_funcion(funcion_id):
+    return jsonify(funciones.modificar(funcion_id, cuerpo_json()))
+
+
+@admin_bp.delete("/funciones/<int:funcion_id>")
+@requiere_rol("admin")
+def eliminar_funcion(funcion_id):
+    return jsonify(funciones.dar_de_baja(funcion_id))
+
+
+@admin_bp.get("/dashboards/franjas-horarias")
+@requiere_rol("admin")
+def dashboard_franjas_horarias():
+    return jsonify(
+        dashboards.listar_franjas_horarias(
+            request.args.get("desde"),
+            request.args.get("hasta"),
+            request.args.get("local_id"),
+        )
+    )
+
+
+@admin_bp.get("/dashboards/cancelaciones")
+@requiere_rol("admin")
+def dashboard_cancelaciones():
+    return jsonify(
+        dashboards.listar_cancelaciones(
+            request.args.get("desde"),
+            request.args.get("hasta"),
+            request.args.get("local_id"),
+        )
+    )
+
+
+@admin_bp.get("/ingresos")
+@requiere_rol("admin")
+def listar_ingresos():
+    return jsonify(ingresos.listar(request.args.get("funcion_id"), request.args.get("limite")))
+
+
+@admin_bp.post("/ingresos/validar")
+@requiere_rol("admin")
+def validar_ingreso():
+    return jsonify(ingresos.validar(cuerpo_json()))

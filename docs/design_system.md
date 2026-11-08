@@ -78,6 +78,51 @@ CSS no admite variables dentro de `@media`, así que se usan estos valores liter
 | desktop | `@media (min-width: 64rem)` | frames D/B (1440 px) |
 | ancho | `@media (min-width: 90rem)` | 1440 px en adelante |
 
+## Header público (SCRUM-95)
+
+Referencias: **Header/Desktop** `23:221` y **Header/Mobile** `23:237`, dentro de **Componentes** `23:146`.
+`base.html` incluye `templates/parciales/header.html`; el backoffice conserva su sidebar al reemplazar
+`block cabecera`. En mobile, la marca queda entre los íconos de menú y usuario, con los selectores siempre visibles
+en una segunda fila. En desktop, la barra se centra dentro de `--ancho-contenido`.
+El menú móvil se despliega con un checkbox y CSS; la cuenta usa `<details>`, sin JavaScript.
+
+El parcial muestra los accesos según la sesión: **Ingresar** sin sesión; nombre y **Salir** (formulario `POST`)
+con sesión (dentro del menú de cuenta); **Backoffice** para administradores y **Mi perfil** para clientes.
+`ruta_disponible(endpoint)`,
+registrada por `src/frontend/header.py`, permite ofrecer enlaces con `url_for` solo cuando existe una ruta
+sin parámetros obligatorios. Las secciones aún no implementadas se muestran deshabilitadas, no con enlaces `#`.
+
+La vista puede pasar `header_locales` y `header_peliculas`, listas de opciones con las claves `valor` y `texto`.
+El header no consulta la API ni inventa catálogos: sin esas listas, los selectores quedan deshabilitados.
+La selección se conserva desde `request.args` (`local_id`, `pelicula_id`) y se envía por `GET` a `publico.inicio`.
+El botón **Ver** aparece cuando al menos uno de los catálogos tiene opciones; sin opciones, los campos conservan
+su indicación y explican el estado mediante una descripción accesible.
+La carga de los catálogos y el filtrado real de la cartelera pertenecen a su integración, no a este componente.
+
+Macros reutilizables de `macros.html`:
+
+| Macro | Uso |
+|---|---|
+| `selectores_cartelera(accion, locales=none, peliculas=none, local='', pelicula='', id_base='selector')` | Formulario GET de local/película. `accion` se obtiene con `url_for`; `id_base` distingue los campos si hay varios formularios. |
+| `icono(archivo, tamano, archivo_desktop='', tamano_desktop=0)` | Ícono decorativo local en `<picture>`; la variante desktop se usa desde `64rem`. Conserva las dimensiones raíz del SVG y deja el texto accesible al control que lo contiene. |
+
+Los cinco SVG de `static/img/header/` se descargaron de Figma sin modificar: menú mobile (22 px), usuario
+mobile/desktop (22/20 px) y pin mobile/desktop (14/16 px). No se usan URLs temporales de Figma en la aplicación.
+
+| Token específico del header | Valor | Uso |
+|---|---|---|
+| `--texto-marca-header` | `1.75rem` | Marca desktop (28 px). |
+| `--texto-marca-header-mobile` | `1.375rem` | Marca mobile (22 px). |
+| `--texto-selector-mobile` | `.8125rem` | Selectores mobile (13 px). |
+| `--espaciado-marca-header` | `.07em` | Espaciado de letras de la marca. |
+| `--espacio-header-barra` | `.875rem` | Espaciado vertical de la barra mobile (14 px). |
+| `--espacio-header-grupo` | `2.25rem` | Separación entre marca y navegación (36 px). |
+| `--espacio-header-menu` | `1.75rem` | Separación entre enlaces desktop (28 px). |
+| `--espacio-header-icono` | `.375rem` | Separación pin/local en mobile (6 px). |
+| `--ancho-selector` | `10rem` | Tope de los selectores desde 1440 px y mínimo del menú de cuenta. |
+| `--ancho-selector-compacto` | `7.5rem` | Tope de selectores por debajo de 1440 px. |
+| `--ancho-nombre-header` | `10rem` | Tope del nombre junto al ícono desde 1440 px; los nombres largos se truncan. |
+
 ## Componentes del backoffice
 
 Mockups: página **Backoffice** de Figma (B1–B6 desktop, M1–M2 mobile).

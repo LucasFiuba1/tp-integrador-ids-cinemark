@@ -1,0 +1,30 @@
+{% extends "backoffice/base_admin.html" %}
+{% from "macros.html" import cabecera_pagina, campo, boton %}
+
+{% block titulo %}Editar película · Backoffice · Cine Paradiso{% endblock %}
+
+{% block admin %}
+  {{ cabecera_pagina("Editar película", bajada=pelicula.titulo) }}
+
+  <section class="panel">
+    {% if formulario.poster_url %}
+      <img class="pelicula-edicion-poster" src="{{ formulario.poster_url }}" alt="Póster de {{ formulario.titulo }}">
+    {% endif %}
+
+    <form method="post" action="{{ url_for('backoffice.editar_pelicula', id=pelicula.id) }}" class="formulario-linea">
+      {{ campo("titulo", "Título", valor=formulario.titulo) }}
+      {{ campo("genero", "Género", valor=formulario.genero) }}
+      {{ campo("duracion_min", "Duración en minutos", tipo="number", valor=formulario.duracion_min) }}
+      {{ campo("clasificacion", "Clasificación", valor=formulario.clasificacion, requerido=false) }}
+      {{ campo("sinopsis", "Sinopsis", valor=formulario.sinopsis, requerido=false) }}
+      {{ campo("poster_url", "URL del póster", valor=formulario.poster_url, requerido=false) }}
+      {{ campo("disponible_desde", "Disponible desde", tipo="datetime-local", valor=formulario.disponible_desde) }}
+      {{ campo("disponible_hasta", "Disponible hasta", tipo="datetime-local", valor=formulario.disponible_hasta) }}
+
+      <div class="formulario-linea-acciones">
+        {{ boton("Guardar cambios") }}
+        <a class="accion-texto" href="{{ url_for('backoffice.peliculas') }}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

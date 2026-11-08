@@ -3,4 +3,6 @@ requests==2.32.3
 PyMySQL==1.1.1
 python-dotenv==1.0.1
 cryptography==50.0.2
+qrcode==8.2
+pypng==0.20220715.0
 pytest==8.3.3

@@ -1,0 +1,9 @@
+{% extends "email/base.html" %}
+
+{% block titulo %}Compra #{{ compra.id }} cancelada · Cine Paradiso{% endblock %}
+{% block encabezado %}Compra cancelada{% endblock %}
+{% block bajada %}Hola {{ cliente.nombre }}, cancelamos tu compra #{{ compra.id }}. Liberamos {{ "la butaca" if compra.butacas | length == 1 else "las butacas" }} y el QR de ingreso ya no es válido.{% endblock %}
+
+{% block pie %}
+  <p class="nota">Se anuló el pago simulado de {{ compra.total | precio }}.</p>
+{% endblock %}
