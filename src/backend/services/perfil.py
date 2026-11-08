@@ -30,8 +30,29 @@ def _agrupar_por_compra(filas, convertir):
     return agrupado
 
 
+# Filtros fijos sobre la tabla compras (alias c). Nunca llevan datos del usuario: el valor va siempre en el %s.
+FILTRO_HISTORIAL = (
+    "c.usuario_id = %s "
+    "AND (c.estado IN ('confirmada', 'cancelada') OR (c.estado = 'pendiente' AND c.vence_en > NOW()))"
+)
+FILTRO_COMPRA = "c.id = %s"
+
+
 def listar_compras(usuario_id):
     """Compras confirmadas y canceladas, más las pendientes que todavía no vencieron (se pueden pagar)."""
+    return _buscar_compras(FILTRO_HISTORIAL, usuario_id)
+
+
+def obtener_compra(compra_id):
+    """Una compra con el mismo detalle que el historial (función, butacas, servicios), o None si no existe.
+
+    No filtra por usuario: la usan procesos internos como el email de la factura (SCRUM-67), nunca una ruta directa.
+    """
+    compras = _buscar_compras(FILTRO_COMPRA, compra_id)
+    return compras[0] if compras else None
+
+
+def _buscar_compras(filtro, valor):
     compras = consultar(
         "SELECT c.id, c.estado, c.total, c.token_qr, c.creada_en, c.vence_en, c.confirmada_en, c.cancelada_en, "
         "c.utilizada_en, f.id AS funcion_id, f.fecha_hora, p.id AS pelicula_id, p.titulo, p.poster_url, "
@@ -41,18 +62,17 @@ def listar_compras(usuario_id):
         "JOIN peliculas p ON p.id = f.pelicula_id "
         "JOIN salas s ON s.id = f.sala_id "
         "JOIN locales l ON l.id = s.local_id "
-        "WHERE c.usuario_id = %s "
-        "AND (c.estado IN ('confirmada', 'cancelada') OR (c.estado = 'pendiente' AND c.vence_en > NOW())) "
+        f"WHERE {filtro} "
         "ORDER BY f.fecha_hora DESC",
-        (usuario_id,),
+        (valor,),
     )
     butacas = _agrupar_por_compra(
         consultar(
             "SELECT e.compra_id, b.fila, b.numero FROM entradas e "
             "JOIN butacas b ON b.id = e.butaca_id "
             "JOIN compras c ON c.id = e.compra_id "
-            "WHERE c.usuario_id = %s ORDER BY b.fila, b.numero",
-            (usuario_id,),
+            f"WHERE {filtro} ORDER BY b.fila, b.numero",
+            (valor,),
         ),
         lambda fila: fila["fila"] + str(fila["numero"]),
     )
@@ -61,8 +81,8 @@ def listar_compras(usuario_id):
             "SELECT cs.compra_id, sv.nombre, cs.cantidad, cs.precio_unitario FROM compra_servicios cs "
             "JOIN servicios sv ON sv.id = cs.servicio_id "
             "JOIN compras c ON c.id = cs.compra_id "
-            "WHERE c.usuario_id = %s ORDER BY sv.nombre",
-            (usuario_id,),
+            f"WHERE {filtro} ORDER BY sv.nombre",
+            (valor,),
         ),
         lambda fila: {
             "nombre": fila["nombre"],

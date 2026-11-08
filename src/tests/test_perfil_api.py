@@ -1,9 +1,10 @@
-"""Pruebas de los endpoints de perfil con los campos que usa la pantalla Mi perfil (SCRUM-49, SCRUM-50)."""
+"""Pruebas de los endpoints de perfil con los campos que usa la pantalla Mi perfil (SCRUM-49, SCRUM-50, SCRUM-67)."""
 from datetime import datetime, timedelta
 from decimal import Decimal
 
 import pytest
 
+from src.backend.services import perfil
 from src.tests.utilidades import simular_bd
 
 
@@ -79,3 +80,25 @@ def test_me_devuelve_el_email_del_usuario(cliente_backend, cabeceras_cliente, us
     usuarios["cliente"]["email"] = "cliente@email.com"
     respuesta = cliente_backend.get("/api/auth/me", headers=cabeceras_cliente)
     assert respuesta.get_json()["email"] == "cliente@email.com"
+
+
+# --- obtener_compra (SCRUM-67: arma los datos del email de la factura) ---
+def test_obtener_compra_trae_butacas_y_servicios_de_esa_compra(app_backend, bd_perfil):
+    bd_perfil.consultar.side_effect = [
+        [_fila_compra()],
+        [{"compra_id": 10, "fila": "D", "numero": 5}, {"compra_id": 10, "fila": "D", "numero": 6}],
+        [{"compra_id": 10, "nombre": "Combo", "cantidad": 2, "precio_unitario": Decimal("6500.00")}],
+    ]
+    compra = perfil.obtener_compra(10)
+    assert compra["id"] == 10 and compra["funcion"]["local"] == "Centro"
+    assert compra["butacas"] == ["D5", "D6"]
+    assert compra["servicios"] == [{"nombre": "Combo", "cantidad": 2, "precio_unitario": 6500.0}]
+    for llamada in bd_perfil.consultar.call_args_list:
+        sql, parametros = llamada.args
+        assert "WHERE c.id = %s" in sql and "usuario_id" not in sql
+        assert parametros == (10,)
+
+
+def test_obtener_compra_inexistente_devuelve_none(app_backend, bd_perfil):
+    bd_perfil.consultar.side_effect = [[], [], []]
+    assert perfil.obtener_compra(999) is None
