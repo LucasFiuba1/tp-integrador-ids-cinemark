@@ -1,10 +1,14 @@
-"""Reservas de butacas para una función."""
+"""Reservas de butacas y confirmación de compra con QR y factura por email (SCRUM-62, SCRUM-66, SCRUM-67)."""
+import base64
+
 import pymysql
 from flask import current_app
 
 from src.backend.db import transaccion
 from src.backend.errores import error_api
+from src.backend.services import correo, perfil, qr
 from src.backend.services.validaciones import entero_positivo, requerir_campos
+from src.backend.tokens import firmar_qr
 
 
 def reservar(usuario_id, datos):
@@ -87,4 +91,50 @@ def reservar(usuario_id, datos):
         "estado": "pendiente",
         "vence_en": vence_en.isoformat(),
         "subtotal_entradas": float(total),
+    }
+
+
+def confirmar(usuario, compra_id):
+    """Confirma una compra pendiente, genera su QR y envía la factura por email (SCRUM-66, SCRUM-67).
+
+    Si la reserva ya venció, la marca como vencida y libera las butacas antes de devolver 409 RESERVA_VENCIDA.
+    El envío del email ocurre fuera de la transacción: si SMTP falla, la compra queda confirmada igual.
+    """
+    vencida = False
+    with transaccion() as cursor:
+        cursor.execute(
+            "SELECT id, usuario_id, estado, total, (vence_en <= NOW()) AS vencida "
+            "FROM compras WHERE id = %s FOR UPDATE",
+            (compra_id,),
+        )
+        compra = cursor.fetchone()
+        if compra is None:
+            error_api(404, "NO_ENCONTRADO", "La compra no existe.")
+        if compra["usuario_id"] != usuario["id"]:
+            error_api(403, "SIN_PERMISO", "No tenés permiso sobre esta compra.")
+        if compra["estado"] != "pendiente":
+            error_api(409, "COMPRA_NO_PENDIENTE", "La compra no está pendiente de pago.")
+        if compra["vencida"]:
+            cursor.execute("UPDATE compras SET estado = 'vencida' WHERE id = %s", (compra_id,))
+            cursor.execute("UPDATE entradas SET activa = NULL WHERE compra_id = %s AND activa = 1", (compra_id,))
+            vencida = True
+        else:
+            token_qr = firmar_qr(compra_id)
+            cursor.execute(
+                "UPDATE compras SET estado = 'confirmada', confirmada_en = NOW(), token_qr = %s WHERE id = %s",
+                (token_qr, compra_id),
+            )
+    if vencida:
+        error_api(409, "RESERVA_VENCIDA", "La reserva venció y se liberaron las butacas.")
+
+    qr_png = qr.generar_png(token_qr)
+    detalle = perfil.obtener_compra(compra_id)
+    cliente = {"nombre": usuario["nombre"], "email": usuario.get("email", "")}
+    email_enviado = correo.enviar_factura(detalle, cliente, qr_png) if detalle is not None else False
+    return {
+        "id": compra_id,
+        "estado": "confirmada",
+        "total": float(compra["total"]),
+        "qr_png_base64": base64.b64encode(qr_png).decode("ascii"),
+        "email_enviado": email_enviado,
     }

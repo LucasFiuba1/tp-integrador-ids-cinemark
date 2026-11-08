@@ -1,0 +1,17 @@
+{% set funcion = compra.funcion -%}
+{% set textos_servicios = namespace(items=[]) -%}
+{% for servicio in compra.servicios -%}
+  {% set textos_servicios.items = textos_servicios.items + [servicio.nombre ~ " × " ~ servicio.cantidad ~ " (" ~ (servicio.precio_unitario | precio) ~ ")"] -%}
+{% endfor -%}
+Cine Paradiso — Compra cancelada
+
+Hola {{ cliente.nombre }}, cancelamos tu compra #{{ compra.id }}. Liberamos las butacas y el QR ya no es válido.
+
+Película: {{ funcion.pelicula }}
+Local: {{ funcion.local }}
+Sala: {{ funcion.sala }}
+Función: {{ funcion.fecha_hora | fecha_hora }}
+{{ "Butaca" if compra.butacas | length == 1 else "Butacas" }}: {{ compra.butacas | join(", ") }}
+Servicios: {{ textos_servicios.items | join(", ") or "Sin servicios" }}
+Total anulado: {{ compra.total | precio }}
+N.º de compra: #{{ compra.id }}
