@@ -8,8 +8,6 @@ from flask import abort, current_app, session
 
 from src.frontend.sesion import ir_al_login
 
-TIMEOUT_SEGUNDOS = 5
-
 
 def _error(status, codigo, mensaje):
     return {"status": status, "codigo": codigo, "mensaje": mensaje}
@@ -34,7 +32,12 @@ def llamar(metodo, ruta, json=None, params=None):
     cabeceras = _cabeceras()
     try:
         respuesta = requests.request(
-            metodo, url, json=json, params=params, headers=cabeceras, timeout=TIMEOUT_SEGUNDOS
+            metodo,
+            url,
+            json=json,
+            params=params,
+            headers=cabeceras,
+            timeout=current_app.config["BACKEND_TIMEOUT"],
         )
     except requests.RequestException:
         return None, _error(503, "BACKEND_NO_DISPONIBLE", "No se pudo conectar con el servidor.")

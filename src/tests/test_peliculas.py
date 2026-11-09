@@ -1,9 +1,10 @@
 """Pruebas del ABM de películas (SCRUM-52) con la base y TMDB simulados."""
 from datetime import datetime
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+
+from src.tests.utilidades import afirmar_error_json, simular_bd
 
 PELICULA_TMDB = {
     "tmdb_id": 105, "titulo": "Volver al futuro", "sinopsis": "Marty viaja en el tiempo.",
@@ -26,31 +27,36 @@ def fila(**extra):
 
 @pytest.fixture
 def bd():
-    """Base y TMDB simulados tal como los usa el service de películas."""
-    with patch("src.backend.services.peliculas.consultar_uno") as consultar_uno, \
-            patch("src.backend.services.peliculas.ejecutar", return_value=3) as ejecutar, \
-            patch("src.backend.services.peliculas.tmdb.detalle", return_value=PELICULA_TMDB) as detalle:
-        yield SimpleNamespace(consultar_uno=consultar_uno, ejecutar=ejecutar, detalle=detalle)
+    """Base simulada tal como la usa el service de películas (consultar_uno, ejecutar y el resto de db)."""
+    with simular_bd(destinos=("src.backend.services.peliculas",)) as simulacion:
+        simulacion.ejecutar.return_value = 3
+        yield simulacion
+
+
+@pytest.fixture
+def detalle():
+    """TMDB simulado, independiente de la base."""
+    with patch("src.backend.services.peliculas.tmdb.detalle", return_value=PELICULA_TMDB) as detalle:
+        yield detalle
 
 
 # --- protección ---
 def test_sin_token_devuelve_401(cliente_backend):
-    assert cliente_backend.get(RUTA).status_code == 401
+    afirmar_error_json(cliente_backend.get(RUTA), 401, "NO_AUTENTICADO")
 
 
 def test_cliente_devuelve_403(cliente_backend, cabeceras, usuario):
     usuario["rol"] = "cliente"
-    assert cliente_backend.get(RUTA, headers=cabeceras).status_code == 403
+    afirmar_error_json(cliente_backend.get(RUTA, headers=cabeceras), 403, "SIN_PERMISO")
 
 
 def test_token_invalido_devuelve_401(cliente_backend):
     respuesta = cliente_backend.get(RUTA, headers={"Authorization": "Bearer cualquiera"})
-    assert respuesta.status_code == 401
-    assert respuesta.get_json()["error"]["codigo"] == "TOKEN_INVALIDO"
+    afirmar_error_json(respuesta, 401, "TOKEN_INVALIDO")
 
 
 # --- alta ---
-def test_alta_importa_pelicula(cliente_backend, cabeceras, bd):
+def test_alta_importa_pelicula(cliente_backend, cabeceras, bd, detalle):
     bd.consultar_uno.side_effect = [None, fila()]  # no existe; luego se relee
     respuesta = cliente_backend.post(RUTA, json={"tmdb_id": 105, **PERIODO}, headers=cabeceras)
     assert respuesta.status_code == 201
@@ -59,12 +65,11 @@ def test_alta_importa_pelicula(cliente_backend, cabeceras, bd):
     bd.ejecutar.assert_called_once()
 
 
-def test_alta_duplicada_devuelve_409(cliente_backend, cabeceras, bd):
+def test_alta_duplicada_devuelve_409(cliente_backend, cabeceras, bd, detalle):
     bd.consultar_uno.return_value = {"id": 3}
     respuesta = cliente_backend.post(RUTA, json={"tmdb_id": 105, **PERIODO}, headers=cabeceras)
-    assert respuesta.status_code == 409
-    assert respuesta.get_json()["error"]["codigo"] == "PELICULA_DUPLICADA"
-    bd.detalle.assert_not_called()
+    afirmar_error_json(respuesta, 409, "PELICULA_DUPLICADA")
+    detalle.assert_not_called()
 
 
 @pytest.mark.parametrize("cuerpo", [
@@ -75,12 +80,11 @@ def test_alta_duplicada_devuelve_409(cliente_backend, cabeceras, bd):
 ])
 def test_alta_con_datos_invalidos_devuelve_400(cliente_backend, cabeceras, cuerpo):
     respuesta = cliente_backend.post(RUTA, json=cuerpo, headers=cabeceras)
-    assert respuesta.status_code == 400
-    assert respuesta.get_json()["error"]["codigo"] == "DATOS_INVALIDOS"
+    afirmar_error_json(respuesta, 400, "DATOS_INVALIDOS")
 
 
 def test_alta_sin_cuerpo_json_devuelve_400(cliente_backend, cabeceras):
-    assert cliente_backend.post(RUTA, data="x", headers=cabeceras).status_code == 400
+    afirmar_error_json(cliente_backend.post(RUTA, data="x", headers=cabeceras), 400, "DATOS_INVALIDOS")
 
 
 # --- edición ---
@@ -103,7 +107,7 @@ def test_edicion_actualiza_periodo(cliente_backend, cabeceras, bd):
 ])
 def test_edicion_con_datos_invalidos_devuelve_400(cliente_backend, cabeceras, bd, cuerpo):
     bd.consultar_uno.return_value = fila()
-    assert cliente_backend.patch(f"{RUTA}/3", json=cuerpo, headers=cabeceras).status_code == 400
+    afirmar_error_json(cliente_backend.patch(f"{RUTA}/3", json=cuerpo, headers=cabeceras), 400, "DATOS_INVALIDOS")
     bd.ejecutar.assert_not_called()
 
 
@@ -114,12 +118,14 @@ def test_edicion_acepta_clasificacion_y_poster_vacios(cliente_backend, cabeceras
 
 
 def test_put_de_pelicula_devuelve_405(cliente_backend, cabeceras):
-    assert cliente_backend.put(f"{RUTA}/3", json={"titulo": "x"}, headers=cabeceras).status_code == 405
+    respuesta = cliente_backend.put(f"{RUTA}/3", json={"titulo": "x"}, headers=cabeceras)
+    afirmar_error_json(respuesta, 405, "METODO_NO_PERMITIDO")
 
 
 def test_edicion_de_inexistente_devuelve_404(cliente_backend, cabeceras, bd):
     bd.consultar_uno.return_value = None
-    assert cliente_backend.patch(f"{RUTA}/99", json={"titulo": "x"}, headers=cabeceras).status_code == 404
+    respuesta = cliente_backend.patch(f"{RUTA}/99", json={"titulo": "x"}, headers=cabeceras)
+    afirmar_error_json(respuesta, 404, "NO_ENCONTRADO")
 
 
 # --- baja ---
@@ -143,4 +149,4 @@ def test_busqueda_tmdb(cliente_backend, cabeceras):
 
 
 def test_busqueda_sin_q_devuelve_400(cliente_backend, cabeceras):
-    assert cliente_backend.get("/api/admin/tmdb/buscar", headers=cabeceras).status_code == 400
+    afirmar_error_json(cliente_backend.get("/api/admin/tmdb/buscar", headers=cabeceras), 400, "DATOS_INVALIDOS")

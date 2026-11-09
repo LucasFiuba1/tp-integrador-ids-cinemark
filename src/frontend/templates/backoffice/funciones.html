@@ -1,0 +1,66 @@
+{# Programación de funciones del backoffice.
+   peliculas, locales y salas son opciones {"valor", "texto"}.
+   funciones contiene la respuesta de GET /api/admin/funciones.
+   El listado se puede filtrar por local y fecha. #}
+{% extends "backoffice/base_admin.html" %}
+{% from "macros.html" import cabecera_pagina, campo, boton, filtro, tabla %}
+
+{% block titulo %}Funciones · Backoffice · Cine Paradiso{% endblock %}
+
+{% block admin %}
+  {{ cabecera_pagina(
+       "Funciones",
+       bajada="Programación por local y sala",
+       accion={
+         "texto": "Nueva función",
+         "url": url_for("backoffice.funciones") ~ "#formulario-funcion"
+       }
+     ) }}
+
+  <section class="panel" id="formulario-funcion" aria-labelledby="titulo-formulario-funcion">
+    <h2 id="titulo-formulario-funcion">Nueva función</h2>
+
+    <form method="get" action="{{ url_for('backoffice.funciones') }}" class="formulario-linea">
+      {{ filtro("local_id", "Local", locales, formulario.local_id) }}
+      {{ campo("fecha", "Filtrar por fecha", tipo="date", valor=fecha, requerido=false) }}
+
+      <div class="formulario-linea-acciones">
+        {{ boton("Filtrar", "borde") }}
+      </div>
+    </form>
+
+    <form method="post" action="{{ url_for('backoffice.funciones') }}" class="formulario-funcion" novalidate>
+      <input type="hidden" name="local_id" value="{{ formulario.local_id }}">
+
+      <div class="formulario-linea formulario-funcion-selects">
+        {{ filtro("pelicula_id", "Película", peliculas, formulario.pelicula_id) }}
+        {{ filtro("sala_id", "Sala", salas, formulario.sala_id) }}
+      </div>
+
+      <div class="formulario-linea">
+        {{ campo("fecha_hora", "Fecha y hora", tipo="datetime-local", valor=formulario.fecha_hora) }}
+        {{ campo("precio", "Precio de la entrada", tipo="number", valor=formulario.precio, placeholder="$0") }}
+
+        <div class="formulario-linea-acciones">
+          {{ boton("Guardar función") }}
+        </div>
+      </div>
+
+      <p class="panel-nota">El sistema valida que la sala esté libre en ese horario.</p>
+    </form>
+  </section>
+
+  {{ tabla([
+       {"clave": "pelicula", "titulo": "Película"},
+       {"clave": "local", "titulo": "Local"},
+       {"clave": "sala", "titulo": "Sala"},
+       {"clave": "fecha_hora", "titulo": "Fecha y hora", "tipo": "fecha_hora"},
+       {"clave": "precio", "titulo": "Precio", "tipo": "precio"},
+     ], funciones,
+     acciones={
+       "editar": "backoffice.editar_funcion",
+       "baja": "backoffice.baja_funcion",
+       "texto_baja": "Quitar"
+     },
+     vacio="Todavía no hay funciones programadas. Cargá la primera con el formulario de arriba.") }}
+{% endblock %}

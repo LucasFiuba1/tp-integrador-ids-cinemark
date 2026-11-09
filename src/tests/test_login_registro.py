@@ -167,12 +167,13 @@ def test_header_con_sesion_muestra_salir(cliente_frontend, backend_ok):
         sesion.update(token="t", rol="cliente", nombre="Ana")
     html = cliente_frontend.get("/").get_data(as_text=True)
     assert '<form method="post" action="/salir">' in html
-    assert 'href="/ingresar">Ingresar</a>' not in html
+    assert 'href="/ingresar"' not in html
 
 
 def test_header_enlaza_a_ingresar(cliente_frontend, backend_ok):
     html = cliente_frontend.get("/").get_data(as_text=True)
-    assert 'class="boton boton-borde" href="/ingresar">Ingresar</a>' in html
+    assert '<a class="cabecera-usuario-boton" href="/ingresar">' in html
+    assert '<span class="cabecera-usuario-texto">Ingresar</span>' in html
 
 
 # --- validaciones ---
