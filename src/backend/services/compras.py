@@ -245,9 +245,23 @@ def confirmar(usuario, compra_id):
         else:
             token_qr = firmar_qr(compra_id)
             cursor.execute(
-                "UPDATE compras SET estado = 'confirmada', confirmada_en = NOW(), token_qr = %s WHERE id = %s",
-                (token_qr, compra_id),
+                "SELECT precio FROM entradas WHERE compra_id = %s AND activa = 1",
+                (compra_id,),
             )
+            entradas = cursor.fetchall()
+            cursor.execute(
+                "SELECT cantidad, precio_unitario FROM compra_servicios WHERE compra_id = %s",
+                (compra_id,),
+            )
+            servicios = cursor.fetchall()
+            total = sum(entrada["precio"] for entrada in entradas)
+            total += sum(servicio["cantidad"] * servicio["precio_unitario"] for servicio in servicios)
+            cursor.execute(
+                "UPDATE compras SET estado = 'confirmada', confirmada_en = NOW(), token_qr = %s, total = %s "
+                "WHERE id = %s",
+                (token_qr, total, compra_id),
+            )
+
     if vencida:
         error_api(409, "RESERVA_VENCIDA", "La reserva venció y se liberaron las butacas.")
 
@@ -258,7 +272,7 @@ def confirmar(usuario, compra_id):
     return {
         "id": compra_id,
         "estado": "confirmada",
-        "total": float(compra["total"]),
+        "total": float(total),
         "qr_png_base64": base64.b64encode(qr_png).decode("ascii"),
         "email_enviado": email_enviado,
     }

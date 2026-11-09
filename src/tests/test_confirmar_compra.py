@@ -85,6 +85,10 @@ def test_confirmar_reserva_vencida_libera_butacas_y_devuelve_409(cliente_backend
 
 def test_confirmar_compra_ok_genera_qr_firmado_y_envia_factura(cliente_backend, cabeceras_cliente, usuarios, bd):
     usuarios["cliente"]["email"] = "cliente@cine.com"
+    bd.cursor.fetchall.side_effect = [
+        [{"precio": Decimal("8250.00")}, {"precio": Decimal("8250.00")}],
+        [{"cantidad": 1, "precio_unitario": Decimal("6500.00")}],
+    ]
     with (
         patch("src.backend.services.compras.perfil.obtener_compra", return_value=_detalle_compra()),
         patch("src.backend.services.compras.correo.enviar_factura", return_value=True) as enviar_factura,
@@ -101,9 +105,10 @@ def test_confirmar_compra_ok_genera_qr_firmado_y_envia_factura(cliente_backend, 
     qr_bytes = base64.b64decode(datos["qr_png_base64"])
     assert qr_bytes.startswith(b"\x89PNG\r\n\x1a\n")
 
-    sql_update, parametros = bd.cursor.execute.call_args_list[1].args
-    assert "SET estado = 'confirmada', confirmada_en = NOW(), token_qr = %s" in sql_update
-    token_guardado, id_actualizado = parametros
+    sql_update, parametros = bd.cursor.execute.call_args_list[3].args
+    assert "SET estado = 'confirmada', confirmada_en = NOW(), token_qr = %s, total = %s" in sql_update
+    token_guardado, total_guardado, id_actualizado = parametros
+    assert total_guardado == Decimal("23000.00")
     assert id_actualizado == 88
     assert leer_qr(token_guardado) == 88
 
@@ -125,3 +130,19 @@ def test_confirmar_compra_cuando_falla_el_smtp_confirma_igual_con_email_enviado_
     datos = respuesta.get_json()
     assert datos["estado"] == "confirmada"
     assert datos["email_enviado"] is False
+
+def test_confirmar_compra_sin_servicios_guarda_solo_el_total_de_entradas(cliente_backend, cabeceras_cliente, bd):
+    bd.cursor.fetchall.side_effect = [
+        [{"precio": Decimal("5000.00")}, {"precio": Decimal("5000.00")}],
+        [],
+    ]
+    with (
+        patch("src.backend.services.compras.perfil.obtener_compra", return_value=_detalle_compra()),
+        patch("src.backend.services.compras.correo.enviar_factura", return_value=True),
+    ):
+        respuesta = cliente_backend.post(RUTA, headers=cabeceras_cliente)
+
+    assert respuesta.status_code == 200
+    assert respuesta.get_json()["total"] == 10000.0
+    parametros = bd.cursor.execute.call_args_list[3].args[1]
+    assert parametros[1] == Decimal("10000.00")

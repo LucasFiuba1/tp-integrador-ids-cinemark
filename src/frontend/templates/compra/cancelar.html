@@ -15,7 +15,7 @@
       </header>
       <p class="aviso aviso-error cancelar-aviso">{{ error_enlace or "El enlace de cancelación no es válido o expiró." }}</p>
       <div class="confirmada-acciones">
-        <a class="boton boton-secundario" href="{{ volver_url or url_for('publico.inicio') }}">Volver a cartelera</a>
+        {{ boton("Volver a cartelera", "borde", url=volver_url or url_for('publico.inicio')) }}
       </div>
     {% elif cancelada_exito %}
       <header class="confirmada-cabecera">
@@ -27,7 +27,7 @@
         {{ detalle_compra(compra) }}
       </article>
       <div class="confirmada-acciones">
-        <a class="boton boton-secundario" href="{{ volver_url or url_for('publico.inicio') }}">Volver</a>
+        {{ boton("Volver", "borde", url=volver_url or url_for('publico.inicio')) }}
       </div>
     {% else %}
       <header class="confirmada-cabecera">
@@ -44,14 +44,14 @@
           {{ motivo_rechazo or "No se puede cancelar: la entrada ya fue utilizada." }}
         </p>
         <div class="confirmada-acciones">
-          <a class="boton boton-secundario" href="{{ volver_url or url_for('publico.inicio') }}">Volver</a>
+          {{ boton("Volver", "borde", url=volver_url or url_for('publico.inicio')) }}
         </div>
       {% elif compra.estado == "cancelada" %}
         <p class="aviso aviso-error cancelar-aviso">
           {{ motivo_rechazo or "La compra ya fue cancelada." }}
         </p>
         <div class="confirmada-acciones">
-          <a class="boton boton-secundario" href="{{ volver_url or url_for('publico.inicio') }}">Volver</a>
+          {{ boton("Volver", "borde", url=volver_url or url_for('publico.inicio')) }}
         </div>
       {% elif compra.cancelable and not motivo_rechazo %}
         <p class="aviso aviso-error cancelar-aviso">
@@ -62,14 +62,14 @@
         <form class="confirmada-acciones" method="post"
           action="{{ accion_url or url_for('publico.cancelar_compra', compra_id=compra.id) }}">
           {{ boton("Sí, cancelar compra") }}
-          <a class="boton boton-secundario" href="{{ volver_url or url_for('publico.inicio') }}">No, volver</a>
+          {{ boton("No, volver", "borde", url=volver_url or url_for('publico.inicio')) }}
         </form>
       {% else %}
         <p class="aviso aviso-error cancelar-aviso">
           {{ motivo_rechazo or "No se puede cancelar: faltan menos de 2 horas para la función." }}
         </p>
         <div class="confirmada-acciones">
-          <a class="boton boton-secundario" href="{{ volver_url or url_for('publico.inicio') }}">Volver</a>
+          {{ boton("Volver", "borde", url=volver_url or url_for('publico.inicio')) }}
         </div>
       {% endif %}
     {% endif %}

@@ -10,5 +10,5 @@
   {{ campo("email", "Email", "email", formulario.email, placeholder="tu@email.com", autocompletar="email", error=errores.email) }}
   {{ campo("password", "Contraseña", "password", placeholder="Mínimo 8 caracteres", autocompletar="new-password", minimo=8, error=errores.password) }}
   {{ campo("repetir_password", "Repetir contraseña", "password", placeholder="Repetí la contraseña", autocompletar="new-password", minimo=8, error=errores.repetir_password) }}
-  {{ boton("Crear cuenta", clase="boton boton-bloque") }}
+  {{ boton("Crear cuenta", bloque=true) }}
 {% endblock %}

@@ -1,4 +1,4 @@
-"""Franjas horarias y cancelaciones contra MySQL real (SCRUM-76). Prueba OPT-IN: sin la variable se saltea.
+"""Franjas horarias y cancelaciones (SCRUM-76), ocupación y ventas por género (SCRUM-75) contra MySQL real. Prueba OPT-IN: sin la variable se saltea.
 
 Verifica el SQL de services/dashboards.py contra `seed.sql` recién cargado, con valores fijos esperados.
 No carga schema ni seed ni usa las credenciales del .env para MySQL: la app de pruebas se configura (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD
@@ -293,3 +293,145 @@ def test_el_historial_de_peliculas_salas_y_funciones_dados_de_baja_se_conserva(p
     assert pedir(FRANJAS, **FILTRO_BORDE) == [_franja(14, 4)]
     assert pedir(CANCELACIONES, **FILTRO_BORDE)["por_pelicula"] == [_fila(2, 0, 0.0, **CINEMA_PARADISO)]
     assert pedir(FRANJAS, local_id=3, **FILTRO_BORDE) == [_franja(14, 4)]
+
+
+# --- ocupación y ventas por género (SCRUM-75) ---
+OCUPACION = "/api/admin/dashboards/ocupacion"
+VENTAS_GENERO = "/api/admin/dashboards/ventas-genero"
+OCUPACION_VACIA = {"por_pelicula": [], "por_funcion": []}
+FUNCIONES_DEL_SEED = 135
+CAPACIDAD_SALA_4 = 70
+
+
+def _ocupacion(vendidas, capacidad, ocupacion, **identidad):
+    return dict(identidad, vendidas=vendidas, capacidad=capacidad, ocupacion=ocupacion)
+
+
+def _resumen_pelicula(fila):
+    return fila["pelicula_id"], fila["vendidas"], fila["capacidad"], fila["ocupacion"]
+
+
+def _resumen_funcion(fila):
+    return fila["pelicula"], fila["sala"], fila["fecha_hora"], fila["vendidas"], fila["capacidad"], fila["ocupacion"]
+
+
+def _genero(genero, entradas, monto):
+    return {"genero": genero, "entradas": entradas, "monto": monto}
+
+
+def test_ocupacion_del_seed_por_pelicula(pedir):
+    assert [_resumen_pelicula(fila) for fila in pedir(OCUPACION)["por_pelicula"]] == [
+        (7, 2, 1538, 0.13), (5, 2, 1760, 0.11), (6, 1, 1706, 0.06),
+        (1, 0, 1328, 0.0), (2, 0, 1322, 0.0), (3, 0, 1446, 0.0), (4, 0, 1646, 0.0)]
+
+
+def test_ocupacion_del_seed_por_funcion(pedir, dias):
+    por_funcion = pedir(OCUPACION)["por_funcion"]
+    assert len(por_funcion) == FUNCIONES_DEL_SEED
+    assert [_resumen_funcion(fila) for fila in por_funcion[:3]] == [
+        ("El viaje de Chihiro", "Sala 1", _iso(dias["ayer"], "21:00:00"), 2, 96, 2.08),
+        ("Jurassic Park", "Sala 1", _iso(dias["manana"], "21:00:00"), 2, 96, 2.08),
+        ("Toy Story", "Sala 1", _iso(dias["ayer"], "17:30:00"), 1, 140, 0.71)]
+    assert all(fila["vendidas"] == 0 and fila["ocupacion"] == 0.0 for fila in por_funcion[3:])
+
+
+def test_la_compra_cancelada_del_seed_no_cuenta_como_vendida(pedir):
+    assert sum(fila["vendidas"] for fila in pedir(OCUPACION)["por_pelicula"]) == 5
+
+
+def test_ocupacion_filtra_por_local_y_por_fecha(pedir, dias):
+    por_local = pedir(OCUPACION, local_id=2)["por_funcion"]
+    assert [fila["pelicula"] for fila in por_local if fila["vendidas"]] == ["Toy Story"]
+    assert {fila["local"] for fila in por_local} == {por_local[0]["local"]}
+    instante = _iso(dias["manana"], "21:00:00")
+    vendidas = [fila for fila in pedir(OCUPACION, desde=instante, hasta=instante)["por_pelicula"] if fila["vendidas"]]
+    assert [fila["pelicula"] for fila in vendidas] == ["Jurassic Park"]
+
+
+def test_el_local_sin_ventas_aparece_con_ocupacion_cero(pedir):
+    datos = pedir(OCUPACION, local_id=LOCAL_SIN_SEED)
+    assert datos["por_funcion"]
+    assert all(fila["vendidas"] == 0 for fila in datos["por_funcion"])
+
+
+def test_ocupacion_de_local_inexistente_devuelve_vacios(pedir):
+    assert pedir(OCUPACION, local_id=9999) == OCUPACION_VACIA
+
+
+def test_ventas_genero_del_seed_usa_el_primer_genero_y_cierra_con_el_total(pedir):
+    datos = pedir(VENTAS_GENERO)
+    assert datos == [_genero("Animación", 3, 16500.0), _genero("Aventura", 2, 11000.0)]
+    assert sum(fila["entradas"] for fila in datos) == sum(f["entradas"] for f in pedir(FRANJAS))
+
+
+def test_ventas_genero_filtra_por_local(pedir):
+    assert pedir(VENTAS_GENERO, local_id=1) == [_genero("Animación", 2, 11000.0), _genero("Aventura", 2, 11000.0)]
+    assert pedir(VENTAS_GENERO, local_id=2) == [_genero("Animación", 1, 5500.0)]
+    assert pedir(VENTAS_GENERO, local_id=LOCAL_SIN_SEED) == []
+
+
+def test_ventas_genero_filtra_por_fecha_de_la_funcion(pedir, dias):
+    assert pedir(VENTAS_GENERO, desde=_iso(dias["manana"])) == [_genero("Aventura", 2, 11000.0)]
+    assert pedir(VENTAS_GENERO, hasta=_iso(dias["ayer"], "23:59:59")) == [_genero("Animación", 3, 16500.0)]
+
+
+def test_la_funcion_sin_ventas_suma_capacidad_a_la_pelicula(pedir, conexion):
+    _compra(conexion, _funcion(conexion, "14:00:00"), "confirmada", entradas=7)
+    _funcion(conexion, "18:00:00")
+    datos = pedir(OCUPACION, **FILTRO_BORDE)
+    assert datos["por_pelicula"] == [_ocupacion(7, 2 * CAPACIDAD_SALA_4, 5.0, **CINEMA_PARADISO)]
+    assert [fila["ocupacion"] for fila in datos["por_funcion"]] == [10.0, 0.0]
+
+
+def test_ocupacion_no_multiplica_la_capacidad_por_entradas_ni_servicios(pedir, conexion):
+    funcion = _funcion(conexion, "14:00:00")
+    _compra(conexion, funcion, "confirmada", entradas=3, servicios=4)
+    _compra(conexion, funcion, "confirmada", entradas=2)
+    assert pedir(OCUPACION, **FILTRO_BORDE)["por_pelicula"] == [
+        _ocupacion(5, CAPACIDAD_SALA_4, 7.14, **CINEMA_PARADISO)]
+
+
+def test_ocupacion_no_cuenta_compras_no_confirmadas_ni_entradas_inactivas(pedir, conexion):
+    funcion = _funcion(conexion, "14:00:00")
+    _compra(conexion, funcion, "confirmada", entradas=2)
+    for estado in ("pendiente", "vencida", "cancelada"):
+        _compra(conexion, funcion, estado)
+    _compra(conexion, funcion, "confirmada", activa=None)
+    assert pedir(OCUPACION, **FILTRO_BORDE)["por_pelicula"][0]["vendidas"] == 2
+
+
+def test_la_funcion_de_baja_no_suma_capacidad(pedir, conexion):
+    _funcion(conexion, "14:00:00")
+    _funcion(conexion, "18:00:00", activa=0)
+    assert pedir(OCUPACION, **FILTRO_BORDE)["por_pelicula"][0]["capacidad"] == CAPACIDAD_SALA_4
+
+
+def test_ocupacion_conserva_peliculas_y_salas_dadas_de_baja(pedir, conexion):
+    _compra(conexion, _funcion(conexion, "14:00:00"), "confirmada", entradas=7)
+    _ejecutar(conexion, "UPDATE peliculas SET activa = 0 WHERE id = 4")
+    _ejecutar(conexion, "UPDATE salas SET activa = 0 WHERE id = 4")
+    assert pedir(OCUPACION, **FILTRO_BORDE)["por_pelicula"] == [_ocupacion(7, CAPACIDAD_SALA_4, 10.0, **CINEMA_PARADISO)]
+
+
+def test_ventas_genero_junta_peliculas_con_el_mismo_primer_genero(pedir, conexion):
+    _ejecutar(conexion, "UPDATE peliculas SET genero = 'Drama, Romance' WHERE id = 4")
+    _ejecutar(conexion, "UPDATE peliculas SET genero = 'Drama' WHERE id = 5")
+    _compra(conexion, _funcion(conexion, "14:00:00"), "confirmada", entradas=2)
+    _compra(conexion, _funcion(conexion, "18:00:00", pelicula_id=5), "confirmada")
+    assert pedir(VENTAS_GENERO, **FILTRO_BORDE) == [_genero("Drama", 3, 16500.0)]
+
+
+def test_ventas_genero_suma_entradas_y_no_el_total_con_servicios(pedir, conexion):
+    _ejecutar(conexion, "UPDATE peliculas SET genero = 'Drama' WHERE id = 4")
+    _compra(conexion, _funcion(conexion, "14:00:00"), "confirmada", entradas=3, servicios=4)
+    assert pedir(VENTAS_GENERO, **FILTRO_BORDE) == [_genero("Drama", 3, 16500.0)]
+
+
+def test_ventas_genero_no_cuenta_compras_no_confirmadas_ni_entradas_inactivas(pedir, conexion):
+    _ejecutar(conexion, "UPDATE peliculas SET genero = 'Drama' WHERE id = 4")
+    funcion = _funcion(conexion, "14:00:00")
+    _compra(conexion, funcion, "confirmada", entradas=2)
+    for estado in ("pendiente", "vencida", "cancelada"):
+        _compra(conexion, funcion, estado)
+    _compra(conexion, funcion, "confirmada", activa=None)
+    assert pedir(VENTAS_GENERO, **FILTRO_BORDE) == [_genero("Drama", 2, 11000.0)]

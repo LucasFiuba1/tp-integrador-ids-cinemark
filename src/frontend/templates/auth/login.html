@@ -8,5 +8,5 @@
 {% block campos %}
   {{ campo("email", "Email", "email", formulario.email, placeholder="tu@email.com", autocompletar="email", error=errores.email) }}
   {{ campo("password", "Contraseña", "password", placeholder="••••••••", autocompletar="current-password", error=errores.password) }}
-  {{ boton("Ingresar", clase="boton boton-bloque") }}
+  {{ boton("Ingresar", bloque=true) }}
 {% endblock %}

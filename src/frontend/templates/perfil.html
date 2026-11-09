@@ -2,7 +2,7 @@
    (mobile). Datos de cuenta, compras filtradas por pestaña (links ?estado=, sin JS) y películas vistas (QR validado).
    Si el backend falla, sin_datos muestra un aviso en lugar de los estados vacíos (que dirían algo falso). #}
 {% extends "base.html" %}
-{% from "macros.html" import tarjeta_compra, tarjeta_pelicula, dia_funcion %}
+{% from "macros.html" import boton, tarjeta_compra, tarjeta_pelicula, dia_funcion %}
 
 {% block titulo %}Mi perfil · Cine Paradiso{% endblock %}
 
@@ -15,7 +15,7 @@
       {% if usuario.email %}<p>{{ usuario.email }}</p>{% endif %}
     </div>
     <form method="post" action="{{ url_for('publico.salir') }}">
-      <button type="submit" class="boton boton-secundario">Cerrar sesión</button>
+      {{ boton("Cerrar sesión", "borde") }}
     </form>
   </section>
 

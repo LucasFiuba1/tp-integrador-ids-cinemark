@@ -35,7 +35,7 @@
       {{ datos([("Precio por entrada", funcion.precio | precio), ("Butacas libres", mapa.libres ~ " de " ~ mapa.capacidad)], "resumen-detalle") }}
       {% if mapa.vendible %}
         <p class="checkout-nota">Al continuar reservamos tus butacas por unos minutos para que termines la compra.</p>
-        {{ boton("Continuar", clase="boton boton-bloque") }}
+        {{ boton("Continuar", bloque=true) }}
       {% endif %}
     </aside>
 

@@ -159,6 +159,18 @@ def eliminar_servicio(servicio_id):
     return "", 204
 
 
+@admin_bp.post("/servicios/<int:servicio_id>/reactivar")
+@requiere_rol("admin")
+def reactivar_servicio(servicio_id):
+    servicio = servicios.obtener_servicio(servicio_id)
+    if servicio is None:
+        return respuesta_error(
+            404, "NO_ENCONTRADO", "El servicio no existe."
+        )
+    servicios.reactivar_servicio(servicio_id)
+    return "", 204
+
+
 @admin_bp.get("/tmdb/buscar")
 @requiere_rol("admin")
 def buscar_tmdb():
@@ -225,28 +237,32 @@ def eliminar_funcion(funcion_id):
     return jsonify(funciones.dar_de_baja(funcion_id))
 
 
+def _filtros_dashboard():
+    return request.args.get("desde"), request.args.get("hasta"), request.args.get("local_id")
+
+
+@admin_bp.get("/dashboards/ocupacion")
+@requiere_rol("admin")
+def dashboard_ocupacion():
+    return jsonify(dashboards.listar_ocupacion(*_filtros_dashboard()))
+
+
+@admin_bp.get("/dashboards/ventas-genero")
+@requiere_rol("admin")
+def dashboard_ventas_genero():
+    return jsonify(dashboards.listar_ventas_genero(*_filtros_dashboard()))
+
+
 @admin_bp.get("/dashboards/franjas-horarias")
 @requiere_rol("admin")
 def dashboard_franjas_horarias():
-    return jsonify(
-        dashboards.listar_franjas_horarias(
-            request.args.get("desde"),
-            request.args.get("hasta"),
-            request.args.get("local_id"),
-        )
-    )
+    return jsonify(dashboards.listar_franjas_horarias(*_filtros_dashboard()))
 
 
 @admin_bp.get("/dashboards/cancelaciones")
 @requiere_rol("admin")
 def dashboard_cancelaciones():
-    return jsonify(
-        dashboards.listar_cancelaciones(
-            request.args.get("desde"),
-            request.args.get("hasta"),
-            request.args.get("local_id"),
-        )
-    )
+    return jsonify(dashboards.listar_cancelaciones(*_filtros_dashboard()))
 
 
 @admin_bp.get("/ingresos")
