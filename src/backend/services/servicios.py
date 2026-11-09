@@ -65,3 +65,8 @@ def modificar_servicio(servicio_id, nombre, descripcion, precio, activo):
 def dar_de_baja_servicio(servicio_id):
     query = "UPDATE servicios SET activo = FALSE WHERE id = %s"
     db.ejecutar(query, (servicio_id,))
+
+
+def reactivar_servicio(servicio_id):
+    query = "UPDATE servicios SET activo = TRUE WHERE id = %s"
+    db.ejecutar(query, (servicio_id,))
