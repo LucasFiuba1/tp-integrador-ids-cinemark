@@ -70,7 +70,9 @@ def test_numero_usa_formato_argentino():
 # --- backend: franjas horarias y cancelaciones (SCRUM-76) ---
 FRANJAS = "/api/admin/dashboards/franjas-horarias"
 CANCELACIONES = "/api/admin/dashboards/cancelaciones"
-RUTAS = (FRANJAS, CANCELACIONES)
+OCUPACION = "/api/admin/dashboards/ocupacion"
+VENTAS_GENERO = "/api/admin/dashboards/ventas-genero"
+RUTAS = (FRANJAS, CANCELACIONES, OCUPACION, VENTAS_GENERO)
 DESDE = "2026-11-06T17:30:00"
 HASTA = "2026-11-08T23:59:59"
 
@@ -381,3 +383,67 @@ def test_desde_igual_a_hasta_es_un_rango_valido(cliente_backend, cabeceras, bd, 
     assert respuesta.status_code == 200
     for _, parametros in _consultas(bd):
         assert parametros == [datetime(2026, 11, 8, 21, 0, 0)] * 2
+
+
+# --- backend: ocupación y ventas por género (SCRUM-75) ---
+FILA_OCUPACION_PELICULA = {"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "vendidas": Decimal("2"),
+                           "capacidad": Decimal("192"), "ocupacion": Decimal("1.04")}
+FILA_OCUPACION_FUNCION = {"funcion_id": 9, "pelicula": "El viaje de Chihiro", "local": "Centro", "sala": "Sala 1",
+                          "fecha_hora": datetime(2026, 11, 7, 21, 0, 0), "vendidas": 2, "capacidad": 96,
+                          "ocupacion": Decimal("2.08")}
+FILA_VENTAS_GENERO = {"genero": "Animación", "entradas": 3, "monto": Decimal("16500.00")}
+
+
+def _filas_de_ocupacion(sql, parametros=None):
+    return [FILA_OCUPACION_FUNCION] if "funcion_id" in sql.split("FROM")[0] else [FILA_OCUPACION_PELICULA]
+
+
+def test_ocupacion_devuelve_200_con_numeros_y_fecha_iso(cliente_backend, cabeceras, bd):
+    bd.side_effect = _filas_de_ocupacion
+    respuesta = cliente_backend.get(OCUPACION, headers=cabeceras)
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {
+        "por_pelicula": [{"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "vendidas": 2, "capacidad": 192,
+                          "ocupacion": 1.04}],
+        "por_funcion": [{"funcion_id": 9, "pelicula": "El viaje de Chihiro", "local": "Centro", "sala": "Sala 1",
+                         "fecha_hora": "2026-11-07T21:00:00", "vendidas": 2, "capacidad": 96, "ocupacion": 2.08}],
+    }
+
+
+def test_ocupacion_sin_funciones_devuelve_las_dos_listas_vacias(cliente_backend, cabeceras, bd):
+    respuesta = cliente_backend.get(OCUPACION, headers=cabeceras)
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {"por_pelicula": [], "por_funcion": []}
+
+
+def test_ocupacion_parte_de_funciones_y_cuenta_las_vendidas_aparte(cliente_backend, cabeceras, bd):
+    cliente_backend.get(OCUPACION, headers=cabeceras)
+    por_pelicula, por_funcion = (sql for sql, _ in _consultas(bd))
+    for sql in (por_pelicula, por_funcion):
+        assert "FROM funciones f" in sql
+        assert re.search(r"LEFT JOIN \(SELECT e\.funcion_id, COUNT\(\*\).*GROUP BY e\.funcion_id\) v", sql)
+        assert "c.estado = 'confirmada' AND e.activa = 1" in sql
+    assert "GROUP BY p.id, p.titulo" in por_pelicula
+
+
+def test_ventas_genero_devuelve_200_con_numeros(cliente_backend, cabeceras, bd):
+    bd.return_value = [FILA_VENTAS_GENERO]
+    respuesta = cliente_backend.get(VENTAS_GENERO, headers=cabeceras)
+    datos = respuesta.get_json()
+    assert respuesta.status_code == 200
+    assert datos == [{"genero": "Animación", "entradas": 3, "monto": 16500.0}]
+    assert isinstance(datos[0]["monto"], float)
+
+
+def test_ventas_genero_sin_ventas_devuelve_lista_vacia(cliente_backend, cabeceras, bd):
+    respuesta = cliente_backend.get(VENTAS_GENERO, headers=cabeceras)
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == []
+
+
+def test_ventas_genero_agrupa_por_primer_genero_y_suma_precio_de_entradas(cliente_backend, cabeceras, bd):
+    cliente_backend.get(VENTAS_GENERO, headers=cabeceras)
+    (sql, _), = _consultas(bd)
+    assert "GROUP BY SUBSTRING_INDEX(p.genero, ',', 1)" in sql
+    assert "SUM(e.precio)" in sql and "c.total" not in sql
+    assert "c.estado = 'confirmada' AND e.activa = 1" in sql
