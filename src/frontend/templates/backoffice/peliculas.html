@@ -11,7 +11,7 @@
   <section class="panel" id="buscador-tmdb">
     <form method="get" action="{{ url_for('backoffice.peliculas') }}" class="formulario-linea">
       {{ campo("q", "Buscar en TMDB", valor=consulta, placeholder="Ej: La noche del telón", requerido=false) }}
-      {{ boton("Buscar", tipo="submit", clase="boton boton-secundario") }}
+      {{ boton("Buscar", "borde") }}
     </form>
   </section>
 

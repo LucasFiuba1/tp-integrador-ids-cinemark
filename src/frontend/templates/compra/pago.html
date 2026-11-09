@@ -30,7 +30,7 @@
     </section>
 
     {% call resumen_compra(compra) %}
-      {{ boton("Confirmar y pagar", clase="boton boton-bloque", formulario="formulario-pago") }}
+      {{ boton("Confirmar y pagar", bloque=true, formulario="formulario-pago") }}
     {% endcall %}
   </div>
 {% endblock %}

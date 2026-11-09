@@ -42,7 +42,7 @@
         {{ filtro("funcion_id", "Función que controlás", funciones, formulario.funcion_id, error=errores.funcion_id) }}
         {{ campo("token", "Código del QR", valor=formulario.token, autocompletar="off", error=errores.token,
                  enfocar=not formulario.token) }}
-        {{ boton("Validar", clase="boton boton-bloque") }}
+        {{ boton("Validar", bloque=true) }}
       </form>
       <p class="resultado-nota">La función se recuerda para los próximos ingresos. Abrir el link del QR no usa la entrada: se usa al validar.</p>
     </section>

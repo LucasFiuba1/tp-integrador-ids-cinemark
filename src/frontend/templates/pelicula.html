@@ -51,9 +51,7 @@
         {% elif filtro_activo and total_funciones %}
           <div class="estado-vacio">
             <p>No hay funciones para ese local o fecha.</p>
-            <a class="boton boton-secundario" href="{{ url_detalle }}">
-              Ver {{ "la función" if total_funciones == 1 else "las " ~ total_funciones ~ " funciones" }}
-            </a>
+            {{ boton("Ver " ~ ("la función" if total_funciones == 1 else "las " ~ total_funciones ~ " funciones"), "borde", url=url_detalle) }}
           </div>
         {% else %}
           <p class="estado-vacio">No hay funciones programadas para esta película en los próximos días.</p>
