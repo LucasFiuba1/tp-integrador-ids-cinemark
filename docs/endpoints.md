@@ -293,6 +293,7 @@ POST /api/admin/funciones
 | POST | `/api/admin/servicios` | 🛠️ | Crea un servicio. |
 | PUT | `/api/admin/servicios/<id>` | 🛠️ | Modifica un servicio. |
 | DELETE | `/api/admin/servicios/<id>` | 🛠️ | Baja lógica. |
+| POST | `/api/admin/servicios/<id>/reactivar` | 🛠️ | Reactiva un servicio dado de baja (`activo = true`). |
 
 ```http
 POST /api/admin/servicios
@@ -326,6 +327,14 @@ DELETE /api/admin/servicios/1
 
 204 No Content
 ```
+
+```http
+POST /api/admin/servicios/1/reactivar
+
+204 No Content
+```
+
+Reactivar un servicio que ya está activo no cambia nada y también devuelve 204; si el servicio no existe, 404 `NO_ENCONTRADO`.
 
 ```http
 POST /api/admin/servicios
