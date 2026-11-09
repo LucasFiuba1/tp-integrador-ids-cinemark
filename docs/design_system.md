@@ -65,6 +65,7 @@ Pesos: `--peso-normal` (400), `--peso-medio` (500), `--peso-negrita` (700). Inte
 | `--ancho-formulario` | 416 px (tarjeta de ingresar y crear cuenta) |
 | `--ancho-ticket` | 640 px (compra confirmada) |
 | `--alto-grafico` | 192 px (gráfico de columnas de los dashboards) |
+| `--ancho-columna-grafico` | 96 px (ancho máximo de cada columna del gráfico) |
 | `--transicion` | 150 ms para hover |
 
 ## Breakpoints (mobile-first)

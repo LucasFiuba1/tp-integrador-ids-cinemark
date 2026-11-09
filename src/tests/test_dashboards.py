@@ -102,6 +102,29 @@ def test_tableros_vacios_no_rompen_la_pagina(cliente_admin, api):
     assert 'class="columnas"' not in html
 
 
+@pytest.mark.parametrize("api", [{
+    "/api/admin/dashboards/ventas-genero": [
+        {"genero": "Drama", "entradas": 4, "monto": 22000.0}, {"genero": "Terror", "entradas": 4, "monto": 22000.0},
+        {"genero": "Comedia", "entradas": 1, "monto": 5500.0},
+    ],
+}], indirect=True)
+def test_se_resaltan_todas_las_barras_empatadas_en_el_maximo(cliente_admin, api):
+    html = cliente_admin.get("/admin/dashboards").get_data(as_text=True)
+    assert html.count("barra-destacada") == 2
+
+
+@pytest.mark.parametrize("api", [{
+    "/api/admin/dashboards/cancelaciones": {
+        "por_pelicula": [{"pelicula_id": 1, "pelicula": "Alien", "compras": 2, "canceladas": 0, "porcentaje": 0.0}],
+        "por_periodo": [],
+    },
+}], indirect=True)
+def test_sin_cancelaciones_no_se_resalta_ninguna_barra(cliente_admin, api):
+    respuesta = cliente_admin.get("/admin/dashboards")
+    assert respuesta.status_code == 200
+    assert "barra-destacada" not in respuesta.get_data(as_text=True)
+
+
 def test_numero_usa_formato_argentino():
     assert numero(1742) == "1.742"
     assert numero(4.2) == "4,2"
