@@ -68,7 +68,8 @@ def cabeceras_cliente(app_backend, usuarios):
 @pytest.fixture
 def app_frontend():
     app = crear_frontend()
-    app.config.update(TESTING=True, SECRET_KEY="pruebas", BACKEND_URL="http://api.test")
+    # Se fijan los valores que leen las pruebas para que no dependan del .env de cada integrante.
+    app.config.update(TESTING=True, SECRET_KEY="pruebas", BACKEND_URL="http://api.test", BACKEND_TIMEOUT=5)
     return app
 
 
