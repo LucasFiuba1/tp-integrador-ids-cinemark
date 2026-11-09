@@ -162,6 +162,7 @@ PUT /api/compras/88/servicios
 
 ```http
 POST /api/compras/88/confirmar
+El `total` se recalcula al confirmar (entradas activas + servicios de la compra) y queda guardado en la compra.
 
 200 OK
 { "id": 88, "estado": "confirmada", "total": 23000.00, "qr_png_base64": "iVBORw0...", "email_enviado": true }
