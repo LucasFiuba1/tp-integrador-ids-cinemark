@@ -54,8 +54,12 @@ def modificar_local(local_id):
 def eliminar_local(local_id):
     if locales.obtener_local(local_id) is None:
         return respuesta_error(404, "NO_ENCONTRADO", "El local no existe.")
-    if locales.local_tiene_salas(local_id):
-        return respuesta_error(409, "LOCAL_CON_SALAS", "No se puede eliminar un local que tiene salas.")
+    if locales.local_tiene_salas_activas(local_id):
+        return respuesta_error(409, "LOCAL_CON_SALAS", "No se puede eliminar un local que tiene salas activas.")
+    if locales.local_tiene_funciones(local_id):
+        return respuesta_error(
+            409, "LOCAL_CON_HISTORIAL", "No se puede eliminar el local: tiene salas dadas de baja con funciones registradas."
+        )
     locales.eliminar_local(local_id)
     return "", 204
 

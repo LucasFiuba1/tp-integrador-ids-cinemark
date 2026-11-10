@@ -253,11 +253,11 @@ PATCH /api/admin/peliculas/3
 | GET | `/api/admin/locales` | 🛠️ | Lista de locales. |
 | POST | `/api/admin/locales` | 🛠️ | Crea un local. |
 | PUT | `/api/admin/locales/<id>` | 🛠️ | Modifica un local. |
-| DELETE | `/api/admin/locales/<id>` | 🛠️ | Elimina un local sin salas. |
+| DELETE | `/api/admin/locales/<id>` | 🛠️ | Elimina un local sin salas activas ni funciones (409 `LOCAL_CON_SALAS` / `LOCAL_CON_HISTORIAL`). |
 | GET | `/api/admin/salas?local_id=` | 🛠️ | Lista de salas. |
 | POST | `/api/admin/salas` | 🛠️ | Crea una sala y genera sus butacas. |
 | GET | `/api/admin/salas/<id>` | 🛠️ | Detalle de la sala con su grilla de butacas. |
-| PUT | `/api/admin/salas/<id>` | 🛠️ | Modifica una sala (no si tiene funciones futuras). |
+| PUT | `/api/admin/salas/<id>` | 🛠️ | Modifica una sala; achicarla no se permite con funciones futuras ni con entradas vendidas en las butacas que se quitan. |
 | DELETE | `/api/admin/salas/<id>` | 🛠️ | Baja lógica (no si tiene funciones futuras). |
 
 ```http

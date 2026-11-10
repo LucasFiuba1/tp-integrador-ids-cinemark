@@ -1,5 +1,6 @@
 """Pruebas de locales y salas (SCRUM-54) con la base simulada. Se corren con pytest."""
 from contextlib import contextmanager
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pymysql
@@ -164,11 +165,34 @@ def test_modificar_local_con_datos_de_otro_devuelve_409(pedir, db_locales, local
     assert respuesta.get_json()["error"]["codigo"] == "LOCAL_DUPLICADO"
 
 
-def test_eliminar_local_sin_salas_devuelve_204(pedir, db_locales, local):
-    db_locales.consultar_uno.side_effect = [local, None]
+@pytest.fixture
+def cursor_locales(db_locales):
+    cursor = MagicMock()
+    db_locales.transaccion.side_effect = lambda: transaccion_falsa(cursor)
+    return cursor
+
+
+def test_eliminar_local_sin_salas_activas_ni_funciones_devuelve_204(pedir, db_locales, local, cursor_locales):
+    db_locales.consultar_uno.side_effect = [local, None, None]
     respuesta = pedir("DELETE", "/api/admin/locales/1")
     assert respuesta.status_code == 204
-    assert "DELETE FROM locales" in db_locales.ejecutar.call_args.args[0]
+    sentencias = [llamada.args[0] for llamada in cursor_locales.execute.call_args_list]
+    assert "DELETE FROM salas" in sentencias[0]
+    assert "DELETE FROM locales" in sentencias[1]
+
+
+def test_eliminar_local_solo_cuenta_salas_activas(pedir, db_locales, local, cursor_locales):
+    db_locales.consultar_uno.side_effect = [local, None, None]
+    pedir("DELETE", "/api/admin/locales/1")
+    assert "activa = TRUE" in db_locales.consultar_uno.call_args_list[1].args[0]
+
+
+def test_eliminar_local_con_salas_dadas_de_baja_con_funciones_devuelve_409(pedir, db_locales, local):
+    db_locales.consultar_uno.side_effect = [local, None, {"id": 30}]
+    respuesta = pedir("DELETE", "/api/admin/locales/1")
+    assert respuesta.status_code == 409
+    assert respuesta.get_json()["error"]["codigo"] == "LOCAL_CON_HISTORIAL"
+    db_locales.transaccion.assert_not_called()
 
 
 def test_eliminar_local_inexistente_devuelve_404(pedir, db_locales):
@@ -182,7 +206,7 @@ def test_eliminar_local_con_salas_devuelve_409(pedir, db_locales, local):
     respuesta = pedir("DELETE", "/api/admin/locales/1")
     assert respuesta.status_code == 409
     assert respuesta.get_json()["error"]["codigo"] == "LOCAL_CON_SALAS"
-    db_locales.ejecutar.assert_not_called()
+    db_locales.transaccion.assert_not_called()
 
 
 # --- generación de butacas ---
@@ -369,3 +393,11 @@ def test_crear_local_con_cuerpo_que_no_es_objeto_devuelve_400(pedir, db_locales)
     respuesta = pedir("POST", "/api/admin/locales", ["Paradiso Sur", "Calle 1"])
     assert respuesta.status_code == 400
     db_locales.ejecutar.assert_not_called()
+
+
+# --- esquema: el nombre de una sala dada de baja queda libre ---
+def test_indice_unico_de_salas_ignora_las_dadas_de_baja():
+    schema = (Path(__file__).resolve().parents[1] / "backend" / "db" / "schema.sql").read_text(encoding="utf-8")
+    tabla_salas = schema.split("CREATE TABLE salas")[1].split(");")[0]
+    assert "nombre_activo VARCHAR(50) AS (IF(activa, nombre, NULL)) STORED" in tabla_salas
+    assert "UNIQUE KEY uq_sala_local (local_id, nombre_activo)" in tabla_salas

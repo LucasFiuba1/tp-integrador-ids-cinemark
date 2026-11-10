@@ -24,8 +24,15 @@ def obtener_local(local_id):
     return db.consultar_uno(query, (local_id,))
 
 
-def local_tiene_salas(local_id):
-    query = "SELECT id FROM salas WHERE local_id = %s"
+def local_tiene_salas_activas(local_id):
+    query = "SELECT id FROM salas WHERE local_id = %s AND activa = TRUE"
+    res = db.consultar_uno(query, (local_id,))
+    return res is not None
+
+
+def local_tiene_funciones(local_id):
+    """Incluye las funciones de salas dadas de baja: son historial y no se pueden borrar."""
+    query = "SELECT f.id FROM funciones f JOIN salas s ON s.id = f.sala_id WHERE s.local_id = %s LIMIT 1"
     res = db.consultar_uno(query, (local_id,))
     return res is not None
 
@@ -37,5 +44,7 @@ def modificar_local(local_id, nombre_local, direccion_local):
 
 
 def eliminar_local(local_id):
-    query = "DELETE FROM locales WHERE id=%s"
-    db.ejecutar(query, (local_id, ))
+    """Borra el local y sus salas dadas de baja (sin funciones); las butacas se borran en cascada."""
+    with db.transaccion() as cursor:
+        cursor.execute("DELETE FROM salas WHERE local_id = %s", (local_id,))
+        cursor.execute("DELETE FROM locales WHERE id = %s", (local_id,))
