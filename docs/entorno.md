@@ -65,7 +65,7 @@ El frontend no se conecta directamente a MySQL ni consulta TMDB. No necesita esa
 | `SMTP_USER` | Usuario/cuenta que envía el correo. | Dirección de correo o usuario entregado por el proveedor. |
 | `SMTP_PASSWORD` | Credencial SMTP. | En Gmail, contraseña de aplicación, **no** contraseña normal de la cuenta. |
 | `MAIL_FROM` | Dirección que figura como remitente (`From`). | Si se deja vacía, usa `SMTP_USER`. |
-| `FRONTEND_URL` | Dirección pública del sitio del cliente (sin `/` al final). | `http://localhost:5001` en local; se usa para el enlace "Cancelar compra" del email. |
+| `FRONTEND_URL` | Dirección pública del sitio del cliente (sin `/` al final). | `http://localhost:5001` en local; se usa para el enlace "Cancelar compra" del email y para la URL `/admin/ingreso?token=...` que codifica el QR. |
 
 Para Gmail: activar verificación en dos pasos y crear una [contraseña de aplicación](https://myaccount.google.com/apppasswords). No todas las cuentas permiten hacerlo; ver [ayuda de Google](https://support.google.com/accounts/answer/185833). No pegar esa credencial en issues, chats ni capturas.
 
