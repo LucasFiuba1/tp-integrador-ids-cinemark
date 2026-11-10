@@ -10,12 +10,13 @@ from functools import wraps
 from flask import abort, flash, redirect, request, session, url_for
 
 
-def ir_al_login(mensaje):
+def ir_al_login(mensaje, volver_a=None):
     session.clear()
-    # Solo GET: volver a un POST después del login lo convertiría en un GET con otro significado. "//" o "/\\" al
-    # principio el navegador los toma como otro sitio, así que esas rutas no se guardan.
-    siguiente = request.full_path.rstrip("?")
-    if request.method == "GET" and not siguiente.startswith(("//", "/\\")):
+    # Solo GET: volver a un POST después del login lo convertiría en un GET con otro significado. Si la ruta sabe a qué
+    # página GET equivale ese paso, la indica en volver_a. "//" o "/\\" al principio el navegador los toma como otro
+    # sitio, así que esas rutas no se guardan.
+    siguiente = volver_a or (request.full_path.rstrip("?") if request.method == "GET" else None)
+    if siguiente and not siguiente.startswith(("//", "/\\")):
         session["siguiente"] = siguiente
     flash(mensaje, "error")
     return redirect(url_for("publico.ingresar"))

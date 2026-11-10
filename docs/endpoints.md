@@ -268,6 +268,14 @@ POST /api/admin/salas
 { "id": 6, "nombre": "Sala 3", "capacidad": 96 }
 ```
 
+```http
+GET /api/admin/salas/6
+
+200 OK
+{ "id": 6, "local_id": 1, "local": "Paradiso Centro", "nombre": "Sala 3", "filas": 8, "columnas": 12,
+  "capacidad": 96, "butacas": [{ "id": 301, "fila": "A", "numero": 1 }, ...] }
+```
+
 ### Funciones
 
 | Método | Ruta | Rol | Descripción |

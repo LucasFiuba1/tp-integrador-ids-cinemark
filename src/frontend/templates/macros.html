@@ -80,6 +80,15 @@
   <span class="badge badge-{{ estado }}">{{ texto or estado | capitalize }}</span>
 {% endmacro %}
 
+{# Botón de baja dentro de su propio formulario POST. confirmacion (opcional) es la pregunta que se muestra antes
+   de enviar, con el confirm del navegador (sin red); tojson + forceescape la dejan segura aunque tenga comillas. #}
+{% macro boton_baja(url, texto='Dar de baja', confirmacion='') %}
+  <form method="post" action="{{ url }}"
+    {%- if confirmacion %} onsubmit="return confirm({{ confirmacion | tojson | forceescape }})"{% endif %}>
+    <button type="submit" class="accion-texto accion-peligro">{{ texto }}</button>
+  </form>
+{% endmacro %}
+
 {# Tabla del backoffice dentro de un panel.
    columnas: [{"clave": "titulo", "titulo": "Título"}, {"clave": "estado", "titulo": "Estado", "tipo": "estado"}]
      tipo "estado" muestra un badge (con "textos": {valor: leyenda} opcional); "activo" hace lo mismo con un booleano
@@ -122,13 +131,8 @@
                     <a class="accion-texto" href="{{ url_for(acciones.editar, id=fila.id) }}">Editar</a>
                   {% endif %}
                   {% if acciones.baja and fila.activa is not sameas false and fila.activo is not sameas false %}
-                    {% if acciones.confirmacion %}
-                    <form method="post" action="{{ url_for(acciones.baja, id=fila.id) }}" onsubmit="return confirm('{{ acciones.confirmacion }}')">
-                      {% else %}
-                      <form method="post" action="{{ url_for(acciones.baja, id=fila.id) }}">
-                        {% endif %}
-                      <button type="submit" class="accion-texto accion-peligro">{{ acciones.texto_baja or "Dar de baja" }}</button>
-                    </form>
+                    {{ boton_baja(url_for(acciones.baja, id=fila.id), acciones.texto_baja or "Dar de baja",
+                                  acciones.confirmacion or "") }}
                   {% endif %}
                   {% if acciones.reactivar and fila.activo is sameas false %}
                     <form method="post" action="{{ url_for(acciones.reactivar, id=fila.id) }}">
@@ -166,73 +170,42 @@
   </div>
 {% endmacro %}
 
+{# Sala dentro de la tarjeta de su local (Figma B4). sala tiene la forma de GET /api/admin/salas. #}
 {% macro sala_tarjeta(sala) %}
-    <div class="panel sala-tarjeta">
-
-        <h3>{{ sala.nombre }}</h3>
-
-        <p>{{ sala.capacidad }} butacas</p>
-
-        {{ badge_estado("activa" if sala.activa else "inactiva") }}
-
-        <div class="sala-acciones">
-
-            <button type="button" class="accion-texto" disabled>
-                Editar
-            </button>
-
-            <button type="button" class="accion-texto accion-peligro" disabled>
-                Quitar
-            </button>
-
-        </div>
-
+  <article class="sala-tarjeta">
+    <div>
+      <h3><a href="{{ url_for('backoffice.sala', id=sala.id) }}">{{ sala.nombre }}</a></h3>
+      <p class="sala-capacidad">{{ sala.capacidad }} butacas · {{ sala.filas }} × {{ sala.columnas }}</p>
     </div>
+    <div class="sala-acciones">
+      <a class="accion-texto" href="{{ url_for('backoffice.sala', id=sala.id) }}">Editar</a>
+      {{ boton_baja(url_for('backoffice.baja_sala', id=sala.id), "Quitar",
+                    "¿Quitar la " ~ sala.nombre ~ "? No se podrán programar funciones en ella.") }}
+    </div>
+  </article>
 {% endmacro %}
 
-
+{# Local con sus salas (Figma B4). local tiene la forma de GET /api/admin/locales más "salas". #}
 {% macro local_tarjeta(local) %}
-    <section class="panel local-tarjeta">
-
-        <div class="local-cabecera">
-
-            <div>
-                <h2>{{ local.nombre }}</h2>
-                <p>{{ local.direccion }}</p>
-                {{ badge_estado("activa" if local.activa else "inactiva") }}
-            </div>
-
-            <div class="local-acciones">
-
-                <button type="button" class="accion-texto" disabled>
-                    Editar local
-                </button>
-
-                <button type="button" class="accion-texto accion-peligro" disabled>
-                    Eliminar
-                </button>
-
-            </div>
-
-        </div>
-
-        <div class="salas-lista">
-
-            {% for sala in local.salas %}
-                {{ sala_tarjeta(sala) }}
-            {% endfor %}
-
-            <div class="panel sala-tarjeta sala-agregar">
-
-                <button type="button" class="accion-texto" disabled>
-                    + Agregar sala
-                </button>
-
-            </div>
-
-        </div>
-
-    </section>
+  <section class="panel local-tarjeta" aria-labelledby="local-{{ local.id }}">
+    <div class="local-cabecera">
+      <div>
+        <h2 id="local-{{ local.id }}">{{ local.nombre }}</h2>
+        <p class="local-direccion">{{ local.direccion }}</p>
+      </div>
+      <div class="local-acciones">
+        <a class="accion-texto" href="{{ url_for('backoffice.editar_local', id=local.id) }}">Editar local</a>
+        {{ boton_baja(url_for('backoffice.baja_local', id=local.id), "Eliminar",
+                      "¿Eliminar el local " ~ local.nombre ~ "? Solo se puede si no tiene salas.") }}
+      </div>
+    </div>
+    <div class="salas-lista">
+      {% for sala in local.salas %}
+        {{ sala_tarjeta(sala) }}
+      {% endfor %}
+      <a class="sala-tarjeta sala-agregar" href="{{ url_for('backoffice.nueva_sala', local_id=local.id) }}">+ Agregar sala</a>
+    </div>
+  </section>
 {% endmacro %}
 
 
@@ -296,8 +269,10 @@
    GET /api/funciones/<id>/butacas ({"id", "fila", "numero", "estado"}). Cada libre es un checkbox butaca_ids
    (HTML puro, sin JS) y seleccionadas son los ids que vuelven marcados si el formulario tuvo un error.
    habilitada en falso (función ya comenzada) muestra las libres sin poder elegirlas. Además del color, la
-   seleccionada lleva ✓ y la ocupada ×. Las filas de 6 o más butacas se parten al medio con un pasillo. #}
-{% macro grilla_butacas(butacas, seleccionadas=[], habilitada=true) %}
+   seleccionada lleva ✓ y la ocupada ×. Las filas de 6 o más butacas se parten al medio con un pasillo.
+   Sin "estado" (sala del backoffice, GET /api/admin/salas/<id>) cada butaca se muestra libre; con leyenda en
+   falso no se muestran las referencias de libre, seleccionada y ocupada. #}
+{% macro grilla_butacas(butacas, seleccionadas=[], habilitada=true, leyenda=true) %}
   <div class="butacas">
     <p class="butacas-pantalla" aria-hidden="true">Pantalla</p>
     <div class="butacas-filas">
@@ -307,8 +282,9 @@
           <span class="butacas-fila-letra" aria-hidden="true">{{ fila }}</span>
           {% for butaca in butacas_fila | sort(attribute="numero") %}
             {% set nombre = fila ~ butaca.numero %}
+            {% set estado = butaca.estado | default("libre") %}
             {% set clase = "butaca butaca-pasillo" if loop.index == pasillo else "butaca" %}
-            {% if butaca.estado == "libre" and habilitada %}
+            {% if estado == "libre" and habilitada %}
               <label class="{{ clase }}" title="{{ nombre }}">
                 <input class="visualmente-oculto" type="checkbox" name="butaca_ids" value="{{ butaca.id }}"
                   {%- if butaca.id in seleccionadas %} checked{% endif %}>
@@ -316,20 +292,22 @@
                 <span class="visualmente-oculto">Butaca {{ nombre }}</span>
               </label>
             {% else %}
-              <span class="{{ clase }}" title="{{ nombre }}: {{ butaca.estado }}">
-                <span class="butaca-marca butaca-{{ butaca.estado }}" aria-hidden="true"></span>
-                <span class="visualmente-oculto">Butaca {{ nombre }}: {{ butaca.estado }}</span>
+              <span class="{{ clase }}" title="{{ nombre }}: {{ estado }}">
+                <span class="butaca-marca butaca-{{ estado }}" aria-hidden="true"></span>
+                <span class="visualmente-oculto">Butaca {{ nombre }}: {{ estado }}</span>
               </span>
             {% endif %}
           {% endfor %}
         </div>
       {% endfor %}
     </div>
-    <ul class="butacas-leyenda" aria-label="Referencias">
-      <li><span class="butaca-marca" aria-hidden="true"></span>Libre</li>
-      <li><span class="butaca-marca butaca-seleccionada" aria-hidden="true"></span>Seleccionada</li>
-      <li><span class="butaca-marca butaca-ocupada" aria-hidden="true"></span>Ocupada</li>
-    </ul>
+    {% if leyenda %}
+      <ul class="butacas-leyenda" aria-label="Referencias">
+        <li><span class="butaca-marca" aria-hidden="true"></span>Libre</li>
+        <li><span class="butaca-marca butaca-seleccionada" aria-hidden="true"></span>Seleccionada</li>
+        <li><span class="butaca-marca butaca-ocupada" aria-hidden="true"></span>Ocupada</li>
+      </ul>
+    {% endif %}
   </div>
 {% endmacro %}
 
@@ -349,7 +327,8 @@
       </div>
     </div>
     {% set cantidad = compra.butacas | length %}
-    {% set detalle = namespace(filas=[(cantidad ~ (" entrada" if cantidad == 1 else " entradas"),
+    {% set detalle = namespace(filas=[("Butacas", compra.butacas | join(", ")),
+                                      (cantidad ~ (" entrada" if cantidad == 1 else " entradas"),
                                        compra.subtotal_entradas | precio)]) %}
     {% for servicio in compra.servicios %}
       {% set detalle.filas = detalle.filas + [(servicio.nombre ~ " × " ~ servicio.cantidad, servicio.subtotal | precio)] %}
