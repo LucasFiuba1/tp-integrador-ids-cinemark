@@ -1,5 +1,5 @@
 """Pruebas de integración iniciales sin servicios externos."""
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import requests
 
@@ -20,9 +20,10 @@ def test_portada_con_api_disponible(cliente_frontend, backend_ok):
     respuesta = cliente_frontend.get("/")
     assert respuesta.status_code == 200
     assert "Estado de la API" not in respuesta.get_data(as_text=True)
-    backend_ok.assert_called_once_with(
-        "GET", "http://api.test/api/cartelera", json=None, params=None, headers={}, timeout=5
-    )
+    assert backend_ok.call_args_list == [
+        call("GET", "http://api.test/api/cartelera", json=None, params=None, headers={}, timeout=5),
+        call("GET", "http://api.test/api/locales", json=None, params=None, headers={}, timeout=5),
+    ]
 
 
 def test_portada_con_api_caida(cliente_frontend):

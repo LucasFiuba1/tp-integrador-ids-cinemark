@@ -136,3 +136,17 @@ def afirmar_error_json(respuesta, status, codigo, mensaje=None):
     assert error["codigo"] == codigo, f"Se esperaba el código {codigo!r} y llegó {error['codigo']!r}."
     if mensaje is not None:
         assert error["mensaje"] == mensaje, f"Se esperaba el mensaje {mensaje!r} y llegó {error['mensaje']!r}."
+
+
+# --- frontend: locales de la cartelera (SCRUM-126) ---
+# Respuesta simulada de GET /api/locales: ordenada por nombre, como la devuelve el backend.
+LOCALES_API = [
+    {"id": 2, "nombre": "Paradiso Belgrano"},
+    {"id": 1, "nombre": "Paradiso Centro"},
+    {"id": 3, "nombre": "Paradiso Palermo"},
+]
+
+
+def llamadas_sin_locales(llamar):
+    """Llamadas al backend de una ruta simulada, sin contar la de GET /api/locales que hacen todas las páginas."""
+    return [llamada for llamada in llamar.call_args_list if llamada.args[1:2] != ("/api/locales",)]
