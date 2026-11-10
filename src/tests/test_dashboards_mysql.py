@@ -1,4 +1,4 @@
-"""Franjas horarias y cancelaciones (SCRUM-76), ocupación y ventas por género (SCRUM-75) contra MySQL real. Prueba OPT-IN: sin la variable se saltea.
+"""Franjas horarias y cancelaciones (SCRUM-76), ocupación y ventas por género (SCRUM-75) y resumen (SCRUM-124) contra MySQL real. Prueba OPT-IN: sin la variable se saltea.
 
 Verifica el SQL de services/dashboards.py contra `seed.sql` recién cargado, con valores fijos esperados.
 No carga schema ni seed ni usa las credenciales del .env para MySQL: la app de pruebas se configura (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD
@@ -12,6 +12,7 @@ la propia base. Las pruebas de borde insertan datos temporales (2031) en una tra
 que siempre termina en rollback (fixture `conexion`), así la base queda como el seed.
 """
 import os
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -435,3 +436,69 @@ def test_ventas_genero_no_cuenta_compras_no_confirmadas_ni_entradas_inactivas(pe
         _compra(conexion, funcion, estado)
     _compra(conexion, funcion, "confirmada", activa=None)
     assert pedir(VENTAS_GENERO, **FILTRO_BORDE) == [_genero("Drama", 2, 11000.0)]
+
+
+# --- resumen de indicadores (SCRUM-124) ---
+RESUMEN = "/api/admin/dashboards/resumen"
+SIN_COMPARAR = {"anterior": None, "variacion": None}
+
+
+def _periodo(desde, hasta):
+    return {"desde": _iso(desde), "hasta": _iso(hasta, "23:59:59")}
+
+
+def test_resumen_del_seed_sin_filtros(pedir):
+    # 5 entradas confirmadas; 17.500 + 10.500 + 11.000 con servicios; 5 / 10.746 butacas; 1 cancelada de 4 compras.
+    assert pedir(RESUMEN) == {
+        "entradas": {"valor": 5, **SIN_COMPARAR},
+        "ingresos": {"valor": 39000.0, **SIN_COMPARAR},
+        "ocupacion": {"valor": 0.05, **SIN_COMPARAR},
+        "cancelaciones": {"valor": 25.0, **SIN_COMPARAR},
+    }
+
+
+def test_resumen_del_seed_compara_con_los_dos_dias_anteriores(pedir, dias):
+    # Hoy y mañana contra anteayer y ayer. Dos días son 2 x 3 funciones x 398 butacas = 2.388 de capacidad.
+    hoy = dias["ayer"] + timedelta(days=1)
+    assert pedir(RESUMEN, **_periodo(hoy, dias["manana"])) == {
+        "entradas": {"valor": 2, "anterior": 3, "variacion": -33.33},  # (2 - 3) / 3
+        "ingresos": {"valor": 11000.0, "anterior": 28000.0, "variacion": -60.71},  # (11.000 - 28.000) / 28.000
+        "ocupacion": {"valor": 0.08, "anterior": 0.13, "variacion": -0.05},  # 2 / 2.388 y 3 / 2.388
+        "cancelaciones": {"valor": 50.0, "anterior": 0.0, "variacion": 50.0},  # 1 de 2 contra 0 de 2
+    }
+
+
+def test_resumen_del_seed_filtra_por_local(pedir):
+    # Belgrano: 1 entrada con 2 gaseosas = 10.500; 27 funciones x 140 butacas = 3.780; 0 canceladas de 1 compra.
+    assert pedir(RESUMEN, local_id=2) == {
+        "entradas": {"valor": 1, **SIN_COMPARAR},
+        "ingresos": {"valor": 10500.0, **SIN_COMPARAR},
+        "ocupacion": {"valor": 0.03, **SIN_COMPARAR},
+        "cancelaciones": {"valor": 0.0, **SIN_COMPARAR},
+    }
+
+
+def test_resumen_de_local_sin_compras_y_de_local_inexistente(pedir):
+    sin_compras = pedir(RESUMEN, local_id=LOCAL_SIN_SEED)
+    assert sin_compras["entradas"]["valor"] == 0 and sin_compras["ingresos"]["valor"] == 0.0
+    assert sin_compras["ocupacion"]["valor"] == 0.0 and sin_compras["cancelaciones"]["valor"] is None
+    inexistente = pedir(RESUMEN, local_id=9999)
+    assert inexistente["ocupacion"]["valor"] is None and inexistente["cancelaciones"]["valor"] is None
+
+
+def test_resumen_no_multiplica_el_total_por_las_entradas_ni_los_servicios(pedir, conexion):
+    _compra(conexion, _funcion(conexion, "14:00:00"), "confirmada", entradas=3, servicios=4)
+    datos = pedir(RESUMEN, **FILTRO_BORDE)
+    assert datos["entradas"]["valor"] == 3 and datos["ingresos"]["valor"] == 5500.0
+    assert datos["ocupacion"]["valor"] == 4.29  # 3 / 70
+    assert datos["cancelaciones"]["valor"] == 0.0
+
+
+def test_resumen_no_cuenta_compras_pendientes_vencidas_ni_canceladas_como_ventas(pedir, conexion):
+    funcion = _funcion(conexion, "14:00:00")
+    _compra(conexion, funcion, "confirmada", entradas=2)
+    for estado in ("pendiente", "vencida", "cancelada"):
+        _compra(conexion, funcion, estado)
+    datos = pedir(RESUMEN, **FILTRO_BORDE)
+    assert datos["entradas"]["valor"] == 2 and datos["ingresos"]["valor"] == 5500.0
+    assert datos["cancelaciones"]["valor"] == 50.0  # 1 cancelada de 2; pendiente y vencida no cuentan

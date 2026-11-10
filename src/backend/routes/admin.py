@@ -241,6 +241,12 @@ def _filtros_dashboard():
     return request.args.get("desde"), request.args.get("hasta"), request.args.get("local_id")
 
 
+@admin_bp.get("/dashboards/resumen")
+@requiere_rol("admin")
+def dashboard_resumen():
+    return jsonify(dashboards.resumen_dashboard(*_filtros_dashboard()))
+
+
 @admin_bp.get("/dashboards/ocupacion")
 @requiere_rol("admin")
 def dashboard_ocupacion():

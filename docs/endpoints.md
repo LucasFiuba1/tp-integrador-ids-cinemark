@@ -405,10 +405,49 @@ rol admin: sin token devuelve 401 y con otro rol, 403 `SIN_PERMISO`.
 
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
+| GET | `/api/admin/dashboards/resumen` | 🛠️ | Indicadores del período y variación contra el período anterior. |
 | GET | `/api/admin/dashboards/ocupacion` | 🛠️ | Ocupación por función y por película (vendidas / capacidad). |
 | GET | `/api/admin/dashboards/ventas-genero` | 🛠️ | Entradas y monto vendido por género. |
 | GET | `/api/admin/dashboards/franjas-horarias` | 🛠️ | Entradas vendidas por franja horaria. |
 | GET | `/api/admin/dashboards/cancelaciones` | 🛠️ | Cantidad y porcentaje de cancelaciones por película y período. |
+
+#### Resumen de indicadores (SCRUM-124)
+
+Devuelve los cuatro indicadores de las tarjetas. Cada uno trae `valor` (período
+elegido), `anterior` (período anterior) y `variacion`.
+
+| Indicador | `valor` | `variacion` |
+|---|---|---|
+| `entradas` | Entradas activas de compras confirmadas | % |
+| `ingresos` | Suma de `compras.total` de compras confirmadas (entradas y servicios) | % |
+| `ocupacion` | `100 * vendidas / capacidad` de todas las funciones activas del período | Puntos |
+| `cancelaciones` | `100 * canceladas / (confirmadas + canceladas)` | Puntos |
+
+El **período anterior** dura lo mismo que el elegido y termina un segundo antes
+de `desde`: `desde=2026-11-03T00:00:00` y `hasta=2026-11-09T23:59:59` se comparan
+con 2026-10-27T00:00:00 a 2026-11-02T23:59:59. Los filtros se aplican igual en
+los dos períodos, también `local_id`.
+
+`ingresos` incluye servicios, por eso puede superar la suma de `monto` de
+`ventas-genero`, que cuenta solo entradas.
+
+Sin ventas, `entradas` e `ingresos` valen 0. Sin funciones, `ocupacion` es `null`;
+sin compras confirmadas ni canceladas, `cancelaciones` es `null`. `variacion` es
+`null` si no hay con qué comparar: falta `desde` o `hasta`, el indicador es `null`
+en alguno de los dos períodos, o el período anterior vale 0 en una variación
+porcentual. Si falta `desde` o `hasta`, `anterior` también es `null`.
+
+```http
+GET /api/admin/dashboards/resumen?desde=2026-11-03T00:00:00&hasta=2026-11-09T23:59:59
+
+200 OK
+{
+  "entradas": { "valor": 5, "anterior": 3, "variacion": 66.67 },
+  "ingresos": { "valor": 39000.0, "anterior": 16500.0, "variacion": 136.36 },
+  "ocupacion": { "valor": 0.42, "anterior": 0.3, "variacion": 0.12 },
+  "cancelaciones": { "valor": 25.0, "anterior": 50.0, "variacion": -25.0 }
+}
+```
 
 #### Ocupación (SCRUM-75)
 

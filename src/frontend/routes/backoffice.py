@@ -277,7 +277,12 @@ TABLEROS = (
     ("ventas_genero", "ventas-genero"),
     ("franjas_horarias", "franjas-horarias"),
     ("cancelaciones", "cancelaciones"),
+    ("resumen", "resumen"),
 )
+# Si la API no responde o los filtros son inválidos, las tarjetas muestran su estado vacío.
+RESUMEN_VACIO = {
+    clave: {"valor": None, "variacion": None} for clave in ("entradas", "ingresos", "ocupacion", "cancelaciones")
+}
 DIAS_POR_DEFECTO = 7  # sin filtros se muestran los últimos 7 días, hoy incluido
 FUNCIONES_EN_TABLA = 10  # la API las devuelve de mayor a menor ocupación
 
@@ -303,30 +308,14 @@ def _parametros_dashboards(filtros):
     return parametros
 
 
-def _porcentaje(parte, total):
-    return round(parte / total * 100, 1) if total else 0
-
-
 def _franjas_para_columnas(franjas):
     """La API ordena las franjas por ventas; el gráfico de columnas las muestra en orden horario."""
     return [{"franja": f"{fila['hora_desde']} a {fila['hora_hasta']} h", "entradas": fila["entradas"]}
             for fila in sorted(franjas, key=lambda fila: fila["hora_desde"])]
 
 
-def _resumen_dashboards(ocupacion, ventas_genero, cancelaciones):
-    """KPI del período a partir de las mismas respuestas de los tableros (sin otra llamada a la API)."""
-    return {
-        "entradas": sum(fila["entradas"] for fila in ventas_genero),
-        "monto": sum(fila["monto"] for fila in ventas_genero),
-        "ocupacion": _porcentaje(sum(fila["vendidas"] for fila in ocupacion),
-                                 sum(fila["capacidad"] for fila in ocupacion)),
-        "cancelaciones": _porcentaje(sum(fila["canceladas"] for fila in cancelaciones),
-                                     sum(fila["compras"] for fila in cancelaciones)),
-    }
-
-
 def _llamar_dashboards(filtros, errores):
-    """Pide los locales (para el filtro) y, si los filtros son válidos, los cuatro tableros.
+    """Pide los locales (para el filtro) y, si los filtros son válidos, los tableros y el resumen.
 
     Un tablero que falla queda vacío y su mensaje se muestra una sola vez (si el backend no responde, los cuatro
     fallan con el mismo mensaje).
@@ -364,7 +353,7 @@ def dashboards():
     ]
     pagina = render_template(
         "backoffice/dashboards.html", filtros=filtros, errores=errores, opciones_locales=opciones_locales,
-        resumen=_resumen_dashboards(tableros["ocupacion"], tableros["ventas_genero"], tableros["cancelaciones"]),
+        resumen=respuestas.get("resumen") or RESUMEN_VACIO,
         **tableros,
     )
     return pagina, 400 if errores else 200

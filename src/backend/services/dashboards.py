@@ -1,10 +1,14 @@
-"""Dashboards del backoffice: franjas horarias y cancelaciones (SCRUM-76), ocupación y ventas por género (SCRUM-75).
+"""Dashboards del backoffice: franjas horarias y cancelaciones (SCRUM-76), ocupación y ventas por género (SCRUM-75)
+y resumen de indicadores (SCRUM-124).
 
 Se incluye el historial de entidades con baja lógica, por eso no se filtra por `activa` en películas ni salas.
 Las funciones tampoco, salvo en ocupación: una función dada de baja no se ofreció, así que no suma capacidad.
 """
+from datetime import datetime, timedelta
+
 from src.backend.db import consultar
 from src.backend.services.filtros_dashboards import construir_filtros
+from src.backend.services.validaciones import fecha_hora_iso
 
 HORAS_POR_FRANJA = 2
 FRANJA_SQL = "FLOOR(HOUR(f.fecha_hora) / 2) * 2"
@@ -86,6 +90,24 @@ SQL_CANCELACIONES_PELICULA_ORDEN = " GROUP BY p.id, p.titulo ORDER BY canceladas
 SQL_CANCELACIONES_PERIODO = "SELECT DATE(f.fecha_hora) AS periodo, " + COLUMNAS_CANCELACIONES + FROM_CANCELACIONES
 SQL_CANCELACIONES_PERIODO_ORDEN = " GROUP BY DATE(f.fecha_hora) ORDER BY DATE(f.fecha_hora) ASC"
 
+# Resumen: `compras.total` incluye los servicios, así que no se puede unir `entradas` directo o se repetiría por cada
+# entrada de la compra. Por eso las entradas se cuentan aparte, en una subconsulta por compra.
+SQL_RESUMEN_VENTAS = (
+    "SELECT COALESCE(SUM(v.entradas), 0) AS entradas, COALESCE(SUM(c.total), 0) AS ingresos "
+    "FROM compras c "
+    "JOIN funciones f ON f.id = c.funcion_id "
+    "JOIN salas s ON s.id = f.sala_id "
+    "LEFT JOIN (SELECT compra_id, COUNT(*) AS entradas FROM entradas WHERE activa = 1 GROUP BY compra_id) v "
+    "ON v.compra_id = c.id "
+    "WHERE c.estado = 'confirmada'"
+)
+SQL_RESUMEN_OCUPACION = (
+    "SELECT ROUND(100 * " + VENDIDAS_PELICULA_SQL + " / SUM(" + CAPACIDAD_SQL + "), 2) AS ocupacion "
+    + FROM_OCUPACION
+)
+SQL_RESUMEN_CANCELACIONES = "SELECT " + COLUMNAS_CANCELACIONES + FROM_CANCELACIONES
+PRIMERA_FECHA_MYSQL = datetime(1000, 1, 1)  # DATETIME no admite fechas anteriores
+
 
 def _franja_a_json(fila):
     hora_desde = int(fila["hora_desde"])
@@ -139,6 +161,60 @@ def _venta_genero_a_json(fila):
     return {"genero": fila["genero"], "entradas": int(fila["entradas"]), "monto": float(fila["monto"])}
 
 
+def _decimal_o_none(valor):
+    """Sin funciones o sin compras en el período, la división de MySQL da NULL: se manda null, no 0."""
+    return None if valor is None else float(valor)
+
+
+def _indicadores_periodo(desde, hasta, local_id):
+    clausulas, parametros = construir_filtros(desde, hasta, local_id)
+    ventas = consultar(SQL_RESUMEN_VENTAS + clausulas, parametros)[0]
+    ocupacion = consultar(SQL_RESUMEN_OCUPACION + clausulas, parametros)[0]
+    cancelaciones = consultar(SQL_RESUMEN_CANCELACIONES + clausulas, parametros)[0]
+    return {
+        "entradas": int(ventas["entradas"]),
+        "ingresos": float(ventas["ingresos"]),
+        "ocupacion": _decimal_o_none(ocupacion["ocupacion"]),
+        "cancelaciones": _decimal_o_none(cancelaciones["porcentaje"]),
+    }
+
+
+def _periodo_anterior(desde, hasta):
+    """Devuelve `(desde, hasta)` del período de igual duración que termina un segundo antes de `desde`.
+
+    Sin un período completo o sin fechas válidas para MySQL antes de `desde`, no hay con qué comparar: None.
+    Se llama con los filtros ya validados.
+    """
+    if desde is None or hasta is None:
+        return None
+    inicio = fecha_hora_iso(desde, "desde")
+    duracion = fecha_hora_iso(hasta, "hasta") - inicio
+    if inicio - PRIMERA_FECHA_MYSQL <= duracion:
+        return None
+    fin_anterior = inicio - timedelta(seconds=1)
+    return (fin_anterior - duracion).isoformat(), fin_anterior.isoformat()
+
+
+def _variacion_porcentual(valor, anterior):
+    if valor is None or not anterior:  # con 0 en el período anterior no hay porcentaje posible
+        return None
+    return round((valor - anterior) / anterior * 100, 2)
+
+
+def _variacion_en_puntos(valor, anterior):
+    if valor is None or anterior is None:
+        return None
+    return round(valor - anterior, 2)
+
+
+VARIACIONES_RESUMEN = (
+    ("entradas", _variacion_porcentual),
+    ("ingresos", _variacion_porcentual),
+    ("ocupacion", _variacion_en_puntos),
+    ("cancelaciones", _variacion_en_puntos),
+)
+
+
 def listar_ocupacion(desde=None, hasta=None, local_id=None):
     clausulas, parametros = construir_filtros(desde, hasta, local_id)
     por_pelicula = consultar(SQL_OCUPACION_PELICULA + clausulas + SQL_OCUPACION_PELICULA_ORDEN, parametros)
@@ -168,4 +244,18 @@ def listar_cancelaciones(desde=None, hasta=None, local_id=None):
     return {
         "por_pelicula": [_por_pelicula_a_json(fila) for fila in por_pelicula],
         "por_periodo": [_por_periodo_a_json(fila) for fila in por_periodo],
+    }
+
+
+def resumen_dashboard(desde=None, hasta=None, local_id=None):
+    actual = _indicadores_periodo(desde, hasta, local_id)  # valida los filtros antes de calcular el período anterior
+    periodo = _periodo_anterior(desde, hasta)
+    anterior = _indicadores_periodo(periodo[0], periodo[1], local_id) if periodo else {}
+    return {
+        clave: {
+            "valor": actual[clave],
+            "anterior": anterior.get(clave),
+            "variacion": variacion(actual[clave], anterior.get(clave)),
+        }
+        for clave, variacion in VARIACIONES_RESUMEN
     }
