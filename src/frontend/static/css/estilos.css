@@ -692,27 +692,17 @@ h3 { font-size: var(--texto-lg); }
 }
 
 .servicio-cantidad {
-  display: flex;
-  gap: var(--espacio-3);
-  align-items: center;
-  justify-content: flex-end;
   padding: 0 var(--espacio-3) var(--espacio-3);
 }
 
-.servicio-cantidad button {
-  width: var(--espacio-6);
-  height: var(--espacio-6);
-  border: var(--borde-fino);
-  border-radius: var(--radio-sm);
-  background: var(--color-superficie);
-  color: var(--color-texto);
-  font: inherit;
-}
+.servicio-cantidad .campo { max-width: 8rem; margin-bottom: 0; }
 
-.servicio-cantidad button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+/* Servicio con cantidad elegida */
+.servicio-elegido { outline: 1px solid var(--color-primario); }
+
+.servicios-formulario { display: grid; gap: var(--espacio-4); align-content: start; min-width: 0; }
+.servicios-actualizar { justify-self: start; }
+.resumen .boton + .boton { margin-top: var(--espacio-2); }
 
 /* Compra: pasos, casilla de términos, checkout con resumen lateral y compra confirmada */
 .paso, .resumen-total, .ticket-numero {
@@ -1156,11 +1146,6 @@ span.butaca { cursor: not-allowed; }
   }
 }
 
-/* Servicio seleccionado de ejemplo */
-
-.servicio-tarjeta:first-child {
-  border: 1px solid var(--color-primario);
-}
 
 /* Cartelera y detalle de película (SCRUM-59). Figma Home 23:280 (desktop) / 26:1187 (mobile) y Detalle 23:542 /
    26:1382. En el celular la grilla va en una columna (pedido del ticket): cada tarjeta es una fila con el póster

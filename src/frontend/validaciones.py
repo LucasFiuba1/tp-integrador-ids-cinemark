@@ -21,6 +21,7 @@ MAXIMO_DIRECCION = 200
 MAXIMO_NOMBRE_SALA = 50
 MAXIMO_FILAS = 26  # una letra por fila (A a Z)
 MAXIMO_COLUMNAS = 30
+MAXIMO_CANTIDAD_SERVICIO = 20  # el mismo tope que valida el backend en PUT /api/compras/<id>/servicios
 
 
 def leer_formulario(formulario, *campos):
@@ -163,9 +164,10 @@ def validar_filtros_dashboards(datos):
     })
 
 
-def _error_entero(texto, que, maximo):
-    if not texto.isdecimal() or not 1 <= int(texto) <= maximo:
-        return f"{que} tiene que ser un número entero entre 1 y {maximo}."
+def _error_entero(texto, que, maximo, minimo=1):
+    # El largo se mira antes de int(): con miles de dígitos, int() corta con ValueError y la página daría error 500.
+    if not texto.isdecimal() or len(texto) > len(str(maximo)) or not minimo <= int(texto) <= maximo:
+        return f"{que} tiene que ser un número entero entre {minimo} y {maximo}."
     return None
 
 
@@ -182,4 +184,12 @@ def validar_sala(datos):
         "nombre": _error_texto(datos["nombre"], "Ingresá el nombre de la sala.", MAXIMO_NOMBRE_SALA),
         "filas": _error_entero(datos["filas"], "La cantidad de filas", MAXIMO_FILAS),
         "columnas": _error_entero(datos["columnas"], "La cantidad de butacas por fila", MAXIMO_COLUMNAS),
+    })
+
+
+def validar_cantidades_servicios(cantidades):
+    """cantidades: {servicio_id: texto del campo}. Un campo vacío ya llega como "0" (no agrega ese servicio)."""
+    return _sin_vacios({
+        servicio_id: _error_entero(texto, "La cantidad", MAXIMO_CANTIDAD_SERVICIO, minimo=0)
+        for servicio_id, texto in cantidades.items()
     })
