@@ -7,6 +7,7 @@ from src.backend.db import consultar, consultar_uno, ejecutar
 from src.backend.errores import error_api
 from src.backend.services import tmdb
 from src.backend.services.validaciones import datos_invalidos, entero_positivo, fecha_hora_iso
+from src.backend.serializacion import serializar, serializar_lista
 
 COLUMNAS = (
     "id, tmdb_id, titulo, sinopsis, poster_url, duracion_min, clasificacion, genero, "
@@ -34,14 +35,6 @@ def _fecha_o_actual(datos, actual, campo):
     return datetime.fromisoformat(actual[campo])
 
 
-def a_json(fila):
-    """Convierte las fechas a texto y activa a booleano para devolverlas en JSON."""
-    fila["disponible_desde"] = fila["disponible_desde"].isoformat()
-    fila["disponible_hasta"] = fila["disponible_hasta"].isoformat()
-    fila["activa"] = bool(fila["activa"])
-    return fila
-
-
 def buscar_en_tmdb(texto):
     if texto is None or texto.strip() == "":
         datos_invalidos("Falta el parámetro q.")
@@ -49,14 +42,14 @@ def buscar_en_tmdb(texto):
 
 
 def listar():
-    return [a_json(fila) for fila in consultar("SELECT " + COLUMNAS + " FROM peliculas ORDER BY titulo")]
-
+    filas = consultar("SELECT " + COLUMNAS + " FROM peliculas ORDER BY titulo")
+    return serializar_lista(filas)
 
 def obtener(pelicula_id):
     fila = consultar_uno("SELECT " + COLUMNAS + " FROM peliculas WHERE id = %s", (pelicula_id,))
     if fila is None:
         error_api(404, "NO_ENCONTRADO", "La película no existe.")
-    return a_json(fila)
+    return serializar(fila)
 
 
 def importar(datos):
