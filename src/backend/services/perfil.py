@@ -53,6 +53,7 @@ def obtener_compra(compra_id):
 
 
 def _buscar_compras(filtro, valor):
+    # `filtro` es siempre una constante FILTRO_* de este módulo; el valor viaja aparte como parámetro.
     compras = consultar(
         "SELECT c.id, c.estado, c.total, c.token_qr, c.creada_en, c.vence_en, c.confirmada_en, c.cancelada_en, "
         "c.utilizada_en, f.id AS funcion_id, f.fecha_hora, p.id AS pelicula_id, p.titulo, p.poster_url, "
@@ -62,7 +63,7 @@ def _buscar_compras(filtro, valor):
         "JOIN peliculas p ON p.id = f.pelicula_id "
         "JOIN salas s ON s.id = f.sala_id "
         "JOIN locales l ON l.id = s.local_id "
-        f"WHERE {filtro} "
+        "WHERE " + filtro + " "
         "ORDER BY f.fecha_hora DESC",
         (valor,),
     )
@@ -71,7 +72,7 @@ def _buscar_compras(filtro, valor):
             "SELECT e.compra_id, b.fila, b.numero FROM entradas e "
             "JOIN butacas b ON b.id = e.butaca_id "
             "JOIN compras c ON c.id = e.compra_id "
-            f"WHERE {filtro} ORDER BY b.fila, b.numero",
+            "WHERE " + filtro + " ORDER BY b.fila, b.numero",
             (valor,),
         ),
         lambda fila: fila["fila"] + str(fila["numero"]),
@@ -81,7 +82,7 @@ def _buscar_compras(filtro, valor):
             "SELECT cs.compra_id, sv.nombre, cs.cantidad, cs.precio_unitario FROM compra_servicios cs "
             "JOIN servicios sv ON sv.id = cs.servicio_id "
             "JOIN compras c ON c.id = cs.compra_id "
-            f"WHERE {filtro} ORDER BY sv.nombre",
+            "WHERE " + filtro + " ORDER BY sv.nombre",
             (valor,),
         ),
         lambda fila: {
