@@ -15,9 +15,9 @@ def reservar_butacas():
 
 
 @compras_bp.get("/compras/<int:compra_id>")
-@requiere_rol("cliente")
+@requiere_rol("cliente", "admin")
 def obtener_compra(compra_id):
-    return jsonify(compras.obtener(g.usuario["id"], compra_id))
+    return jsonify(compras.obtener(g.usuario, compra_id))
 
 
 @compras_bp.get("/compras/por-token")

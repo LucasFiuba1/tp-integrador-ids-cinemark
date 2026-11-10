@@ -108,9 +108,22 @@ def _id_desde_token_cancelacion(token):
     return compra_id
 
 
+def _estado_informado(fila):
+    """Una pendiente cuyo plazo ya pasó se informa como vencida aunque la base todavía no se haya actualizado."""
+    return "vencida" if fila["estado"] == "pendiente" and fila["vencida"] else fila["estado"]
+
+
+def _qr_base64(estado, token_qr):
+    if estado != "confirmada" or not token_qr:
+        return None
+    return base64.b64encode(qr.generar_qr(token_qr)).decode("ascii")
+
+
 def _detalle_compra(compra_id, usuario_id=None):
+    """Detalle de una compra. Con usuario_id exige que sea suya (403 si no); sin él, no filtra por dueño."""
     fila = consultar_uno(
-        "SELECT c.id, c.usuario_id, c.estado, c.total, c.vence_en, c.cancelada_en, c.utilizada_en, "
+        "SELECT c.id, c.usuario_id, c.estado, c.total, c.vence_en, c.cancelada_en, c.utilizada_en, c.token_qr, "
+        "(c.vence_en <= NOW()) AS vencida, "
         "f.fecha_hora, p.titulo, p.poster_url, s.nombre AS sala, l.nombre AS local, u.email "
         "FROM compras c "
         "JOIN funciones f ON f.id = c.funcion_id "
@@ -139,9 +152,10 @@ def _detalle_compra(compra_id, usuario_id=None):
         (compra_id,),
     )
     subtotal_entradas = sum(float(entrada["precio"]) for entrada in entradas)
+    estado = _estado_informado(fila)
     return {
         "id": fila["id"],
-        "estado": fila["estado"],
+        "estado": estado,
         "pelicula": fila["titulo"],
         "poster_url": fila["poster_url"],
         "local": fila["local"],
@@ -160,16 +174,18 @@ def _detalle_compra(compra_id, usuario_id=None):
         ],
         "total": float(fila["total"]),
         "email": fila["email"],
-        "vence_en": _iso(fila["vence_en"]) if fila["estado"] == "pendiente" else None,
+        "vence_en": _iso(fila["vence_en"]) if estado == "pendiente" else None,
         "utilizada_en": _iso(fila["utilizada_en"]),
         "cancelada_en": _iso(fila["cancelada_en"]),
-        "cancelable": es_cancelable(fila["estado"], fila["fecha_hora"], fila["utilizada_en"]),
+        "cancelable": es_cancelable(estado, fila["fecha_hora"], fila["utilizada_en"]),
         "cancelable_hasta": _iso(cancelable_hasta(fila["fecha_hora"])),
+        "qr_png_base64": _qr_base64(estado, fila["token_qr"]),
     }
 
 
-def obtener(usuario_id, compra_id):
-    return _detalle_compra(compra_id, usuario_id=usuario_id)
+def obtener(usuario, compra_id):
+    """El cliente solo ve sus compras; el admin puede ver cualquiera."""
+    return _detalle_compra(compra_id, usuario_id=None if usuario["rol"] == "admin" else usuario["id"])
 
 
 def obtener_por_token(token):

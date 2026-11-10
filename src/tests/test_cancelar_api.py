@@ -1,9 +1,11 @@
-"""Pruebas de los endpoints de detalle y cancelación de compras (SCRUM-69, SCRUM-70)."""
+"""Pruebas de los endpoints de detalle y cancelación de compras (SCRUM-69, SCRUM-70, SCRUM-123)."""
+import base64
 from datetime import datetime, timedelta
 from decimal import Decimal
 
 import pytest
 
+from src.backend.services.qr import generar_qr
 from src.backend.tokens import firmar_cancelacion, firmar_qr
 from src.tests.utilidades import ID_CLIENTE, afirmar_error_json, simular_bd
 
@@ -19,6 +21,8 @@ def _fila_detalle(**cambios):
         "vence_en": datetime(2026, 11, 5, 18, 40),
         "cancelada_en": None,
         "utilizada_en": None,
+        "token_qr": "token-qr-de-prueba",
+        "vencida": 1,
         "fecha_hora": datetime.now().replace(microsecond=0) + timedelta(days=2),
         "titulo": "Volver al futuro",
         "poster_url": None,
@@ -64,8 +68,11 @@ def test_obtener_compra_sin_token_devuelve_401(cliente_backend):
     afirmar_error_json(cliente_backend.get(f"/api/compras/{COMPRA_ID}"), 401, "NO_AUTENTICADO")
 
 
-def test_obtener_compra_con_rol_admin_devuelve_403(cliente_backend, cabeceras_admin):
-    afirmar_error_json(cliente_backend.get(f"/api/compras/{COMPRA_ID}", headers=cabeceras_admin), 403, "SIN_PERMISO")
+def test_obtener_compra_de_otro_usuario_como_admin_devuelve_el_detalle(cliente_backend, cabeceras_admin, bd):
+    bd.consultar_uno.return_value = _fila_detalle(usuario_id=999)
+    respuesta = cliente_backend.get(f"/api/compras/{COMPRA_ID}", headers=cabeceras_admin)
+    assert respuesta.status_code == 200
+    assert respuesta.get_json()["id"] == COMPRA_ID
 
 
 def test_obtener_compra_inexistente_devuelve_404(cliente_backend, cabeceras_cliente, bd):
@@ -91,6 +98,38 @@ def test_obtener_compra_ok_devuelve_detalle_completo(cliente_backend, cabeceras_
     ]
     assert datos["total"] == 23000.0
     assert datos["cancelable"] is True
+    assert datos["funcion"] == _fila_detalle()["fecha_hora"].isoformat()
+    assert datos["cancelable_hasta"] == (_fila_detalle()["fecha_hora"] - timedelta(hours=2)).isoformat()
+    assert datos["vence_en"] is None
+
+
+def test_obtener_compra_confirmada_incluye_el_qr_de_ingreso(cliente_backend, cabeceras_cliente, bd):
+    datos = cliente_backend.get(f"/api/compras/{COMPRA_ID}", headers=cabeceras_cliente).get_json()
+    assert base64.b64decode(datos["qr_png_base64"]) == generar_qr("token-qr-de-prueba")
+
+
+@pytest.mark.parametrize("estado", ["pendiente", "cancelada"])
+def test_obtener_compra_no_confirmada_no_incluye_qr(cliente_backend, cabeceras_cliente, bd, estado):
+    bd.consultar_uno.return_value = _fila_detalle(estado=estado, vencida=0, token_qr=None)
+    datos = cliente_backend.get(f"/api/compras/{COMPRA_ID}", headers=cabeceras_cliente).get_json()
+    assert datos["qr_png_base64"] is None
+
+
+def test_obtener_compra_pendiente_en_plazo_informa_vence_en(cliente_backend, cabeceras_cliente, bd):
+    bd.consultar_uno.return_value = _fila_detalle(estado="pendiente", vencida=0, token_qr=None)
+    datos = cliente_backend.get(f"/api/compras/{COMPRA_ID}", headers=cabeceras_cliente).get_json()
+    assert datos["estado"] == "pendiente"
+    assert datos["vence_en"] == "2026-11-05T18:40:00"
+    assert datos["cancelable"] is False
+
+
+def test_obtener_compra_pendiente_vencida_se_informa_como_vencida(cliente_backend, cabeceras_cliente, bd):
+    bd.consultar_uno.return_value = _fila_detalle(estado="pendiente", vencida=1, token_qr=None)
+    datos = cliente_backend.get(f"/api/compras/{COMPRA_ID}", headers=cabeceras_cliente).get_json()
+    assert datos["estado"] == "vencida"
+    assert datos["vence_en"] is None
+    assert datos["cancelable"] is False
+    assert datos["qr_png_base64"] is None
 
 
 # --- GET /api/compras/por-token (público) ---
