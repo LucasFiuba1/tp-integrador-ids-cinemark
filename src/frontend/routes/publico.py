@@ -11,22 +11,23 @@ from src.frontend.validaciones import leer_formulario, validar_login, validar_pa
 
 publico_bp = Blueprint("publico", __name__)
 
-# El desplegable usa los locales del seed: GET /api/locales todavía no está en el backend.
-LOCALES_CARTELERA = (
-    {"valor": "", "texto": "Todos"},
-    {"valor": "1", "texto": "Paradiso Centro"},
-    {"valor": "2", "texto": "Paradiso Belgrano"},
-    {"valor": "3", "texto": "Paradiso Palermo"},
-)
+OPCION_TODOS_LOS_LOCALES = {"valor": "", "texto": "Todos"}
 
 
-def _header_locales():
-    # El header ya trae su opción "Elegí local": acá van solo los locales reales.
-    return [local for local in LOCALES_CARTELERA if local["valor"]]
+def _opciones_locales():
+    """Locales de GET /api/locales como opciones {"valor", "texto"} para el header y los filtros (SCRUM-126).
 
-
-def _nombres_locales():
-    return {local["valor"]: local["texto"] for local in _header_locales()}
+    Si el backend falla o responde algo inesperado, la lista queda vacía: el filtro solo ofrece "Todos" y la página
+    se muestra igual.
+    """
+    datos, error = llamar("GET", "/api/locales")
+    if error or not isinstance(datos, list):
+        return []
+    return [
+        {"valor": str(local["id"]), "texto": str(local.get("nombre") or f"Local {local['id']}")}
+        for local in datos
+        if isinstance(local, dict) and local.get("id") is not None
+    ]
 
 
 def _header_peliculas(peliculas):
@@ -56,6 +57,7 @@ def inicio():
     pelicula_id = _id_pelicula(request.args.get("pelicula_id"))
     params = {nombre: valor for nombre, valor in (("local_id", local_id), ("fecha", fecha)) if valor}
     datos, error = llamar("GET", "/api/cartelera", params=params or None)
+    locales = _opciones_locales()
     peliculas = [] if error else _solo_peliculas(datos)
     error_cartelera = bool(error) or peliculas is None
     if error_cartelera:
@@ -68,12 +70,12 @@ def inicio():
     return render_template(
         "inicio.html",
         peliculas=peliculas,
-        locales=LOCALES_CARTELERA,
+        locales=[OPCION_TODOS_LOS_LOCALES, *locales],
         local_id=local_id,
         fecha=fecha,
         pelicula_id=str(pelicula_id) if pelicula_id is not None else "",
         error_cartelera=error_cartelera,
-        header_locales=_header_locales(),
+        header_locales=locales,
         header_peliculas=header_peliculas,
     )
 
@@ -82,13 +84,16 @@ MENSAJE_LOCAL_INVALIDO = "No reconocemos ese local. Te mostramos las funciones d
 MENSAJE_FECHA_INVALIDA = "La fecha no es válida (usá el formato AAAA-MM-DD). Te mostramos las funciones de todos los días."
 
 
-def _filtros_detalle(args):
-    """Valida local_id y fecha del GET. Devuelve (local, fecha, errores): lo inválido queda vacío y con su mensaje."""
-    locales = _nombres_locales()
+def _filtros_detalle(args, locales):
+    """Valida local_id (contra las opciones de locales) y fecha del GET.
+
+    Devuelve (local, fecha, errores): lo inválido queda vacío y con su mensaje.
+    """
+    ids_locales = {local["valor"] for local in locales}
     local_id = (args.get("local_id") or "").strip()
     fecha = (args.get("fecha") or "").strip()
     errores = {}
-    if local_id and local_id not in locales:
+    if local_id and local_id not in ids_locales:
         errores["local_id"] = MENSAJE_LOCAL_INVALIDO
         local_id = ""
     if fecha:
@@ -102,11 +107,10 @@ def _filtros_detalle(args):
     return local_id, fecha, errores
 
 
-def _funciones_filtradas(funciones, nombre_local, fecha):
-    # GET /api/peliculas/<id> no trae local_id de cada función: se filtra por nombre del local (seed).
+def _funciones_filtradas(funciones, local_id, fecha):
     funciones = [funcion for funcion in funciones if isinstance(funcion, dict)]
-    if nombre_local:
-        funciones = [funcion for funcion in funciones if funcion.get("nombre_local") == nombre_local]
+    if local_id:
+        funciones = [funcion for funcion in funciones if str(funcion.get("local_id")) == local_id]
     if fecha:
         funciones = [funcion for funcion in funciones if str(funcion.get("fecha_hora") or "")[:10] == fecha]
     return sorted(funciones, key=lambda funcion: (str(funcion.get("nombre_local") or ""), str(funcion.get("fecha_hora") or "")))
@@ -122,19 +126,20 @@ def detalle_pelicula(id):
             return render_template("errores/404.html"), 404
         flash(error["mensaje"], "error")
         return redirect(url_for("publico.inicio"))
-    local_id, fecha, errores_filtro = _filtros_detalle(request.args)
+    locales = _opciones_locales()
+    local_id, fecha, errores_filtro = _filtros_detalle(request.args, locales)
     funciones = pelicula.get("funciones") if isinstance(pelicula.get("funciones"), list) else []
-    filtradas = _funciones_filtradas(funciones, _nombres_locales().get(local_id), fecha)
+    filtradas = _funciones_filtradas(funciones, local_id, fecha)
     return render_template(
         "pelicula.html",
         pelicula={**pelicula, "funciones": filtradas},
-        locales=LOCALES_CARTELERA,
+        locales=[OPCION_TODOS_LOS_LOCALES, *locales],
         local_id=local_id,
         fecha=fecha,
         errores_filtro=errores_filtro,
         filtro_activo=bool(local_id or fecha),
         total_funciones=len([funcion for funcion in funciones if isinstance(funcion, dict)]),
-        header_locales=_header_locales(),
+        header_locales=locales,
         header_peliculas=_header_peliculas([pelicula]) if pelicula.get("id") is not None else [],
     )
 

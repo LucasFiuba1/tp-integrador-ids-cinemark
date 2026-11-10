@@ -5,7 +5,6 @@ datos en none que no se muestran, la elección de función con chip_funcion + "E
 formularios GET (header y filtros), que conservan el parámetro del otro como campo oculto.
 """
 import re
-from unittest.mock import patch
 
 import pytest
 
@@ -21,19 +20,19 @@ PELICULA = {
     "duracion_min": 116, "clasificacion": "ATP", "genero": "Aventura", "disponible_hasta": "2026-11-30T23:59:59",
     "funciones": [
         {"id": 12, "fecha_hora": "2026-11-10T20:30:00", "precio": 5500.0, "nombre_sala": "Sala 1",
-         "nombre_local": "Paradiso Centro"},
+         "local_id": 1, "nombre_local": "Paradiso Centro"},
         {"id": 13, "fecha_hora": "2026-11-10T22:15:00", "precio": 5500.0, "nombre_sala": "Sala 2",
-         "nombre_local": "Paradiso Centro"},
+         "local_id": 1, "nombre_local": "Paradiso Centro"},
         {"id": 14, "fecha_hora": "2026-11-10T17:30:00", "precio": 6000.0, "nombre_sala": "Sala 1",
-         "nombre_local": "Paradiso Belgrano"},
+         "local_id": 2, "nombre_local": "Paradiso Belgrano"},
     ],
 }
 
 
 @pytest.fixture
-def llamar():
-    with patch("src.frontend.routes.publico.llamar") as llamar:
-        yield llamar
+def llamar(llamar_publico):
+    # GET /api/locales responde los locales del seed (ver LOCALES_API en utilidades.py); el resto, return_value.
+    return llamar_publico
 
 
 def _html(cliente, url):
@@ -252,9 +251,9 @@ def _texto_accesible(fragmento):
 def test_misma_hora_local_y_sala_en_dias_distintos_se_distinguen(cliente_frontend, llamar):
     funciones = [
         {"id": 21, "fecha_hora": "2026-11-10T21:00:00", "precio": 5500.0, "nombre_sala": "Sala 1",
-         "nombre_local": "Paradiso Centro"},
+         "local_id": 1, "nombre_local": "Paradiso Centro"},
         {"id": 22, "fecha_hora": "2026-11-11T21:00:00", "precio": 5500.0, "nombre_sala": "Sala 1",
-         "nombre_local": "Paradiso Centro"},
+         "local_id": 1, "nombre_local": "Paradiso Centro"},
     ]
     llamar.return_value = ({**PELICULA, "funciones": funciones}, None)
     html = _html(cliente_frontend, "/peliculas/1")

@@ -61,7 +61,7 @@ def obtener_pelicula(pelicula_id):
 
     funciones = consultar(
         "SELECT funciones.id, funciones.fecha_hora, funciones.precio, "
-        "salas.nombre AS nombre_sala, locales.nombre AS nombre_local"
+        "salas.nombre AS nombre_sala, locales.id AS local_id, locales.nombre AS nombre_local"
         + FUNCIONES_VIGENTES
         + " AND peliculas.id = %s ORDER BY funciones.fecha_hora",
         (datetime.now(), pelicula_id),

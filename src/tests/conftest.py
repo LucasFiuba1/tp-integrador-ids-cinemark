@@ -2,14 +2,14 @@
 
 Ninguna prueba necesita MySQL, TMDB ni servidores levantados: la base y requests se simulan con unittest.mock.
 """
-from unittest.mock import Mock, patch
+from unittest.mock import DEFAULT, Mock, patch
 
 import pytest
 from flask import render_template_string
 
 from src.frontend.app import create_app as crear_frontend
 from src.tests.utilidades import (
-    cabeceras_de, contexto_app_backend, simular_bd, simular_usuarios, usuario_de_prueba,
+    LOCALES_API, cabeceras_de, contexto_app_backend, simular_bd, simular_usuarios, usuario_de_prueba,
 )
 
 
@@ -100,6 +100,18 @@ def backend_ok():
         peticion.return_value = Mock(ok=True, content=b'{"estado":"ok"}')
         peticion.return_value.json.return_value = {"estado": "ok"}
         yield peticion
+
+
+@pytest.fixture
+def llamar_publico():
+    """Simula `llamar` en routes/publico.py: GET /api/locales responde LOCALES_API (o lo que se ponga en
+    `llamar_publico.locales`) y cualquier otra llamada devuelve `llamar_publico.return_value`."""
+    def responder(metodo, ruta, **opciones):
+        return llamar.locales if ruta == "/api/locales" else DEFAULT
+
+    with patch("src.frontend.routes.publico.llamar", side_effect=responder) as llamar:
+        llamar.locales = ([dict(local) for local in LOCALES_API], None)
+        yield llamar
 
 
 @pytest.fixture
