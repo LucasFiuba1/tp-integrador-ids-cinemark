@@ -8,6 +8,17 @@ def listar_locales():
     return locales
 
 
+def listar_locales_publicos():
+    """Locales con al menos una sala activa, para los filtros de la cartelera (sin la dirección)."""
+    query = """
+        SELECT DISTINCT l.id, l.nombre
+        FROM locales l
+        JOIN salas s ON s.local_id = l.id AND s.activa = TRUE
+        ORDER BY l.nombre
+    """
+    return db.consultar(query)
+
+
 def validar_local(nombre_local, direccion_local):
     """Devuelve (nombre, direccion) sin espacios en los extremos; los largos son los VARCHAR de schema.sql."""
     return texto_no_vacio(nombre_local, "nombre", 100), texto_no_vacio(direccion_local, "direccion", 200)
