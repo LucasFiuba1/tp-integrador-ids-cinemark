@@ -3,7 +3,8 @@ from datetime import date, datetime, timedelta
 
 from src.backend.db import consultar, consultar_uno
 from src.backend.errores import error_api
-from src.backend.services.peliculas import COLUMNAS, a_json
+from src.backend.serializacion import serializar, serializar_lista
+from src.backend.services.peliculas import COLUMNAS
 from src.backend.services.validaciones import entero_positivo_texto
 
 # Funciones que se pueden vender: activas, en salas activas, futuras y dentro del período de la película.
@@ -46,9 +47,7 @@ def listar(local_id=None, fecha=None):
     sql += " GROUP BY peliculas.id ORDER BY proxima_funcion"
 
     filas = consultar(sql, parametros)
-    for fila in filas:
-        fila["proxima_funcion"] = fila["proxima_funcion"].isoformat()
-    return filas
+    return serializar_lista(filas)
 
 
 def obtener_pelicula(pelicula_id):
@@ -66,12 +65,9 @@ def obtener_pelicula(pelicula_id):
         + " AND peliculas.id = %s ORDER BY funciones.fecha_hora",
         (datetime.now(), pelicula_id),
     )
-    for funcion in funciones:
-        funcion["fecha_hora"] = funcion["fecha_hora"].isoformat()
-        funcion["precio"] = float(funcion["precio"])
-
-    resultado = a_json(pelicula)
-    resultado["funciones"] = funciones
+    
+    resultado = serializar(pelicula)
+    resultado["funciones"] = serializar_lista(funciones)
     return resultado
 
 
