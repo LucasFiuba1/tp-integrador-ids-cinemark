@@ -1,13 +1,26 @@
 """Páginas para el cliente: cartelera, compra y perfil."""
 from datetime import date, datetime
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 from src.frontend.api_client import llamar
 from src.frontend.filtros import hora
 from src.frontend.sesion import ir_al_login, requiere_sesion
 from src.frontend.validaciones import (
-    MAXIMO_CANTIDAD_SERVICIO, leer_formulario, validar_cantidades_servicios, validar_login, validar_pago,
+    MAXIMO_CANTIDAD_SERVICIO,
+    leer_formulario,
+    validar_cantidades_servicios,
+    validar_login,
+    validar_pago,
     validar_registro,
 )
 
@@ -262,26 +275,13 @@ def butacas(funcion_id):
     ), estado
 
 
-# Pago y compra confirmada maquetados (SCRUM-114) con una compra de ejemplo que tiene la forma de la respuesta de
-# GET /api/compras/<id>. SCRUM-68 reemplaza _compra_ejemplo por llamar(...) y el POST por /api/compras/<id>/confirmar.
+# Pago y compra confirmada (SCRUM-68). Las dos pantallas muestran el detalle real de GET /api/compras/<id> y el pago
+# confirma con POST /api/compras/<id>/confirmar: el total y el QR son los del backend. Los datos de la tarjeta solo se
+# validan acá y no viajan al backend, porque el pago es simulado.
 CAMPOS_PAGO = ("titular", "numero", "vencimiento", "codigo_seguridad", "acepto")
-# QR de ejemplo (codifica CP-1042-D5): PNG de 23 x 23 px que la pantalla agranda sin suavizar.
-QR_EJEMPLO = (
-    "iVBORw0KGgoAAAANSUhEUgAAABcAAAAXAQAAAADIUekNAAAAZ0lEQVR42gFcAKP/Af8A/wMBExoCPvT4BOTwxAIARAACABQAAL76+gMh7TAA"
-    "/5P+AIgE7gHTq/ACAb1EAgsTiAQDHCwCHRvoAwEynwI+3fQC5PPEAgBq9AQAzc8CHOPIAyH7vAH/AP8IeCMEJ5FRrwAAAABJRU5ErkJggg=="
-)
-
-
-def _compra_ejemplo(compra_id, confirmada=False):
-    return {
-        "id": compra_id, "estado": "confirmada" if confirmada else "pendiente", "vence_en": "2026-10-24T19:05:00",
-        "pelicula": "La noche del telón",
-        "poster_url": None, "local": "Paradiso Centro", "sala": "Sala 1",
-        "funcion": "2026-10-24T19:30:00", "butacas": ["D5", "D6", "D7"], "subtotal_entradas": 16500,
-        "servicios": [{"nombre": "Combo pochoclos grande", "cantidad": 1, "subtotal": 6500}], "total": 23000,
-        "email": "lucas@email.com", "qr_png_base64": QR_EJEMPLO if confirmada else None, "cancelable": confirmada,
-    }
-
+MENSAJE_RESERVA_INACTIVA = "Esta reserva ya no está activa. Elegí tus butacas de nuevo."
+# Rechazos del backend que no se arreglan reintentando el pago: se vuelve al inicio en vez de al formulario.
+ERRORES_SIN_REINTENTO = ("COMPRA_NO_PENDIENTE", "RESERVA_VENCIDA", "NO_ENCONTRADO", "SIN_PERMISO")
 
 def _reserva_vigente(compra):
     # El backend marca "vencida" recién al reservar de nuevo o al confirmar: una pendiente puede tener el plazo ya pasado.
@@ -292,7 +292,7 @@ def _compra_pendiente(compra_id):
     """Detalle de la compra, o None con un aviso si no existe, es ajena o la reserva ya no está activa."""
     compra, error = llamar("GET", f"/api/compras/{compra_id}")
     if error is None and not _reserva_vigente(compra):
-        error = {"mensaje": "Esta reserva ya no está activa. Elegí tus butacas de nuevo."}
+        error = {"mensaje": MENSAJE_RESERVA_INACTIVA}
     if error is not None:
         flash(error["mensaje"], "error")
         return None
@@ -352,25 +352,64 @@ def servicios_compra(compra_id):
     return pagina, estado
 
 
+def _ya_confirmada(compra_id, error):
+    if error["codigo"] != "COMPRA_NO_PENDIENTE":
+        return False
+    compra, error_detalle = llamar("GET", f"/api/compras/{compra_id}")
+    return error_detalle is None and compra["estado"] == "confirmada"
+
+
+def _confirmar_pago(compra_id):
+    resultado, error = llamar("POST", f"/api/compras/{compra_id}/confirmar")
+    destino = url_for("publico.compra_confirmada", compra_id=compra_id)
+    if error is None:
+        if resultado["email_enviado"]:
+            session.pop("email_fallido", None)
+        else:
+            session["email_fallido"] = compra_id
+    elif not _ya_confirmada(compra_id, error):
+        flash(error["mensaje"], "error")
+        sin_reintento = error["codigo"] in ERRORES_SIN_REINTENTO
+        destino = url_for("publico.inicio") if sin_reintento else url_for("publico.pago", compra_id=compra_id)
+    return redirect(destino)
+
+
 @publico_bp.route("/compras/<int:compra_id>/pago", methods=["GET", "POST"])
 @requiere_sesion
 def pago(compra_id):
+    compra, error = llamar("GET", f"/api/compras/{compra_id}")
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return redirect(url_for("publico.inicio"))
+    if compra["estado"] == "confirmada":  # volver atrás o repetir el envío no vuelve a cobrar
+        return redirect(url_for("publico.compra_confirmada", compra_id=compra_id))
+    if not _reserva_vigente(compra):
+        flash(MENSAJE_RESERVA_INACTIVA, "error")
+        return redirect(url_for("publico.inicio"))
     formulario = leer_formulario(request.form, *CAMPOS_PAGO)
     errores = validar_pago(formulario) if request.method == "POST" else {}
     if request.method == "POST" and not errores:
-        return redirect(url_for("publico.compra_confirmada", compra_id=compra_id))
+        return _confirmar_pago(compra_id)
     # Los datos sensibles de la tarjeta no se devuelven a la página, como la contraseña en el login.
     formulario.update(numero="", codigo_seguridad="")
-    pagina = render_template("compra/pago.html", compra=_compra_ejemplo(compra_id), formulario=formulario,
-                             errores=errores)
+    pagina = render_template("compra/pago.html", compra=compra, formulario=formulario, errores=errores)
     return pagina, 400 if errores else 200
 
 
 @publico_bp.get("/compras/<int:compra_id>/confirmada")
 @requiere_sesion
 def compra_confirmada(compra_id):
-    return render_template("compra/confirmada.html", compra=_compra_ejemplo(compra_id, confirmada=True))
-
+    compra, error = llamar("GET", f"/api/compras/{compra_id}")
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return redirect(url_for("publico.inicio"))
+    if compra["estado"] != "confirmada":
+        pendiente = _reserva_vigente(compra)
+        flash("Completá el pago para confirmar tu compra." if pendiente else "Esta compra no está confirmada.", "error")
+        destino = url_for("publico.pago", compra_id=compra_id) if pendiente else url_for("publico.inicio")
+        return redirect(destino)
+    email_enviado = session.get("email_fallido") != compra_id
+    return render_template("compra/confirmada.html", compra=compra, email_enviado=email_enviado)
 
 # Cancelación desde el perfil (con sesión) o desde el enlace firmado del email (sin sesión, SCRUM-70).
 # Abrir el enlace con GET solo muestra el resumen y el botón de confirmación; la cancelación ocurre solo con POST.

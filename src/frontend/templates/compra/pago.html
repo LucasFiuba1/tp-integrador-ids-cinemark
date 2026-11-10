@@ -1,5 +1,6 @@
 {# Pago (Figma D5 desktop y M5 mobile): datos de la tarjeta del pago simulado y resumen de la compra.
-   compra tiene la forma de GET /api/compras/<id>; el botón del resumen envía el formulario de la tarjeta. #}
+   compra tiene la forma de GET /api/compras/<id>; el botón del resumen envía el formulario de la tarjeta.
+   El formulario solo hace POST a esta misma ruta; el total que se muestra y se cobra es el del backend. #}
 {% extends "base.html" %}
 {% from "macros.html" import pasos_compra, cabecera_pagina, campo, casilla, boton, resumen_compra %}
 
@@ -33,4 +34,20 @@
       {{ boton("Confirmar y pagar", bloque=true, formulario="formulario-pago") }}
     {% endcall %}
   </div>
+
+  {# Evita el doble envío: al enviar se deshabilitan los botones del formulario. Es solo comportamiento local (sin
+     peticiones); igual el backend rechaza una segunda confirmación y la ruta lleva a la compra ya confirmada. #}
+  <script>
+    (function () {
+      const formulario = document.getElementById("formulario-pago");
+      const botones = document.querySelectorAll('button[form="formulario-pago"]');
+      formulario.addEventListener("submit", function () {
+        botones.forEach(function (boton) { boton.disabled = true; });
+      });
+      // Al volver con "atrás" el navegador puede restaurar la página con los botones ya deshabilitados.
+      window.addEventListener("pageshow", function () {
+        botones.forEach(function (boton) { boton.disabled = false; });
+      });
+    })();
+  </script>  
 {% endblock %}
