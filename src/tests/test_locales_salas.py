@@ -78,7 +78,7 @@ RUTAS = (
     ("GET", "/api/admin/locales"), ("POST", "/api/admin/locales"),
     ("PUT", "/api/admin/locales/1"), ("DELETE", "/api/admin/locales/1"),
     ("GET", "/api/admin/salas"), ("POST", "/api/admin/salas"),
-    ("PUT", "/api/admin/salas/1"), ("DELETE", "/api/admin/salas/1"),
+    ("GET", "/api/admin/salas/1"), ("PUT", "/api/admin/salas/1"), ("DELETE", "/api/admin/salas/1"),
 )
 
 
@@ -195,6 +195,24 @@ def test_generar_butacas_al_agrandar_devuelve_solo_las_que_faltan():
     nuevas = salas.generar_butacas(7, 3, 4, 2, 3)
     esperadas = [(7, "A", 4), (7, "B", 4), (7, "C", 1), (7, "C", 2), (7, "C", 3), (7, "C", 4)]
     assert nuevas == esperadas
+
+
+# --- salas: detalle ---
+def test_detalle_de_sala_devuelve_la_sala_con_sus_butacas(pedir, db_salas, sala):
+    butacas = [{"id": 1, "fila": "A", "numero": 1}, {"id": 2, "fila": "A", "numero": 2}]
+    db_salas.consultar_uno.return_value = sala
+    db_salas.consultar.return_value = butacas
+    respuesta = pedir("GET", "/api/admin/salas/5")
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {**sala, "butacas": butacas}
+    assert db_salas.consultar.call_args.args[1] == (5,)
+
+
+def test_detalle_de_sala_inexistente_devuelve_404(pedir, db_salas):
+    db_salas.consultar_uno.return_value = None
+    respuesta = pedir("GET", "/api/admin/salas/99")
+    assert respuesta.status_code == 404
+    assert respuesta.get_json()["error"]["codigo"] == "NO_ENCONTRADO"
 
 
 # --- salas: listado ---

@@ -5,7 +5,7 @@ from flask import Blueprint, flash, redirect, render_template, request, session,
 
 from src.frontend.filtros import hora
 from src.frontend.sesion import requiere_admin
-from src.frontend.validaciones import leer_formulario, validar_ingreso, validar_servicio
+from src.frontend.validaciones import leer_formulario, validar_ingreso, validar_local, validar_sala, validar_servicio
 
 from src.frontend.api_client import llamar
 
@@ -26,39 +26,6 @@ SECCIONES = (
 SECCIONES_IMPLEMENTADAS = ("dashboards", "peliculas", "funciones", "locales", "servicios", "ingreso")
 
 
-def _locales_ejemplo():
-    return [
-        {
-            "id": 1,
-            "nombre": "Paradiso Centro",
-            "direccion": "Av. Corrientes 1234, CABA",
-            "activa": True,
-            "salas": [
-                {"id": 1, "nombre": "Sala 1", "capacidad": 132, "activa": True},
-                {"id": 2, "nombre": "Sala 2", "capacidad": 132, "activa": True},
-            ]
-        },
-        {
-            "id": 2,
-            "nombre": "Paradiso Belgrano",
-            "direccion": "Av. Cabildo 5678, CABA",
-            "activa": True,
-            "salas": [
-                {"id": 3, "nombre": "Sala 1", "capacidad": 96, "activa": True},
-                {"id": 4, "nombre": "Sala 2", "capacidad": 96, "activa": True},
-            ]
-        },
-        {
-            "id": 3,
-            "nombre": "Paradiso Palermo",
-            "direccion": "Av. Santa Fe 4321, CABA",
-            "activa": True,
-            "salas": [
-                {"id": 5, "nombre": "Sala VIP", "capacidad": 36, "activa": True},
-            ]
-        }
-    ]
-
 # Programación de funciones del backoffice (SCRUM-57).
 
 def _local_elegido(locales, local_id):
@@ -69,14 +36,6 @@ def _local_elegido(locales, local_id):
         return locales[0]
     return None
 
-
-@backoffice_bp.get("/locales")
-@requiere_admin
-def locales():
-    return render_template(
-        "backoffice/locales.html",
-        locales=_locales_ejemplo()
-    )
 
 def _listar_locales():
     locales, error = llamar("GET", "/api/admin/locales")
@@ -258,6 +217,144 @@ def baja_funcion(id):
         flash("La función fue eliminada correctamente.", "exito")
 
     return redirect(url_for("backoffice.funciones"))
+
+
+# ABM de locales y salas (SCRUM-55) contra /api/admin/locales y /api/admin/salas (ver docs/endpoints.md).
+CAMPOS_LOCAL = ("nombre", "direccion")
+CAMPOS_SALA = ("nombre", "filas", "columnas")
+
+
+def _locales_con_salas():
+    """Locales con sus salas activas en "salas". Si el backend falla, _listar_* ya avisaron y queda vacío."""
+    locales = _listar_locales()
+    salas = _listar_salas(None) if locales else []
+    for local in locales:
+        local["salas"] = [sala for sala in salas if sala["local_id"] == local["id"]]
+    return locales
+
+
+def _buscar_local(id):
+    """El local con ese id, o None (con el aviso ya mostrado) si no existe o el backend falla."""
+    locales, error = llamar("GET", "/api/admin/locales")
+    local = None if error else next((local for local in locales if local["id"] == id), None)
+    if local is None:
+        flash(error["mensaje"] if error else "Ese local no existe.", "error")
+    return local
+
+
+def _guardar(template, campos, validar, enviar, exito, contexto):
+    """Formulario de alta o edición (PRG). En POST valida, llama a enviar(formulario) -> (datos, error) y, si sale
+    bien, avisa y redirige según exito(datos) -> (mensaje, url). Si no, vuelve a mostrar el formulario con los errores y el status del
+    problema (400 de validación, o el 400/404/409 que devolvió la API). contexto trae el registro que se edita
+    (o None) y los datos que necesita el template; en GET el formulario se llena con contexto["registro"]."""
+    registro = contexto.get("registro") or {}
+    if request.method == "GET":
+        formulario = {campo: str(registro.get(campo, "")) for campo in campos}
+        return render_template(template, formulario=formulario, errores={}, **contexto)
+    formulario = leer_formulario(request.form, *campos)
+    errores = validar(formulario)
+    status = 400
+    if not errores:
+        datos, error = enviar(formulario)
+        if error is None:
+            mensaje, destino = exito(datos)
+            flash(mensaje, "exito")
+            return redirect(destino)
+        flash(error["mensaje"], "error")
+        status = error["status"]
+    return render_template(template, formulario=formulario, errores=errores, **contexto), status
+
+
+def _datos_sala(formulario):
+    return {"nombre": formulario["nombre"], "filas": int(formulario["filas"]), "columnas": int(formulario["columnas"])}
+
+
+def _sala_guardada(sala):
+    return f"Guardaste la {sala['nombre']}: {sala['capacidad']} butacas.", url_for("backoffice.sala", id=sala["id"])
+
+
+def _local_guardado(local):
+    return f"Guardaste el local {local['nombre']}.", url_for("backoffice.locales")
+
+
+@backoffice_bp.get("/locales")
+@requiere_admin
+def locales():
+    return render_template("backoffice/locales.html", locales=_locales_con_salas())
+
+
+@backoffice_bp.route("/locales/nuevo", methods=["GET", "POST"])
+@requiere_admin
+def nuevo_local():
+    return _guardar(
+        "backoffice/local.html", CAMPOS_LOCAL, validar_local,
+        lambda formulario: llamar("POST", "/api/admin/locales", json=formulario),
+        _local_guardado, {"registro": None},
+    )
+
+
+@backoffice_bp.route("/locales/<int:id>", methods=["GET", "POST"])
+@requiere_admin
+def editar_local(id):
+    local = _buscar_local(id)
+    if local is None:
+        return redirect(url_for("backoffice.locales"))
+    return _guardar(
+        "backoffice/local.html", CAMPOS_LOCAL, validar_local,
+        lambda formulario: llamar("PUT", f"/api/admin/locales/{id}", json=formulario),
+        _local_guardado, {"registro": local},
+    )
+
+
+@backoffice_bp.post("/locales/<int:id>/baja")
+@requiere_admin
+def baja_local(id):
+    _, error = llamar("DELETE", f"/api/admin/locales/{id}")
+    if error:
+        flash(error["mensaje"], "error")
+    else:
+        flash("Eliminaste el local.", "exito")
+    return redirect(url_for("backoffice.locales"))
+
+
+@backoffice_bp.route("/locales/<int:local_id>/salas/nueva", methods=["GET", "POST"])
+@requiere_admin
+def nueva_sala(local_id):
+    local = _buscar_local(local_id)
+    if local is None:
+        return redirect(url_for("backoffice.locales"))
+    return _guardar(
+        "backoffice/sala.html", CAMPOS_SALA, validar_sala,
+        lambda formulario: llamar("POST", "/api/admin/salas", json={"local_id": local_id, **_datos_sala(formulario)}),
+        _sala_guardada, {"registro": None, "local": local},
+    )
+
+
+@backoffice_bp.route("/salas/<int:id>", methods=["GET", "POST"])
+@requiere_admin
+def sala(id):
+    """Detalle de la sala con su grilla de butacas (solo lectura) y el formulario para modificarla."""
+    detalle, error = llamar("GET", f"/api/admin/salas/{id}")
+    if error:
+        flash(error["mensaje"], "error")
+        return redirect(url_for("backoffice.locales"))
+    local = {"id": detalle["local_id"], "nombre": detalle["local"]}
+    return _guardar(
+        "backoffice/sala.html", CAMPOS_SALA, validar_sala,
+        lambda formulario: llamar("PUT", f"/api/admin/salas/{id}", json=_datos_sala(formulario)),
+        _sala_guardada, {"registro": detalle, "local": local},
+    )
+
+
+@backoffice_bp.post("/salas/<int:id>/baja")
+@requiere_admin
+def baja_sala(id):
+    _, error = llamar("DELETE", f"/api/admin/salas/{id}")
+    if error:
+        flash(error["mensaje"], "error")
+        return redirect(url_for("backoffice.sala", id=id))
+    flash("Quitaste la sala: ya no se pueden programar funciones en ella.", "exito")
+    return redirect(url_for("backoffice.locales"))
 
 
 @backoffice_bp.context_processor
