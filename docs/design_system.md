@@ -65,6 +65,7 @@ Pesos: `--peso-normal` (400), `--peso-medio` (500), `--peso-negrita` (700). Inte
 | `--ancho-formulario` | 416 px (tarjeta de ingresar y crear cuenta) |
 | `--ancho-ticket` | 640 px (compra confirmada) |
 | `--alto-grafico` | 192 px (gráfico de columnas de los dashboards) |
+| `--ancho-columna-grafico` | 96 px (ancho máximo de cada columna del gráfico) |
 | `--transicion` | 150 ms para hover |
 
 ## Breakpoints (mobile-first)
@@ -136,7 +137,7 @@ flash se muestran dentro del panel principal. Las vistas se protegen con `@requi
 | Macro (`macros.html`) | Uso |
 |---|---|
 | `cabecera_pagina(titulo, accion=none, bajada='')` | `h1`, bajada opcional y botón blanco: `accion={"texto": "Importar de TMDB", "url": url_for(...)}`. |
-| `tabla(columnas, filas, acciones={}, vacio=...)` | Tabla dentro de un `.panel`. Columnas `{"clave", "titulo", "tipo"}`: `tipo: "estado"` muestra un badge (con `"textos": {valor: leyenda}` opcional), `"activo"` hace lo mismo a partir de un booleano (`true` → `activa`, `false` → `inactiva`), `"precio"` muestra `$6.500` y `"hora"` / `"fecha_hora"` formatean fechas ISO. Acciones `{"editar": endpoint, "baja": endpoint}` que reciben `id`: "Editar" es un link y "Dar de baja" un `<form method="post">` en rojo (`"texto_baja"` cambia la leyenda, ej. "Quitar"), que no se ofrece si `fila.activa` o `fila.activo` es `false`. Sin filas muestra `vacio`. En mobile cada fila se apila con la etiqueta de cada dato. |
+| `tabla(columnas, filas, acciones={}, vacio=...)` | Tabla dentro de un `.panel`. Columnas `{"clave", "titulo", "tipo"}`: `tipo: "estado"` muestra un badge (con `"textos": {valor: leyenda}` opcional), `"activo"` hace lo mismo a partir de un booleano (`true` → `activa`, `false` → `inactiva`), `"precio"` muestra `$6.500`, `"porcentaje"` muestra `74%` y `"hora"` / `"fecha_hora"` formatean fechas ISO. Acciones `{"editar": endpoint, "baja": endpoint}` que reciben `id`: "Editar" es un link y "Dar de baja" un `<form method="post">` en rojo (`"texto_baja"` cambia la leyenda, ej. "Quitar"), que no se ofrece si `fila.activa` o `fila.activo` es `false`. Sin filas muestra `vacio`. En mobile cada fila se apila con la etiqueta de cada dato. |
 | `badge_estado(estado, texto='')` | Palabra en mayúscula con borde: `activa` (verde), `inactiva` (gris, borde punteado), `cancelada` (rojo), `utilizada` (blanco). Se distingue por el texto, no solo por el color; `texto` cambia la leyenda (ej. "En cartelera"). |
 | `tarjeta_kpi(titulo, valor, detalle='', tono='')` | Indicador de los dashboards; agrupar en `<div class="kpis">` (2 por fila en mobile, 4 en desktop). `tono` `positivo`/`negativo` colorea el detalle. |
 | `barra(etiqueta, valor, maximo=100, sufijo='', destacada=false)` | Fila etiqueta / pista / valor; ancho `valor / maximo` con tope 100 %. Relleno blanco y `destacada` en `--color-primario`. El valor se muestra con el filtro `numero`. |

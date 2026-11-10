@@ -1,13 +1,19 @@
 """Páginas del administrador (ABM, dashboards y validación de QR)."""
-from datetime import date
+from datetime import date, timedelta
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
+from src.frontend.api_client import llamar
 from src.frontend.filtros import hora
 from src.frontend.sesion import requiere_admin
-from src.frontend.validaciones import leer_formulario, validar_ingreso, validar_local, validar_sala, validar_servicio
-
-from src.frontend.api_client import llamar
+from src.frontend.validaciones import (
+    leer_formulario,
+    validar_filtros_dashboards,
+    validar_ingreso,
+    validar_local,
+    validar_sala,
+    validar_servicio,
+)
 
 backoffice_bp = Blueprint("backoffice", __name__, url_prefix="/admin")
 
@@ -368,44 +374,103 @@ def inicio():
     return redirect(url_for("backoffice.dashboards"))
 
 
-# Dashboards maquetados (SCRUM-121) con datos de ejemplo que tienen la forma de las respuestas de
-# GET /api/admin/dashboards/{ocupacion,ventas-genero,franjas-horarias,cancelaciones}. SCRUM-77 reemplaza
-# _dashboards_ejemplo por un llamar(...) a cada endpoint con los filtros desde / hasta; el resumen de los KPI sale
-# de esas mismas respuestas (entradas, monto, ocupación y porcentaje de cancelación).
-def _dashboards_ejemplo():
+# Tableros de los dashboards: (variable del template, ruta de GET /api/admin/dashboards/<ruta>).
+TABLEROS = (
+    ("ocupacion", "ocupacion"),
+    ("ventas_genero", "ventas-genero"),
+    ("franjas_horarias", "franjas-horarias"),
+    ("cancelaciones", "cancelaciones"),
+)
+DIAS_POR_DEFECTO = 7  # sin filtros se muestran los últimos 7 días, hoy incluido
+FUNCIONES_EN_TABLA = 10  # la API las devuelve de mayor a menor ocupación
+
+
+def _filtros_dashboards(args):
+    """Lee los filtros del formulario GET; las fechas vacías toman el período por defecto.
+
+    local_id sale de un select, así que un valor que no es un id solo llega editando la URL: se toma como "todos".
+    """
+    filtros = leer_formulario(args, "desde", "hasta", "local_id")
+    hoy = date.today()
+    filtros["desde"] = filtros["desde"] or (hoy - timedelta(days=DIAS_POR_DEFECTO - 1)).isoformat()
+    filtros["hasta"] = filtros["hasta"] or hoy.isoformat()
+    filtros["local_id"] = filtros["local_id"] if filtros["local_id"].isdigit() else ""
+    return filtros
+
+
+def _parametros_dashboards(filtros):
+    """La API espera DATETIME ISO: el período abarca los días desde y hasta completos."""
+    parametros = {"desde": f"{filtros['desde']}T00:00:00", "hasta": f"{filtros['hasta']}T23:59:59"}
+    if filtros["local_id"]:
+        parametros["local_id"] = filtros["local_id"]
+    return parametros
+
+
+def _porcentaje(parte, total):
+    return round(parte / total * 100, 1) if total else 0
+
+
+def _franjas_para_columnas(franjas):
+    """La API ordena las franjas por ventas; el gráfico de columnas las muestra en orden horario."""
+    return [{"franja": f"{fila['hora_desde']} a {fila['hora_hasta']} h", "entradas": fila["entradas"]}
+            for fila in sorted(franjas, key=lambda fila: fila["hora_desde"])]
+
+
+def _resumen_dashboards(ocupacion, ventas_genero, cancelaciones):
+    """KPI del período a partir de las mismas respuestas de los tableros (sin otra llamada a la API)."""
     return {
-        "resumen": {
-            "entradas": 1742, "entradas_variacion": 12, "monto": 4820000.00, "monto_variacion": 8,
-            "ocupacion": 68, "ocupacion_variacion": -3, "cancelaciones": 4.2, "cancelaciones_variacion": 0.6,
-        },
-        "franjas_horarias": [
-            {"franja": "12 a 15 h", "entradas": 180}, {"franja": "15 a 18 h", "entradas": 310},
-            {"franja": "18 a 21 h", "entradas": 742}, {"franja": "21 a 24 h", "entradas": 510},
-        ],
-        "ocupacion": [
-            {"pelicula": "La noche del telón", "vendidas": 412, "capacidad": 560, "ocupacion": 74},
-            {"pelicula": "Código Medianoche", "vendidas": 330, "capacidad": 500, "ocupacion": 66},
-            {"pelicula": "Pequeños gigantes", "vendidas": 245, "capacidad": 400, "ocupacion": 61},
-            {"pelicula": "El jardín de cristal", "vendidas": 120, "capacidad": 240, "ocupacion": 50},
-        ],
-        "ventas_genero": [
-            {"genero": "Drama", "entradas": 620, "monto": 1705000.00},
-            {"genero": "Ciencia ficción", "entradas": 510, "monto": 1402500.00},
-            {"genero": "Animación", "entradas": 380, "monto": 1045000.00},
-            {"genero": "Comedia", "entradas": 232, "monto": 667500.00},
-        ],
-        "cancelaciones": [
-            {"pelicula": "Código Medianoche", "cancelaciones": 18, "porcentaje": 6.1},
-            {"pelicula": "La noche del telón", "cancelaciones": 14, "porcentaje": 3.4},
-            {"pelicula": "Pequeños gigantes", "cancelaciones": 7, "porcentaje": 2.9},
-        ],
+        "entradas": sum(fila["entradas"] for fila in ventas_genero),
+        "monto": sum(fila["monto"] for fila in ventas_genero),
+        "ocupacion": _porcentaje(sum(fila["vendidas"] for fila in ocupacion),
+                                 sum(fila["capacidad"] for fila in ocupacion)),
+        "cancelaciones": _porcentaje(sum(fila["canceladas"] for fila in cancelaciones),
+                                     sum(fila["compras"] for fila in cancelaciones)),
     }
+
+
+def _llamar_dashboards(filtros, errores):
+    """Pide los locales (para el filtro) y, si los filtros son válidos, los cuatro tableros.
+
+    Un tablero que falla queda vacío y su mensaje se muestra una sola vez (si el backend no responde, los cuatro
+    fallan con el mismo mensaje).
+    """
+    locales, error = llamar("GET", "/api/admin/locales")
+    fallas = [error] if error else []
+    respuestas = {}
+    if not errores:
+        parametros = _parametros_dashboards(filtros)
+        for clave, ruta in TABLEROS:
+            respuestas[clave], error = llamar("GET", f"/api/admin/dashboards/{ruta}", params=parametros)
+            fallas += [error] if error else []
+    for mensaje in dict.fromkeys(falla["mensaje"] for falla in fallas):
+        flash(mensaje, "error")
+    return locales or [], respuestas
 
 
 @backoffice_bp.get("/dashboards")
 @requiere_admin
 def dashboards():
-    return render_template("backoffice/dashboards.html", **_dashboards_ejemplo())
+    filtros = _filtros_dashboards(request.args)
+    errores = validar_filtros_dashboards(filtros)
+    locales, respuestas = _llamar_dashboards(filtros, errores)
+    ocupacion = respuestas.get("ocupacion") or {}
+    cancelaciones = respuestas.get("cancelaciones") or {}
+    tableros = {
+        "ocupacion": ocupacion.get("por_pelicula", []),
+        "ocupacion_funciones": ocupacion.get("por_funcion", [])[:FUNCIONES_EN_TABLA],
+        "ventas_genero": respuestas.get("ventas_genero") or [],
+        "franjas_horarias": _franjas_para_columnas(respuestas.get("franjas_horarias") or []),
+        "cancelaciones": cancelaciones.get("por_pelicula", []),
+    }
+    opciones_locales = [{"valor": "", "texto": "Todos los locales"}] + [
+        {"valor": local["id"], "texto": local["nombre"]} for local in locales
+    ]
+    pagina = render_template(
+        "backoffice/dashboards.html", filtros=filtros, errores=errores, opciones_locales=opciones_locales,
+        resumen=_resumen_dashboards(tableros["ocupacion"], tableros["ventas_genero"], tableros["cancelaciones"]),
+        **tableros,
+    )
+    return pagina, 400 if errores else 200
 
 
 CAMPOS_EDICION_PELICULA = (

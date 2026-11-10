@@ -548,8 +548,8 @@ h3 { font-size: var(--texto-lg); }
 .barra-destacada .barra-relleno { background: var(--color-primario); }
 
 /* Gráfico de columnas de los dashboards: el alto de cada columna llega calculado desde la macro columnas() */
-.columnas { display: flex; gap: var(--espacio-2); margin: 0; padding: 0; list-style: none; }
-.columna { flex: 1; min-width: 0; text-align: center; }
+.columnas { display: flex; justify-content: center; gap: var(--espacio-2); margin: 0; padding: 0; list-style: none; }
+.columna { flex: 1; min-width: 0; max-width: var(--ancho-columna-grafico); text-align: center; }
 .columna-pista {
   display: flex;
   flex-direction: column;
@@ -576,6 +576,7 @@ h3 { font-size: var(--texto-lg); }
 .dashboards { display: grid; gap: var(--espacio-4); }
 .dashboards .panel { margin-bottom: 0; }
 .dashboards h2 { margin-bottom: var(--espacio-4); }
+.dashboards-funciones { margin-top: var(--espacio-5); }
 .panel-nota { margin: var(--espacio-2) 0 0; color: var(--color-texto-tenue); font-size: var(--texto-xs); }
 
 /* Ingresar y Crear cuenta: tarjeta centrada con pestañas */

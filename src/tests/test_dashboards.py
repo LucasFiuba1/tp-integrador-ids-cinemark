@@ -1,4 +1,4 @@
-"""Pruebas de dashboards: template del backoffice (SCRUM-121) y franjas horarias / cancelaciones del
+"""Pruebas de dashboards: vista del backoffice (SCRUM-121 y 77) y franjas horarias / cancelaciones del
 backend (SCRUM-76). Las del backend simulan la base (`consultar` de services/dashboards.py); la verificación
 contra MySQL real está en test_dashboards_mysql.py (opt-in)."""
 import re
@@ -10,9 +10,43 @@ import pytest
 from werkzeug.exceptions import HTTPException
 
 from src.backend.services.filtros_dashboards import construir_filtros
-from src.frontend.app import create_app as crear_frontend
 from src.frontend.filtros import numero
-from src.frontend.routes import backoffice
+
+# Respuestas de ejemplo de GET /api/admin/dashboards/<tablero> (ver docs/endpoints.md).
+RESPUESTAS = {
+    "/api/admin/dashboards/franjas-horarias": [
+        {"hora_desde": 18, "hora_hasta": 20, "entradas": 742}, {"hora_desde": 20, "hora_hasta": 22, "entradas": 510},
+        {"hora_desde": 16, "hora_hasta": 18, "entradas": 310}, {"hora_desde": 14, "hora_hasta": 16, "entradas": 180},
+    ],
+    "/api/admin/dashboards/ocupacion": {
+        "por_pelicula": [
+            {"pelicula": "La noche del telón", "vendidas": 412, "capacidad": 560, "ocupacion": 73.6},
+            {"pelicula": "Código Medianoche", "vendidas": 330, "capacidad": 500, "ocupacion": 66},
+        ],
+        "por_funcion": [],
+    },
+    "/api/admin/dashboards/ventas-genero": [
+        {"genero": "Drama", "entradas": 1000, "monto": 2750000.00},
+        {"genero": "Animación", "entradas": 742, "monto": 2070000.00},
+    ],
+    "/api/admin/dashboards/cancelaciones": {
+        "por_pelicula": [
+            {"pelicula_id": 2, "pelicula": "Código Medianoche", "compras": 300, "canceladas": 18, "porcentaje": 6.0},
+            {"pelicula_id": 1, "pelicula": "La noche del telón", "compras": 200, "canceladas": 3, "porcentaje": 1.5},
+        ],
+        "por_periodo": [],
+    },
+    "/api/admin/locales": [{"id": 1, "nombre": "Paradiso Centro", "direccion": "Av. Corrientes 1234"}],
+}
+
+
+@pytest.fixture
+def api(request):
+    """Simula llamar(...) de la ruta con RESPUESTAS (o las que pase la prueba con indirect)."""
+    respuestas = getattr(request, "param", RESPUESTAS)
+    with patch("src.frontend.routes.backoffice.llamar",
+               side_effect=lambda metodo, ruta, params=None: (respuestas.get(ruta), None)) as llamar:
+        yield llamar
 
 
 def test_sin_sesion_redirige_al_login(cliente_frontend):
@@ -21,43 +55,74 @@ def test_sin_sesion_redirige_al_login(cliente_frontend):
     assert respuesta.headers["Location"] == "/ingresar"
 
 
-def test_muestra_los_kpi_y_los_cuatro_tableros(cliente_admin):
+def test_muestra_los_kpi_y_los_cuatro_tableros(cliente_admin, api):
     respuesta = cliente_admin.get("/admin/dashboards")
     html = respuesta.get_data(as_text=True)
     assert respuesta.status_code == 200
     assert 'href="/admin/dashboards" aria-current="page"' in html
-    for valor in ("1.742", "$4.820.000", "68%", "4,2%"):
+    # 742 / 1060 butacas y 21 / 500 compras, sumando las respuestas de la API.
+    for valor in ("1.742", "$4.820.000", "70%", "4,2%"):
         assert f'<p class="kpi-valor">{valor}</p>' in html
     for titulo in ("Entradas por franja horaria", "Ocupación por película", "Ventas por género",
-                   "Cancelaciones por película"):
+                   "Cancelaciones por película", "Ocupación por función"):
         assert f">{titulo}</h2>" in html
 
 
-def test_las_variaciones_marcan_si_son_buenas_o_malas(cliente_admin):
-    html = cliente_admin.get("/admin/dashboards").get_data(as_text=True)
-    assert '<p class="kpi-detalle kpi-positivo">▲ 12% vs. semana anterior</p>' in html
-    assert '<p class="kpi-detalle kpi-negativo">▼ 3 pts vs. semana anterior</p>' in html
-    # Más cancelaciones que la semana anterior es una mala noticia aunque el número suba.
-    assert '<p class="kpi-detalle kpi-negativo">▲ 0,6 pts vs. semana anterior</p>' in html
-
-
-def test_la_franja_mas_vendida_se_destaca_y_las_columnas_son_proporcionales(cliente_admin):
+def test_la_franja_mas_vendida_se_destaca_y_las_columnas_son_proporcionales(cliente_admin, api):
     html = cliente_admin.get("/admin/dashboards").get_data(as_text=True)
     assert html.count("columna-destacada") == 1
     assert 'style="height: calc(100.0% - var(--espacio-5))"' in html
     assert 'style="height: calc(24.3% - var(--espacio-5))"' in html  # 180 de 742
-    assert '<span class="columna-etiqueta">18 a 21 h</span>' in html
+    assert '<span class="columna-etiqueta">18 a 20 h</span>' in html
 
 
-def test_tableros_vacios_no_rompen_la_pagina(cliente_admin):
-    datos = dict(backoffice._dashboards_ejemplo(), franjas_horarias=[], ocupacion=[], ventas_genero=[],
-                 cancelaciones=[])
-    with patch.object(backoffice, "_dashboards_ejemplo", return_value=datos):
-        respuesta = cliente_admin.get("/admin/dashboards")
+def test_las_franjas_se_muestran_en_orden_horario(cliente_admin, api):
+    html = cliente_admin.get("/admin/dashboards").get_data(as_text=True)
+    assert re.findall(r'columna-etiqueta">(\d+) a', html) == ["14", "16", "18", "20"]
+
+
+def test_la_tabla_muestra_solo_las_funciones_con_mayor_ocupacion(cliente_admin):
+    funciones = [{"funcion_id": numero_funcion, "pelicula": f"Película {numero_funcion}", "local": "Centro", "sala": "Sala 1",
+                  "fecha_hora": "2026-11-07T21:00:00", "vendidas": 1, "capacidad": 96, "ocupacion": 1.04}
+                 for numero_funcion in range(1, 13)]
+    respuestas = dict(RESPUESTAS)
+    respuestas["/api/admin/dashboards/ocupacion"] = {"por_pelicula": [], "por_funcion": funciones}
+    with patch("src.frontend.routes.backoffice.llamar",
+               side_effect=lambda metodo, ruta, params=None: (respuestas.get(ruta), None)):
+        html = cliente_admin.get("/admin/dashboards").get_data(as_text=True)
+    assert "Película 10" in html and "Película 11" not in html
+
+
+@pytest.mark.parametrize("api", [{}], indirect=True)
+def test_tableros_vacios_no_rompen_la_pagina(cliente_admin, api):
+    respuesta = cliente_admin.get("/admin/dashboards")
     html = respuesta.get_data(as_text=True)
     assert respuesta.status_code == 200
-    assert html.count("Todavía no hay datos para este período.") == 4
+    assert html.count("Todavía no hay datos para este período.") == 5
     assert 'class="columnas"' not in html
+
+
+@pytest.mark.parametrize("api", [{
+    "/api/admin/dashboards/ventas-genero": [
+        {"genero": "Drama", "entradas": 4, "monto": 22000.0}, {"genero": "Terror", "entradas": 4, "monto": 22000.0},
+        {"genero": "Comedia", "entradas": 1, "monto": 5500.0},
+    ],
+}], indirect=True)
+def test_se_resaltan_todas_las_barras_empatadas_en_el_maximo(cliente_admin, api):
+    html = cliente_admin.get("/admin/dashboards").get_data(as_text=True)
+    assert html.count("barra-destacada") == 2
+
+
+@pytest.mark.parametrize("api", [{
+    "/api/admin/dashboards/cancelaciones": {
+        "por_pelicula": [{"pelicula_id": 1, "pelicula": "Alien", "compras": 2, "canceladas": 0, "porcentaje": 0.0}],
+        "por_periodo": [],
+    },
+}], indirect=True)
+def test_sin_cancelaciones_no_se_resalta_ninguna_barra(cliente_admin, api):
+    respuesta = cliente_admin.get("/admin/dashboards")
+    assert respuesta.status_code == 200
+    assert "barra-destacada" not in respuesta.get_data(as_text=True)
 
 
 def test_numero_usa_formato_argentino():
