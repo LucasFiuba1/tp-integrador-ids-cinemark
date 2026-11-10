@@ -82,6 +82,15 @@ def crear_sala():
     return jsonify(sala), 201
 
 
+@admin_bp.get("/salas/<int:sala_id>")
+@requiere_rol("admin")
+def detalle_sala(sala_id):
+    sala = salas.obtener_sala(sala_id)
+    if sala is None:
+        return respuesta_error(404, "NO_ENCONTRADO", "La sala no existe.")
+    return jsonify({**sala, "butacas": salas.listar_butacas(sala_id)})
+
+
 @admin_bp.put("/salas/<int:sala_id>")
 @requiere_rol("admin")
 def modificar_sala(sala_id):
