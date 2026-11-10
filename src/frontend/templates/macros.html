@@ -326,7 +326,8 @@
       </div>
     </div>
     {% set cantidad = compra.butacas | length %}
-    {% set detalle = namespace(filas=[(cantidad ~ (" entrada" if cantidad == 1 else " entradas"),
+    {% set detalle = namespace(filas=[("Butacas", compra.butacas | join(", ")),
+                                      (cantidad ~ (" entrada" if cantidad == 1 else " entradas"),
                                        compra.subtotal_entradas | precio)]) %}
     {% for servicio in compra.servicios %}
       {% set detalle.filas = detalle.filas + [(servicio.nombre ~ " × " ~ servicio.cantidad, servicio.subtotal | precio)] %}

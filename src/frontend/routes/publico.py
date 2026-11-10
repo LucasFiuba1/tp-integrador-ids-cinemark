@@ -201,36 +201,58 @@ def salir():
     return redirect(url_for("publico.inicio"))
 
 
+MAXIMO_DIGITOS_ID = 18  # int() falla con textos larguísimos; ningún id real se acerca a este largo
+
+
+def _ids_butacas(valores):
+    # isdecimal() y no isdigit(): "²" es dígito pero int("²") falla y la página daría error 500.
+    return [int(valor) for valor in valores if valor.isdecimal() and len(valor) <= MAXIMO_DIGITOS_ID and int(valor) > 0]
+
+
+def _mensaje_conflicto(seleccionadas, butacas_mapa, mensaje_api):
+    """Nombra las butacas elegidas que se ocuparon, según el mapa recién pedido: el 409 del backend no siempre las dice."""
+    tomadas = [f"{butaca['fila']}{butaca['numero']}" for butaca in butacas_mapa
+               if butaca["id"] in seleccionadas and butaca["estado"] != "libre"]
+    return f"Estas butacas ya no están disponibles: {', '.join(tomadas)}. Elegí otras." if tomadas else mensaje_api
+
+
 # Ver el mapa de butacas es público (GET); reservar (POST) pide sesión. Por eso el chequeo va acá y no con
-# @requiere_sesion, que protegería los dos métodos.
+# @requiere_sesion, que protegería los dos métodos. Las butacas elegidas viajan en la URL para que, al volver del
+# login, sigan marcadas (la grilla solo marca las que continúan libres).
 @publico_bp.route("/funciones/<int:funcion_id>/butacas", methods=["GET", "POST"])
 def butacas(funcion_id):
-    seleccionadas = []
+    seleccionadas = _ids_butacas(request.args.getlist("butaca_ids"))
     error_formulario = ""
-    datos_invalidos = False
+    estado = 200
+    hay_conflicto = False
     if request.method == "POST":
-        if not session.get("token"):
-            return ir_al_login("Ingresá para reservar tus butacas.")
         valores = request.form.getlist("butaca_ids")
-        # isdecimal() y no isdigit(): "²" es dígito pero int("²") falla y la página daría error 500.
-        seleccionadas = [int(valor) for valor in valores if valor.isdecimal() and int(valor) > 0]
+        seleccionadas = _ids_butacas(valores)
+        if not session.get("token"):
+            destino = url_for("publico.butacas", funcion_id=funcion_id, butaca_ids=seleccionadas)
+            return ir_al_login("Ingresá para reservar tus butacas.", volver_a=destino)
         if not valores or len(seleccionadas) != len(valores):
             error_formulario = "Elegí al menos una butaca libre."
-            datos_invalidos = True
+            estado = 400
         else:
             compra, error = llamar("POST", "/api/compras", json={"funcion_id": funcion_id, "butaca_ids": seleccionadas})
             if error is None:
+                session["compra_id"] = compra["id"]
                 flash(f"Reservamos tus butacas hasta las {hora(compra['vence_en'])}.", "exito")
                 return redirect(url_for("publico.servicios_compra", compra_id=compra["id"]))
             error_formulario = error["mensaje"]
+            estado = error["status"]
+            hay_conflicto = error["codigo"] == "BUTACA_OCUPADA"
     funcion, error = llamar("GET", f"/api/funciones/{funcion_id}")
     mapa, error_mapa = (None, error) if error else llamar("GET", f"/api/funciones/{funcion_id}/butacas")
     if error_mapa:
         flash(error_mapa["mensaje"], "error")
         return redirect(url_for("publico.inicio"))
+    if hay_conflicto:
+        error_formulario = _mensaje_conflicto(seleccionadas, mapa["butacas"], error_formulario)
     return render_template(
         "compra/butacas.html", funcion=funcion, mapa=mapa, seleccionadas=seleccionadas, error=error_formulario,
-    ), 400 if datos_invalidos else 200
+    ), estado
 
 
 # Pago y compra confirmada maquetados (SCRUM-114) con una compra de ejemplo que tiene la forma de la respuesta de
@@ -254,11 +276,23 @@ def _compra_ejemplo(compra_id, confirmada=False):
     }
 
 
+def _reserva_vigente(compra):
+    # El backend marca "vencida" recién al reservar de nuevo o al confirmar: una pendiente puede tener el plazo ya pasado.
+    return compra["estado"] == "pendiente" and datetime.fromisoformat(compra["vence_en"]) > datetime.now()
+
+
 @publico_bp.get("/compras/<int:compra_id>/servicios")
 @requiere_sesion
 def servicios_compra(compra_id):
+    compra, error = llamar("GET", f"/api/compras/{compra_id}")
+    if error is None and not _reserva_vigente(compra):
+        error = {"mensaje": "Esta reserva ya no está activa. Elegí tus butacas de nuevo."}
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return redirect(url_for("publico.inicio"))
+    # La lista de servicios sigue siendo de ejemplo hasta SCRUM-65; el resumen ya es el de la compra real.
     servicios = [servicio for servicio in servicios_ejemplo() if servicio["activo"]]
-    return render_template("compra/servicios.html", compra=_compra_ejemplo(compra_id), servicios=servicios)
+    return render_template("compra/servicios.html", compra=compra, servicios=servicios)
 
 
 @publico_bp.route("/compras/<int:compra_id>/pago", methods=["GET", "POST"])

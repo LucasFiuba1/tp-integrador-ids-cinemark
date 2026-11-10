@@ -157,7 +157,7 @@ alta/edición de los ABM: campos apilados en mobile y en una fila con el botón 
 | Macro (`macros.html`) | Uso |
 |---|---|
 | `pasos_compra(actual)` | Pasos Función → Butacas → Servicios → Pago; los anteriores a `actual` (1 a 4) llevan ✓ en rojo y el actual va en blanco con `aria-current="step"`. |
-| `resumen_compra(compra)` | Panel lateral con póster, función, detalle de entradas y servicios, total y vencimiento de la reserva. `compra` tiene la forma de `GET /api/compras/<id>`; se usa con `{% call resumen_compra(compra) %}` y el botón de la pantalla va adentro. |
+| `resumen_compra(compra)` | Panel lateral con póster, función, butacas, detalle de entradas y servicios, total y vencimiento de la reserva. `compra` tiene la forma de `GET /api/compras/<id>`; se usa con `{% call resumen_compra(compra) %}` y el botón de la pantalla va adentro. |
 | `datos(filas, clase='')` | Lista `<dl>` etiqueta → valor en dos columnas; `filas` es una lista de tuplas. La usan validar ingreso, el resumen y el ticket. |
 | `casilla(nombre, etiqueta, valor='', error='')` | Checkbox con su texto (aceptar términos), con el mismo manejo de error que `campo`. |
 | `boton(texto, variante='blanco', tipo='submit', url='', bloque=false, clase='', formulario='', deshabilitado=false)` | Botón del Figma con variantes `blanco` (por defecto), `rojo` (acción principal destacada, `--color-primario`) y `borde` (secundaria, fondo transparente). Con `url` es un link `<a>` para acciones GET; sin `url` es un `<button>`. `bloque` lo estira a todo el ancho, `clase` suma clases de la pantalla y `formulario` es el `id` del `<form>` que envía el botón cuando queda fuera de él (resumen del pago). `deshabilitado` agrega `disabled` (o `aria-disabled` sin `href` en el link) y lo muestra atenuado. |
