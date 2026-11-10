@@ -47,6 +47,15 @@ def consultar_uno(sql, parametros=None):
     return _leer(sql, parametros, lambda cursor: cursor.fetchone())
 
 
+def marcadores(cantidad):
+    """Devuelve `cantidad` marcadores `%s` separados por coma, para armar un `IN (...)` parametrizado.
+
+    Solo genera los `%s`: los valores siempre viajan aparte, en los parámetros de `execute`.
+    Ejemplo: `"... WHERE id IN (" + marcadores(3) + ")"` → `"... WHERE id IN (%s, %s, %s)"`.
+    """
+    return ", ".join(["%s"] * cantidad)
+
+
 def ejecutar(sql, parametros=None):
     """Ejecuta un INSERT/UPDATE/DELETE y devuelve el id insertado."""
     with transaccion() as cursor:

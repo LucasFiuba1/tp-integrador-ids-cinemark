@@ -12,7 +12,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
 endobj
 5 0 obj
-<< /Length 4421 >>
+<< /Length 4420 >>
 stream
 BT /F2 16 Tf 50 784 Td (Informe del Proyecto Integrador - Cine Paradiso) Tj ET
 BT /F1 10 Tf 50 756 Td (Universidad de Buenos Aires - Facultad de Ingenier\355a \(FIUBA\)) Tj ET
@@ -26,190 +26,187 @@ BT /F1 9.5 Tf 50 624 Td (Integrante  |  Rol en el equipo) Tj ET
 BT /F1 9.5 Tf 50 605 Td (Lucas Cirillo Berardi  |  Desarrollo full-stack y coordinaci\363n) Tj ET
 BT /F1 9.5 Tf 50 592 Td (Santiago Fernandez Bain  |  Desarrollo full-stack) Tj ET
 BT /F1 9.5 Tf 50 579 Td (Juan Pablo Bruzone  |  Desarrollo full-stack) Tj ET
-BT /F1 9.5 Tf 50 566 Td (Francisco Martinez  |  Desarrollo full-stack) Tj ET
-BT /F1 9.5 Tf 50 553 Td (V\355ctor Daniel Morinigo  |  Desarrollo full-stack) Tj ET
-BT /F1 9.5 Tf 50 540 Td (Nicol\341s Valenzuela  |  Desarrollo full-stack) Tj ET
-BT /F1 9.5 Tf 50 527 Td (Joaqu\355n Nicol\341s Zavala Eguez  |  Desarrollo full-stack) Tj ET
-BT /F1 9.5 Tf 50 514 Td (Mart\355n Simajowich  |  Desarrollo full-stack) Tj ET
-BT /F2 13 Tf 50 477 Td (Resumen) Tj ET
-BT /F1 10 Tf 50 453 Td (Cine Paradiso es una plataforma web integral para la comercializaci\363n de entradas de cine,) Tj ET
-BT /F1 10 Tf 50 439 Td (servicios adicionales de confiter\355a y estacionamiento, y la administraci\363n operativa de) Tj ET
-BT /F1 10 Tf 50 425 Td (m\372ltiples complejos cinematogr\341ficos. El sistema resuelve de punta a punta el recorrido del) Tj ET
-BT /F1 10 Tf 50 411 Td (espectador -desde la consulta de la cartelera filtrada por sede y fecha, la selecci\363n) Tj ET
-BT /F1 10 Tf 50 397 Td (interactiva de butacas en tiempo real, el agregado de productos adicionales y el pago) Tj ET
-BT /F1 10 Tf 50 383 Td (simulado, hasta la recepci\363n por correo electr\363nico de la factura con el c\363digo QR de ingreso) Tj ET
-BT /F1 10 Tf 50 369 Td (y el enlace de cancelaci\363n- junto con el panel de administraci\363n \(backoffice\) para importar) Tj ET
-BT /F1 10 Tf 50 355 Td (t\355tulos desde la API de The Movie Database \(TMDB\), programar funciones sin solapamientos,) Tj ET
-BT /F1 10 Tf 50 341 Td (gestionar locales, salas y servicios, validar el ingreso en puerta mediante lectura de QR y) Tj ET
-BT /F1 10 Tf 50 327 Td (analizar m\351tricas operativas en cuatro tableros de control.) Tj ET
-BT /F1 10 Tf 50 307 Td (Desde el punto de vista arquitect\363nico, la soluci\363n se estructura en dos aplicaciones Flask) Tj ET
-BT /F1 10 Tf 50 293 Td (independientes que se comunican exclusivamente mediante HTTP/JSON a trav\351s de la librer\355a) Tj ET
-BT /F1 10 Tf 50 279 Td (requests desde el servidor, prescindiendo por completo de peticiones desde el navegador) Tj ET
-BT /F1 10 Tf 50 265 Td (\(fetch, axios o XMLHttpRequest\), de mapeadores objeto-relacionales \(ORM\) y de programaci\363n) Tj ET
-BT /F1 10 Tf 50 251 Td (orientada a objetos. La persistencia se apoya en una base de datos relacional MySQL 8 con) Tj ET
-BT /F1 10 Tf 50 237 Td (consultas SQL expl\355citas y parametrizadas, transacciones at\363micas y bloqueos a nivel de fila) Tj ET
-BT /F1 10 Tf 50 223 Td (para garantizar que ninguna butaca se venda dos veces y que ning\372n c\363digo QR pueda utilizarse) Tj ET
-BT /F1 10 Tf 50 209 Td (en m\341s de una oportunidad.) Tj ET
-BT /F2 13 Tf 50 171 Td (1. Introducci\363n) Tj ET
-BT /F1 10 Tf 50 147 Td (La operaci\363n de una cadena de cines con m\372ltiples complejos y salas requiere coordinar en) Tj ET
-BT /F1 10 Tf 50 133 Td (simult\341neo la programaci\363n de funciones, la disponibilidad de asientos en tiempo real, la) Tj ET
-BT /F1 10 Tf 50 119 Td (venta de productos complementarios y el control de acceso en sala. Sin un sistema centralizado) Tj ET
-BT /F1 10 Tf 50 105 Td (que garantice consistencia transaccional, surgen problemas frecuentes: sobreventa de una misma) Tj ET
-BT /F1 10 Tf 50 91 Td (butaca ante compras concurrentes, reservas abandonadas que bloquean asientos indefinidamente,) Tj ET
-BT /F1 10 Tf 50 77 Td (cancelaciones tard\355as sobre funciones pr\363ximas a iniciar y reutilizaci\363n fraudulenta de) Tj ET
-BT /F1 10 Tf 50 63 Td (entradas en el ingreso.) Tj ET
+BT /F1 9.5 Tf 50 566 Td (Joaqu\355n Nicol\341s Zavala Eguez  |  Desarrollo full-stack) Tj ET
+BT /F1 9.5 Tf 50 553 Td (Mart\355n Simajowich  |  Desarrollo full-stack) Tj ET
+BT /F2 13 Tf 50 516 Td (Resumen) Tj ET
+BT /F1 10 Tf 50 492 Td (Cine Paradiso es una plataforma web integral para la comercializaci\363n de entradas de cine,) Tj ET
+BT /F1 10 Tf 50 478 Td (servicios adicionales de confiter\355a y estacionamiento, y la administraci\363n operativa de) Tj ET
+BT /F1 10 Tf 50 464 Td (m\372ltiples complejos cinematogr\341ficos. El sistema resuelve de punta a punta el recorrido del) Tj ET
+BT /F1 10 Tf 50 450 Td (espectador -desde la consulta de la cartelera filtrada por sede y fecha, la selecci\363n) Tj ET
+BT /F1 10 Tf 50 436 Td (interactiva de butacas en tiempo real, el agregado de productos adicionales y el pago) Tj ET
+BT /F1 10 Tf 50 422 Td (simulado, hasta la recepci\363n por correo electr\363nico de la factura con el c\363digo QR de ingreso) Tj ET
+BT /F1 10 Tf 50 408 Td (y el enlace de cancelaci\363n- junto con el panel de administraci\363n \(backoffice\) para importar) Tj ET
+BT /F1 10 Tf 50 394 Td (t\355tulos desde la API de The Movie Database \(TMDB\), programar funciones sin solapamientos,) Tj ET
+BT /F1 10 Tf 50 380 Td (gestionar locales, salas y servicios, validar el ingreso en puerta mediante lectura de QR y) Tj ET
+BT /F1 10 Tf 50 366 Td (analizar m\351tricas operativas en cuatro tableros de control.) Tj ET
+BT /F1 10 Tf 50 346 Td (Desde el punto de vista arquitect\363nico, la soluci\363n se estructura en dos aplicaciones Flask) Tj ET
+BT /F1 10 Tf 50 332 Td (independientes que se comunican exclusivamente mediante HTTP/JSON a trav\351s de la librer\355a) Tj ET
+BT /F1 10 Tf 50 318 Td (requests desde el servidor, prescindiendo por completo de peticiones desde el navegador) Tj ET
+BT /F1 10 Tf 50 304 Td (\(fetch, axios o XMLHttpRequest\), de mapeadores objeto-relacionales \(ORM\) y de programaci\363n) Tj ET
+BT /F1 10 Tf 50 290 Td (orientada a objetos. La persistencia se apoya en una base de datos relacional MySQL 8 con) Tj ET
+BT /F1 10 Tf 50 276 Td (consultas SQL expl\355citas y parametrizadas, transacciones at\363micas y bloqueos a nivel de fila) Tj ET
+BT /F1 10 Tf 50 262 Td (para garantizar que ninguna butaca se venda dos veces y que ning\372n c\363digo QR pueda utilizarse) Tj ET
+BT /F1 10 Tf 50 248 Td (en m\341s de una oportunidad.) Tj ET
+BT /F2 13 Tf 50 210 Td (1. Introducci\363n) Tj ET
+BT /F1 10 Tf 50 186 Td (La operaci\363n de una cadena de cines con m\372ltiples complejos y salas requiere coordinar en) Tj ET
+BT /F1 10 Tf 50 172 Td (simult\341neo la programaci\363n de funciones, la disponibilidad de asientos en tiempo real, la) Tj ET
+BT /F1 10 Tf 50 158 Td (venta de productos complementarios y el control de acceso en sala. Sin un sistema centralizado) Tj ET
+BT /F1 10 Tf 50 144 Td (que garantice consistencia transaccional, surgen problemas frecuentes: sobreventa de una misma) Tj ET
+BT /F1 10 Tf 50 130 Td (butaca ante compras concurrentes, reservas abandonadas que bloquean asientos indefinidamente,) Tj ET
+BT /F1 10 Tf 50 116 Td (cancelaciones tard\355as sobre funciones pr\363ximas a iniciar y reutilizaci\363n fraudulenta de) Tj ET
+BT /F1 10 Tf 50 102 Td (entradas en el ingreso.) Tj ET
+BT /F1 10 Tf 50 82 Td (El objetivo de este trabajo integrador es dise\361ar, implementar, probar y documentar una) Tj ET
+BT /F1 10 Tf 50 68 Td (aplicaci\363n web completa para Cine Paradiso que resuelva estas necesidades bajo las) Tj ET
 endstream
 endobj
 6 0 obj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
 endobj
 7 0 obj
-<< /Length 5240 >>
+<< /Length 5187 >>
 stream
-BT /F1 10 Tf 50 790 Td (El objetivo de este trabajo integrador es dise\361ar, implementar, probar y documentar una) Tj ET
-BT /F1 10 Tf 50 776 Td (aplicaci\363n web completa para Cine Paradiso que resuelva estas necesidades bajo las) Tj ET
-BT /F1 10 Tf 50 762 Td (restricciones t\351cnicas y metodol\363gicas de la c\341tedra:) Tj ET
-BT /F1 10 Tf 50 742 Td (1. Separaci\363n estricta entre interfaz web y API REST: un frontend renderizado en el servidor) Tj ET
-BT /F1 10 Tf 50 728 Td (con Jinja2 y hojas de estilo responsive \(mobile-first\), y un backend REST en JSON conectado a) Tj ET
-BT /F1 10 Tf 50 714 Td (MySQL.) Tj ET
-BT /F1 10 Tf 50 700 Td (2. Paradigma procedural y declarativo: c\363digo Python estructurado \372nicamente con funciones) Tj ET
-BT /F1 10 Tf 50 686 Td (puras, m\363dulos, diccionarios, listas y tuplas, sin clases ni herencia, tanto en la aplicaci\363n) Tj ET
-BT /F1 10 Tf 50 672 Td (como en la bater\355a de pruebas automatizadas.) Tj ET
-BT /F1 10 Tf 50 658 Td (3. Integridad de datos en la base relacional: uso de claves for\341neas compuestas, restricciones) Tj ET
-BT /F1 10 Tf 50 644 Td (UNIQUE e \355ndices en MySQL, almacenando todas las marcas temporales en un \372nico campo DATETIME.) Tj ET
-BT /F1 10 Tf 50 630 Td (4. Trabajo colaborativo trazable: organizaci\363n \341gil en sprints con tablero en Jira \(SCRUM\),) Tj ET
-BT /F1 10 Tf 50 616 Td (documentaci\363n de alcance e hip\363tesis en Confluence, dise\361o previo de pantallas en Figma y) Tj ET
-BT /F1 10 Tf 50 602 Td (flujo Git con ramas por tarea \(SCRUM-XXX/descripcion\) integradas mediante Pull Requests) Tj ET
-BT /F1 10 Tf 50 588 Td (revisados por pares.) Tj ET
-BT /F2 13 Tf 50 550 Td (2. Soluci\363n Propuesta) Tj ET
-BT /F2 11 Tf 50 520 Td (2.1. Arquitectura general) Tj ET
-BT /F1 10 Tf 50 498 Td (El sistema se divide en dos aplicaciones Flask desacopladas, cada una creada mediante su) Tj ET
-BT /F1 10 Tf 50 484 Td (propia f\341brica create_app\(\):) Tj ET
-BT /F1 10 Tf 50 464 Td (- Backend \(src/backend/\): expone la API REST bajo el prefijo /api. Sus rutas) Tj ET
-BT /F1 10 Tf 50 450 Td (\(src/backend/routes/\) solo traducen peticiones y respuestas HTTP/JSON y delegan las) Tj ET
-BT /F1 10 Tf 50 436 Td (validaciones y reglas de negocio en los m\363dulos de servicios \(src/backend/services/\). El) Tj ET
-BT /F1 10 Tf 50 422 Td (acceso a MySQL se concentra en src/backend/db.py mediante las funciones consultar,) Tj ET
-BT /F1 10 Tf 50 408 Td (consultar_uno, ejecutar y el administrador de contexto transaccion\(\).) Tj ET
-BT /F1 10 Tf 50 394 Td (- Frontend \(src/frontend/\): renderiza las vistas p\372blicas del cliente \(routes/publico.py\)) Tj ET
-BT /F1 10 Tf 50 380 Td (y el panel de administraci\363n \(routes/backoffice.py\). Toda comunicaci\363n hacia el backend) Tj ET
-BT /F1 10 Tf 50 366 Td (pasa por una \372nica funci\363n, api_client.llamar\(metodo, ruta, json=, params=\), que ejecuta) Tj ET
-BT /F1 10 Tf 50 352 Td (la petici\363n desde Python con requests, propaga el token de sesi\363n y traduce cualquier) Tj ET
-BT /F1 10 Tf 50 338 Td (error a la tupla \(datos, error\). El navegador solo env\355a formularios HTML est\341ndar y sigue) Tj ET
-BT /F1 10 Tf 50 324 Td (redirecciones \(patr\363n POST / Redirect / GET\).) Tj ET
-BT /F2 11 Tf 50 298 Td (2.2. Modelo de datos e invariantes de negocio) Tj ET
-BT /F1 10 Tf 50 276 Td (La base de datos cine_paradiso \(src/backend/db/schema.sql\) cuenta con once tablas relacionales) Tj ET
-BT /F1 10 Tf 50 262 Td (\(usuarios, locales, salas, butacas, peliculas, funciones, servicios, compras, entradas,) Tj ET
-BT /F1 10 Tf 50 248 Td (compra_servicios y validaciones_ingreso\). Las reglas cr\355ticas del dominio se respaldan tanto) Tj ET
-BT /F1 10 Tf 50 234 Td (en el motor relacional como en transacciones del backend:) Tj ET
-BT /F1 10 Tf 50 214 Td (- Prohibici\363n de doble venta de butacas: la tabla entradas define UNIQUE \(funcion_id,) Tj ET
-BT /F1 10 Tf 50 200 Td (butaca_id, activa\) y una clave for\341nea compuesta \(compra_id, funcion_id\) hacia compras) Tj ET
-BT /F1 10 Tf 50 186 Td (\(id, funcion_id\). Mientras la compra est\341 vigente \(pendiente o confirmada\), activa vale 1;) Tj ET
-BT /F1 10 Tf 50 172 Td (al vencer o cancelarse, pasa a NULL. Como MySQL permite m\372ltiples valores NULL en un) Tj ET
-BT /F1 10 Tf 50 158 Td (\355ndice \372nico, la butaca vuelve a quedar disponible sin borrar el registro hist\363rico.) Tj ET
-BT /F1 10 Tf 50 144 Td (- Reserva temporal de 10 minutos \(MINUTOS_RESERVA\): al elegir butacas se crea una compra) Tj ET
-BT /F1 10 Tf 50 130 Td (en estado pendiente con vencimiento vence_en. Antes de consultar disponibilidad o) Tj ET
-BT /F1 10 Tf 50 116 Td (reservar, se marcan como vencida las reservas expiradas y se liberan sus entradas.) Tj ET
-BT /F1 10 Tf 50 102 Td (- Confirmaci\363n con QR firmado y factura por email: al confirmar el pago simulado, el) Tj ET
-BT /F1 10 Tf 50 88 Td (backend firma el identificador de la compra con itsdangerous \(SECRET_KEY y salt dedicado) Tj ET
-BT /F1 10 Tf 50 74 Td ("qr"\), genera la imagen PNG del c\363digo QR en memoria y env\355a por SMTP un correo multipart) Tj ET
-BT /F1 10 Tf 50 60 Td (\(texto plano y HTML con la imagen embebida por Content-ID y adjunta\) que incluye el enlace) Tj ET
+BT /F1 10 Tf 50 790 Td (restricciones t\351cnicas y metodol\363gicas de la c\341tedra:) Tj ET
+BT /F1 10 Tf 50 770 Td (1. Separaci\363n estricta entre interfaz web y API REST: un frontend renderizado en el servidor) Tj ET
+BT /F1 10 Tf 50 756 Td (con Jinja2 y hojas de estilo responsive \(mobile-first\), y un backend REST en JSON conectado a) Tj ET
+BT /F1 10 Tf 50 742 Td (MySQL.) Tj ET
+BT /F1 10 Tf 50 728 Td (2. Paradigma procedural y declarativo: c\363digo Python estructurado \372nicamente con funciones) Tj ET
+BT /F1 10 Tf 50 714 Td (puras, m\363dulos, diccionarios, listas y tuplas, sin clases ni herencia, tanto en la aplicaci\363n) Tj ET
+BT /F1 10 Tf 50 700 Td (como en la bater\355a de pruebas automatizadas.) Tj ET
+BT /F1 10 Tf 50 686 Td (3. Integridad de datos en la base relacional: uso de claves for\341neas compuestas, restricciones) Tj ET
+BT /F1 10 Tf 50 672 Td (UNIQUE e \355ndices en MySQL, almacenando todas las marcas temporales en un \372nico campo DATETIME.) Tj ET
+BT /F1 10 Tf 50 658 Td (4. Trabajo colaborativo trazable: organizaci\363n \341gil en sprints con tablero en Jira \(SCRUM\),) Tj ET
+BT /F1 10 Tf 50 644 Td (documentaci\363n de alcance e hip\363tesis en Confluence, dise\361o previo de pantallas en Figma y) Tj ET
+BT /F1 10 Tf 50 630 Td (flujo Git con ramas por tarea \(SCRUM-XXX/descripcion\) integradas mediante Pull Requests) Tj ET
+BT /F1 10 Tf 50 616 Td (revisados por pares.) Tj ET
+BT /F2 13 Tf 50 578 Td (2. Soluci\363n Propuesta) Tj ET
+BT /F2 11 Tf 50 548 Td (2.1. Arquitectura general) Tj ET
+BT /F1 10 Tf 50 526 Td (El sistema se divide en dos aplicaciones Flask desacopladas, cada una creada mediante su) Tj ET
+BT /F1 10 Tf 50 512 Td (propia f\341brica create_app\(\):) Tj ET
+BT /F1 10 Tf 50 492 Td (- Backend \(src/backend/\): expone la API REST bajo el prefijo /api. Sus rutas) Tj ET
+BT /F1 10 Tf 50 478 Td (\(src/backend/routes/\) solo traducen peticiones y respuestas HTTP/JSON y delegan las) Tj ET
+BT /F1 10 Tf 50 464 Td (validaciones y reglas de negocio en los m\363dulos de servicios \(src/backend/services/\). El) Tj ET
+BT /F1 10 Tf 50 450 Td (acceso a MySQL se concentra en src/backend/db.py mediante las funciones consultar,) Tj ET
+BT /F1 10 Tf 50 436 Td (consultar_uno, ejecutar y el administrador de contexto transaccion\(\).) Tj ET
+BT /F1 10 Tf 50 422 Td (- Frontend \(src/frontend/\): renderiza las vistas p\372blicas del cliente \(routes/publico.py\)) Tj ET
+BT /F1 10 Tf 50 408 Td (y el panel de administraci\363n \(routes/backoffice.py\). Toda comunicaci\363n hacia el backend) Tj ET
+BT /F1 10 Tf 50 394 Td (pasa por una \372nica funci\363n, api_client.llamar\(metodo, ruta, json=, params=\), que ejecuta) Tj ET
+BT /F1 10 Tf 50 380 Td (la petici\363n desde Python con requests, propaga el token de sesi\363n y traduce cualquier) Tj ET
+BT /F1 10 Tf 50 366 Td (error a la tupla \(datos, error\). El navegador solo env\355a formularios HTML est\341ndar y sigue) Tj ET
+BT /F1 10 Tf 50 352 Td (redirecciones \(patr\363n POST / Redirect / GET\).) Tj ET
+BT /F2 11 Tf 50 326 Td (2.2. Modelo de datos e invariantes de negocio) Tj ET
+BT /F1 10 Tf 50 304 Td (La base de datos cine_paradiso \(src/backend/db/schema.sql\) cuenta con once tablas relacionales) Tj ET
+BT /F1 10 Tf 50 290 Td (\(usuarios, locales, salas, butacas, peliculas, funciones, servicios, compras, entradas,) Tj ET
+BT /F1 10 Tf 50 276 Td (compra_servicios y validaciones_ingreso\). Las reglas cr\355ticas del dominio se respaldan tanto) Tj ET
+BT /F1 10 Tf 50 262 Td (en el motor relacional como en transacciones del backend:) Tj ET
+BT /F1 10 Tf 50 242 Td (- Prohibici\363n de doble venta de butacas: la tabla entradas define UNIQUE \(funcion_id,) Tj ET
+BT /F1 10 Tf 50 228 Td (butaca_id, activa\) y una clave for\341nea compuesta \(compra_id, funcion_id\) hacia compras) Tj ET
+BT /F1 10 Tf 50 214 Td (\(id, funcion_id\). Mientras la compra est\341 vigente \(pendiente o confirmada\), activa vale 1;) Tj ET
+BT /F1 10 Tf 50 200 Td (al vencer o cancelarse, pasa a NULL. Como MySQL permite m\372ltiples valores NULL en un) Tj ET
+BT /F1 10 Tf 50 186 Td (\355ndice \372nico, la butaca vuelve a quedar disponible sin borrar el registro hist\363rico.) Tj ET
+BT /F1 10 Tf 50 172 Td (- Reserva temporal de 10 minutos \(MINUTOS_RESERVA\): al elegir butacas se crea una compra) Tj ET
+BT /F1 10 Tf 50 158 Td (en estado pendiente con vencimiento vence_en. Antes de consultar disponibilidad o) Tj ET
+BT /F1 10 Tf 50 144 Td (reservar, se marcan como vencida las reservas expiradas y se liberan sus entradas.) Tj ET
+BT /F1 10 Tf 50 130 Td (- Confirmaci\363n con QR firmado y factura por email: al confirmar el pago simulado, el) Tj ET
+BT /F1 10 Tf 50 116 Td (backend firma el identificador de la compra con itsdangerous \(SECRET_KEY y salt dedicado) Tj ET
+BT /F1 10 Tf 50 102 Td ("qr"\), genera la imagen PNG del c\363digo QR en memoria y env\355a por SMTP un correo multipart) Tj ET
+BT /F1 10 Tf 50 88 Td (\(texto plano y HTML con la imagen embebida por Content-ID y adjunta\) que incluye el enlace) Tj ET
+BT /F1 10 Tf 50 74 Td (firmado de cancelaci\363n. Si el servidor SMTP falla, la compra queda confirmada igualmente e) Tj ET
+BT /F1 10 Tf 50 60 Td (informa email_enviado: false.) Tj ET
 endstream
 endobj
 8 0 obj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
 endobj
 9 0 obj
-<< /Length 5222 >>
+<< /Length 5249 >>
 stream
-BT /F1 10 Tf 50 790 Td (firmado de cancelaci\363n. Si el servidor SMTP falla, la compra queda confirmada igualmente e) Tj ET
-BT /F1 10 Tf 50 776 Td (informa email_enviado: false.) Tj ET
-BT /F1 10 Tf 50 762 Td (- Cancelaci\363n con plazo l\355mite \(HORAS_LIMITE_CANCELACION\): una compra confirmada y no) Tj ET
-BT /F1 10 Tf 50 748 Td (utilizada puede cancelarse hasta 2 horas antes del inicio de la funci\363n, tanto desde el) Tj ET
-BT /F1 10 Tf 50 734 Td (perfil del cliente como desde el enlace firmado del correo electr\363nico \(sin exigir inicio) Tj ET
-BT /F1 10 Tf 50 720 Td (de sesi\363n, requiriendo confirmaci\363n expl\355cita por POST\).) Tj ET
-BT /F1 10 Tf 50 706 Td (- Validaci\363n de ingreso y auditor\355a: el endpoint POST /api/admin/ingresos/validar verifica) Tj ET
-BT /F1 10 Tf 50 692 Td (en orden estricto la firma del token \(QR_INVALIDO\), el estado de la compra \(CANCELADA\), el) Tj ET
-BT /F1 10 Tf 50 678 Td (uso previo \(YA_UTILIZADA, informando fecha y hora del primer escaneo\), la coincidencia de) Tj ET
-BT /F1 10 Tf 50 664 Td (la funci\363n \(OTRA_FUNCION\) y la vigencia horaria \(FUERA_DE_FECHA\). El chequeo se ejecuta) Tj ET
-BT /F1 10 Tf 50 650 Td (con bloqueo de fila \(SELECT ... FOR UPDATE\), registra cada intento -v\341lido o rechazado- en) Tj ET
-BT /F1 10 Tf 50 636 Td (validaciones_ingreso y marca utilizada_en = NOW\(\).) Tj ET
-BT /F1 10 Tf 50 622 Td (- Programaci\363n de funciones sin solapamientos: al crear o modificar una funci\363n se) Tj ET
-BT /F1 10 Tf 50 608 Td (verifica en la misma sala que no se superponga con otra funci\363n activa considerando la) Tj ET
-BT /F1 10 Tf 50 594 Td (duraci\363n de la pel\355cula m\341s 15 minutos de limpieza entre proyecciones.) Tj ET
-BT /F1 10 Tf 50 580 Td (- Bajas l\363gicas: pel\355culas con funciones, salas con historial, funciones y servicios) Tj ET
-BT /F1 10 Tf 50 566 Td (utilizan banderas booleanas \(activa / activo\) para preservar la integridad estad\355stica de) Tj ET
-BT /F1 10 Tf 50 552 Td (los tableros.) Tj ET
-BT /F2 13 Tf 50 514 Td (3. Tecnolog\355a Utilizada) Tj ET
-BT /F1 9.5 Tf 50 490 Td (Capa / Herramienta  |  Tecnolog\355a y versi\363n  |  Uso en el proyecto) Tj ET
-BT /F1 9.5 Tf 50 471 Td (Lenguaje  |  Python 3.12+  |  Desarrollo \355ntegro del backend, frontend y pruebas sin POO) Tj ET
-BT /F1 9.5 Tf 50 458 Td (Framework web  |  Flask 3.0.3 + Jinja2  |  API REST en JSON \(src/backend\) y servidor de plantillas) Tj ET
-BT /F1 9.5 Tf 50 445 Td (\(src/frontend\)) Tj ET
-BT /F1 9.5 Tf 50 432 Td (Base de datos  |  MySQL 8 / MariaDB + PyMySQL 1.1.1  |  Persistencia relacional con SQL expl\355cito) Tj ET
-BT /F1 9.5 Tf 50 419 Td (parametrizado \(%s\) y DictCursor) Tj ET
-BT /F1 9.5 Tf 50 406 Td (Cliente HTTP  |  requests 2.32.3  |  Comunicaci\363n servidor a servidor entre frontend y backend, y) Tj ET
-BT /F1 9.5 Tf 50 393 Td (cliente de TMDB) Tj ET
-BT /F1 9.5 Tf 50 380 Td (Seguridad y criptograf\355a  |  werkzeug.security \(pbkdf2:sha256\) + itsdangerous  |  Hash de) Tj ET
-BT /F1 9.5 Tf 50 367 Td (contrase\361as portable y firma criptogr\341fica de tokens de sesi\363n, QR y cancelaci\363n) Tj ET
-BT /F1 9.5 Tf 50 354 Td (Generaci\363n de QR y correo  |  qrcode 8.2 + pypng + smtplib / email.message  |  Generaci\363n de QR en) Tj ET
-BT /F1 9.5 Tf 50 341 Td (PNG en Python puro y env\355o de facturas HTML por SMTP con STARTTLS/SSL) Tj ET
-BT /F1 9.5 Tf 50 328 Td (Interfaz de usuario  |  HTML5 sem\341ntico + CSS3 \(Flexbox, Grid, variables CSS\)  |  Dise\361o) Tj ET
-BT /F1 9.5 Tf 50 315 Td (responsive mobile-first basado en el sistema de dise\361o de Figma) Tj ET
-BT /F1 9.5 Tf 50 302 Td (Pruebas automatizadas  |  pytest 8.3 + unittest.mock  |  M\341s de 900 pruebas unitarias y de) Tj ET
-BT /F1 9.5 Tf 50 289 Td (integraci\363n sin requerir servicios externos) Tj ET
-BT /F1 9.5 Tf 50 276 Td (Gesti\363n y dise\361o  |  Jira \(SCRUM\), Confluence, Figma, Git y GitHub  |  Planificaci\363n por sprints,) Tj ET
-BT /F1 9.5 Tf 50 263 Td (documentaci\363n funcional, mockups y revisi\363n de c\363digo) Tj ET
-BT /F2 13 Tf 50 226 Td (4. Conclusi\363n) Tj ET
-BT /F2 11 Tf 50 196 Td (4.1. Decisiones de dise\361o) Tj ET
-BT /F1 10 Tf 50 174 Td (1. Dos aplicaciones Flask comunicadas \372nicamente por requests: separar el frontend y el) Tj ET
-BT /F1 10 Tf 50 160 Td (backend oblig\363 a definir desde el primer sprint un contrato expl\355cito en docs/endpoints.md con) Tj ET
-BT /F1 10 Tf 50 146 Td (un formato \372nico de error \({"error": {"codigo", "mensaje"}}\). Esto permiti\363 desarrollar y) Tj ET
-BT /F1 10 Tf 50 132 Td (probar las pantallas del frontend simulando las respuestas de la API mientras se constru\355an) Tj ET
-BT /F1 10 Tf 50 118 Td (las consultas SQL del backend en paralelo.) Tj ET
-BT /F1 10 Tf 50 104 Td (2. Programaci\363n procedural sin clases ni ORM: representar todas las entidades como) Tj ET
-BT /F1 10 Tf 50 90 Td (diccionarios devueltos por DictCursor y estructurar los casos de uso como funciones por m\363dulo) Tj ET
-BT /F1 10 Tf 50 76 Td (\(peliculas.py, funciones.py, compras.py, ingresos.py, dashboards.py\) simplific\363 el flujo de) Tj ET
-BT /F1 10 Tf 50 62 Td (datos y elimin\363 capas intermedias de serializaci\363n. Para evitar la repetici\363n de c\363digo se) Tj ET
+BT /F1 10 Tf 50 790 Td (- Cancelaci\363n con plazo l\355mite \(HORAS_LIMITE_CANCELACION\): una compra confirmada y no) Tj ET
+BT /F1 10 Tf 50 776 Td (utilizada puede cancelarse hasta 2 horas antes del inicio de la funci\363n, tanto desde el) Tj ET
+BT /F1 10 Tf 50 762 Td (perfil del cliente como desde el enlace firmado del correo electr\363nico \(sin exigir inicio) Tj ET
+BT /F1 10 Tf 50 748 Td (de sesi\363n, requiriendo confirmaci\363n expl\355cita por POST\).) Tj ET
+BT /F1 10 Tf 50 734 Td (- Validaci\363n de ingreso y auditor\355a: el endpoint POST /api/admin/ingresos/validar verifica) Tj ET
+BT /F1 10 Tf 50 720 Td (en orden estricto la firma del token \(QR_INVALIDO\), el estado de la compra \(CANCELADA\), el) Tj ET
+BT /F1 10 Tf 50 706 Td (uso previo \(YA_UTILIZADA, informando fecha y hora del primer escaneo\), la coincidencia de) Tj ET
+BT /F1 10 Tf 50 692 Td (la funci\363n \(OTRA_FUNCION\) y la vigencia horaria \(FUERA_DE_FECHA\). El chequeo se ejecuta) Tj ET
+BT /F1 10 Tf 50 678 Td (con bloqueo de fila \(SELECT ... FOR UPDATE\), registra cada intento -v\341lido o rechazado- en) Tj ET
+BT /F1 10 Tf 50 664 Td (validaciones_ingreso y marca utilizada_en = NOW\(\).) Tj ET
+BT /F1 10 Tf 50 650 Td (- Programaci\363n de funciones sin solapamientos: al crear o modificar una funci\363n se) Tj ET
+BT /F1 10 Tf 50 636 Td (verifica en la misma sala que no se superponga con otra funci\363n activa considerando la) Tj ET
+BT /F1 10 Tf 50 622 Td (duraci\363n de la pel\355cula m\341s 15 minutos de limpieza entre proyecciones.) Tj ET
+BT /F1 10 Tf 50 608 Td (- Bajas l\363gicas: pel\355culas con funciones, salas con historial, funciones y servicios) Tj ET
+BT /F1 10 Tf 50 594 Td (utilizan banderas booleanas \(activa / activo\) para preservar la integridad estad\355stica de) Tj ET
+BT /F1 10 Tf 50 580 Td (los tableros.) Tj ET
+BT /F2 13 Tf 50 542 Td (3. Tecnolog\355a Utilizada) Tj ET
+BT /F1 9.5 Tf 50 518 Td (Capa / Herramienta  |  Tecnolog\355a y versi\363n  |  Uso en el proyecto) Tj ET
+BT /F1 9.5 Tf 50 499 Td (Lenguaje  |  Python 3.12+  |  Desarrollo \355ntegro del backend, frontend y pruebas sin POO) Tj ET
+BT /F1 9.5 Tf 50 486 Td (Framework web  |  Flask 3.0.3 + Jinja2  |  API REST en JSON \(src/backend\) y servidor de plantillas) Tj ET
+BT /F1 9.5 Tf 50 473 Td (\(src/frontend\)) Tj ET
+BT /F1 9.5 Tf 50 460 Td (Base de datos  |  MySQL 8 / MariaDB + PyMySQL 1.1.1  |  Persistencia relacional con SQL expl\355cito) Tj ET
+BT /F1 9.5 Tf 50 447 Td (parametrizado \(%s\) y DictCursor) Tj ET
+BT /F1 9.5 Tf 50 434 Td (Cliente HTTP  |  requests 2.32.3  |  Comunicaci\363n servidor a servidor entre frontend y backend, y) Tj ET
+BT /F1 9.5 Tf 50 421 Td (cliente de TMDB) Tj ET
+BT /F1 9.5 Tf 50 408 Td (Seguridad y criptograf\355a  |  werkzeug.security \(pbkdf2:sha256\) + itsdangerous  |  Hash de) Tj ET
+BT /F1 9.5 Tf 50 395 Td (contrase\361as portable y firma criptogr\341fica de tokens de sesi\363n, QR y cancelaci\363n) Tj ET
+BT /F1 9.5 Tf 50 382 Td (Generaci\363n de QR y correo  |  qrcode 8.2 + pypng + smtplib / email.message  |  Generaci\363n de QR en) Tj ET
+BT /F1 9.5 Tf 50 369 Td (PNG en Python puro y env\355o de facturas HTML por SMTP con STARTTLS/SSL) Tj ET
+BT /F1 9.5 Tf 50 356 Td (Interfaz de usuario  |  HTML5 sem\341ntico + CSS3 \(Flexbox, Grid, variables CSS\)  |  Dise\361o) Tj ET
+BT /F1 9.5 Tf 50 343 Td (responsive mobile-first basado en el sistema de dise\361o de Figma) Tj ET
+BT /F1 9.5 Tf 50 330 Td (Pruebas automatizadas  |  pytest 8.3 + unittest.mock  |  M\341s de 900 pruebas unitarias y de) Tj ET
+BT /F1 9.5 Tf 50 317 Td (integraci\363n sin requerir servicios externos) Tj ET
+BT /F1 9.5 Tf 50 304 Td (Gesti\363n y dise\361o  |  Jira \(SCRUM\), Confluence, Figma, Git y GitHub  |  Planificaci\363n por sprints,) Tj ET
+BT /F1 9.5 Tf 50 291 Td (documentaci\363n funcional, mockups y revisi\363n de c\363digo) Tj ET
+BT /F2 13 Tf 50 254 Td (4. Conclusi\363n) Tj ET
+BT /F2 11 Tf 50 224 Td (4.1. Decisiones de dise\361o) Tj ET
+BT /F1 10 Tf 50 202 Td (1. Dos aplicaciones Flask comunicadas \372nicamente por requests: separar el frontend y el) Tj ET
+BT /F1 10 Tf 50 188 Td (backend oblig\363 a definir desde el primer sprint un contrato expl\355cito en docs/endpoints.md con) Tj ET
+BT /F1 10 Tf 50 174 Td (un formato \372nico de error \({"error": {"codigo", "mensaje"}}\). Esto permiti\363 desarrollar y) Tj ET
+BT /F1 10 Tf 50 160 Td (probar las pantallas del frontend simulando las respuestas de la API mientras se constru\355an) Tj ET
+BT /F1 10 Tf 50 146 Td (las consultas SQL del backend en paralelo.) Tj ET
+BT /F1 10 Tf 50 132 Td (2. Programaci\363n procedural sin clases ni ORM: representar todas las entidades como) Tj ET
+BT /F1 10 Tf 50 118 Td (diccionarios devueltos por DictCursor y estructurar los casos de uso como funciones por m\363dulo) Tj ET
+BT /F1 10 Tf 50 104 Td (\(peliculas.py, funciones.py, compras.py, ingresos.py, dashboards.py\) simplific\363 el flujo de) Tj ET
+BT /F1 10 Tf 50 90 Td (datos y elimin\363 capas intermedias de serializaci\363n. Para evitar la repetici\363n de c\363digo se) Tj ET
+BT /F1 10 Tf 50 76 Td (extrajeron validadores comunes \(services/validaciones.py\), macros de Jinja) Tj ET
+BT /F1 10 Tf 50 62 Td (\(templates/macros.html\) y utilidades de prueba \(tests/utilidades.py\).) Tj ET
 endstream
 endobj
 10 0 obj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
 endobj
 11 0 obj
-<< /Length 3772 >>
+<< /Length 3559 >>
 stream
-BT /F1 10 Tf 50 790 Td (extrajeron validadores comunes \(services/validaciones.py\), macros de Jinja) Tj ET
-BT /F1 10 Tf 50 776 Td (\(templates/macros.html\) y utilidades de prueba \(tests/utilidades.py\).) Tj ET
-BT /F1 10 Tf 50 762 Td (3. Tokens firmados independientes por prop\363sito: tanto la sesi\363n como el c\363digo QR de ingreso) Tj ET
-BT /F1 10 Tf 50 748 Td (y el enlace de cancelaci\363n por email emplean firmas criptogr\341ficas con SECRET_KEY, pero con) Tj ET
-BT /F1 10 Tf 50 734 Td (salts distintos \("qr" y "cancelar"\). De este modo, el enlace de cancelaci\363n puede usarse desde) Tj ET
-BT /F1 10 Tf 50 720 Td (el correo sin iniciar sesi\363n y sin que ese token sirva para ingresar a la sala.) Tj ET
-BT /F1 10 Tf 50 706 Td (4. Resiliencia ante servicios externos: las integraciones con TMDB y con el servidor SMTP se) Tj ET
-BT /F1 10 Tf 50 692 Td (aislaron en m\363dulos propios con tiempos m\341ximos de espera \(timeouts\). En particular, el env\355o) Tj ET
-BT /F1 10 Tf 50 678 Td (de correo se ejecuta fuera de la transacci\363n de confirmaci\363n de la compra para que una ca\355da) Tj ET
-BT /F1 10 Tf 50 664 Td (eventual del proveedor de email no revierta una entrada ya pagada.) Tj ET
-BT /F2 11 Tf 50 638 Td (4.2. Dificultades encontradas y resoluci\363n) Tj ET
-BT /F1 10 Tf 50 616 Td (- Concurrencia en la reserva de butacas y en el escaneo de QR: para evitar condiciones de) Tj ET
-BT /F1 10 Tf 50 602 Td (carrera cuando dos clientes intentan reservar el mismo asiento o cuando un c\363digo QR se) Tj ET
-BT /F1 10 Tf 50 588 Td (escanea dos veces simult\341neamente, combinamos bloqueos pesimistas \(SELECT ... FOR UPDATE\)) Tj ET
-BT /F1 10 Tf 50 574 Td (dentro de with transaccion\(\) as cursor: con la restricci\363n UNIQUE \(funcion_id, butaca_id,) Tj ET
-BT /F1 10 Tf 50 560 Td (activa\) en la base de datos. Adem\341s, en la validaci\363n de ingresos se cuid\363 registrar el) Tj ET
-BT /F1 10 Tf 50 546 Td (intento en validaciones_ingreso antes de cortar la petici\363n con error_api, garantizando) Tj ET
-BT /F1 10 Tf 50 532 Td (que el commit persista tambi\351n los rechazos.) Tj ET
-BT /F1 10 Tf 50 518 Td (- Compatibilidad multiplataforma: durante las pruebas detectamos diferencias entre) Tj ET
-BT /F1 10 Tf 50 504 Td (sistemas operativos \(como la ausencia de hashlib.scrypt en instalaciones de Python sobre) Tj ET
-BT /F1 10 Tf 50 490 Td (macOS o las rutas del entorno virtual en Windows frente a Linux\). Se estandariz\363 el hash) Tj ET
-BT /F1 10 Tf 50 476 Td (de contrase\361as en pbkdf2:sha256, la generaci\363n de im\341genes QR en Python puro con pypng y) Tj ET
-BT /F1 10 Tf 50 462 Td (el script init.sh para detectar ambos entornos.) Tj ET
-BT /F1 10 Tf 50 448 Td (- Cobertura de pruebas sin dependencias externas: para que toda la suite de pytest corra) Tj ET
-BT /F1 10 Tf 50 434 Td (en pocos segundos en cualquier m\341quina reci\351n clonada, se construy\363 en) Tj ET
-BT /F1 10 Tf 50 420 Td (src/tests/utilidades.py un simulador del m\363dulo de base de datos que intercepta consultar,) Tj ET
-BT /F1 10 Tf 50 406 Td (consultar_uno, ejecutar y transaccion\(\) y falla de inmediato si alguna prueba intenta) Tj ET
-BT /F1 10 Tf 50 392 Td (abrir una conexi\363n real a MySQL.) Tj ET
-BT /F2 11 Tf 50 366 Td (4.3. Balance final) Tj ET
-BT /F1 10 Tf 50 344 Td (El proyecto permiti\363 integrar en un producto funcional completo todos los ejes de la materia:) Tj ET
-BT /F1 10 Tf 50 330 Td (modelado de datos relacional en MySQL, dise\361o de APIs REST seguras en Flask, construcci\363n de) Tj ET
-BT /F1 10 Tf 50 316 Td (interfaces web accesibles y responsive sin JavaScript de red, pruebas automatizadas) Tj ET
-BT /F1 10 Tf 50 302 Td (exhaustivas y trabajo en equipo coordinado mediante Git, Pull Requests y metodolog\355a Scrum.) Tj ET
+BT /F1 10 Tf 50 790 Td (3. Tokens firmados independientes por prop\363sito: tanto la sesi\363n como el c\363digo QR de ingreso) Tj ET
+BT /F1 10 Tf 50 776 Td (y el enlace de cancelaci\363n por email emplean firmas criptogr\341ficas con SECRET_KEY, pero con) Tj ET
+BT /F1 10 Tf 50 762 Td (salts distintos \("qr" y "cancelar"\). De este modo, el enlace de cancelaci\363n puede usarse desde) Tj ET
+BT /F1 10 Tf 50 748 Td (el correo sin iniciar sesi\363n y sin que ese token sirva para ingresar a la sala.) Tj ET
+BT /F1 10 Tf 50 734 Td (4. Resiliencia ante servicios externos: las integraciones con TMDB y con el servidor SMTP se) Tj ET
+BT /F1 10 Tf 50 720 Td (aislaron en m\363dulos propios con tiempos m\341ximos de espera \(timeouts\). En particular, el env\355o) Tj ET
+BT /F1 10 Tf 50 706 Td (de correo se ejecuta fuera de la transacci\363n de confirmaci\363n de la compra para que una ca\355da) Tj ET
+BT /F1 10 Tf 50 692 Td (eventual del proveedor de email no revierta una entrada ya pagada.) Tj ET
+BT /F2 11 Tf 50 666 Td (4.2. Dificultades encontradas y resoluci\363n) Tj ET
+BT /F1 10 Tf 50 644 Td (- Concurrencia en la reserva de butacas y en el escaneo de QR: para evitar condiciones de) Tj ET
+BT /F1 10 Tf 50 630 Td (carrera cuando dos clientes intentan reservar el mismo asiento o cuando un c\363digo QR se) Tj ET
+BT /F1 10 Tf 50 616 Td (escanea dos veces simult\341neamente, combinamos bloqueos pesimistas \(SELECT ... FOR UPDATE\)) Tj ET
+BT /F1 10 Tf 50 602 Td (dentro de with transaccion\(\) as cursor: con la restricci\363n UNIQUE \(funcion_id, butaca_id,) Tj ET
+BT /F1 10 Tf 50 588 Td (activa\) en la base de datos. Adem\341s, en la validaci\363n de ingresos se cuid\363 registrar el) Tj ET
+BT /F1 10 Tf 50 574 Td (intento en validaciones_ingreso antes de cortar la petici\363n con error_api, garantizando) Tj ET
+BT /F1 10 Tf 50 560 Td (que el commit persista tambi\351n los rechazos.) Tj ET
+BT /F1 10 Tf 50 546 Td (- Compatibilidad multiplataforma: durante las pruebas detectamos diferencias entre) Tj ET
+BT /F1 10 Tf 50 532 Td (sistemas operativos \(como la ausencia de hashlib.scrypt en instalaciones de Python sobre) Tj ET
+BT /F1 10 Tf 50 518 Td (macOS o las rutas del entorno virtual en Windows frente a Linux\). Se estandariz\363 el hash) Tj ET
+BT /F1 10 Tf 50 504 Td (de contrase\361as en pbkdf2:sha256, la generaci\363n de im\341genes QR en Python puro con pypng y) Tj ET
+BT /F1 10 Tf 50 490 Td (el script init.sh para detectar ambos entornos.) Tj ET
+BT /F1 10 Tf 50 476 Td (- Cobertura de pruebas sin dependencias externas: para que toda la suite de pytest corra) Tj ET
+BT /F1 10 Tf 50 462 Td (en pocos segundos en cualquier m\341quina reci\351n clonada, se construy\363 en) Tj ET
+BT /F1 10 Tf 50 448 Td (src/tests/utilidades.py un simulador del m\363dulo de base de datos que intercepta consultar,) Tj ET
+BT /F1 10 Tf 50 434 Td (consultar_uno, ejecutar y transaccion\(\) y falla de inmediato si alguna prueba intenta) Tj ET
+BT /F1 10 Tf 50 420 Td (abrir una conexi\363n real a MySQL.) Tj ET
+BT /F2 11 Tf 50 394 Td (4.3. Balance final) Tj ET
+BT /F1 10 Tf 50 372 Td (El proyecto permiti\363 integrar en un producto funcional completo todos los ejes de la materia:) Tj ET
+BT /F1 10 Tf 50 358 Td (modelado de datos relacional en MySQL, dise\361o de APIs REST seguras en Flask, construcci\363n de) Tj ET
+BT /F1 10 Tf 50 344 Td (interfaces web accesibles y responsive sin JavaScript de red, pruebas automatizadas) Tj ET
+BT /F1 10 Tf 50 330 Td (exhaustivas y trabajo en equipo coordinado mediante Git, Pull Requests y metodolog\355a Scrum.) Tj ET
 endstream
 endobj
 12 0 obj
@@ -223,15 +220,15 @@ xref
 0000000135 00000 n 
 0000000232 00000 n 
 0000000334 00000 n 
-0000004807 00000 n 
-0000004943 00000 n 
-0000010235 00000 n 
-0000010371 00000 n 
-0000015645 00000 n 
-0000015782 00000 n 
-0000019607 00000 n 
+0000004806 00000 n 
+0000004942 00000 n 
+0000010181 00000 n 
+0000010317 00000 n 
+0000015618 00000 n 
+0000015755 00000 n 
+0000019367 00000 n 
 trailer
 << /Size 13 /Root 1 0 R >>
 startxref
-19745
+19505
 %%EOF
