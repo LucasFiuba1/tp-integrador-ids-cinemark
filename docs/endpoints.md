@@ -171,6 +171,18 @@ PUT /api/compras/88/servicios
 { "id": 88, "total": 23000.00 }
 ```
 
+**Reemplaza** todos los servicios de la compra por los de la lista (SCRUM-64). La lista vacía `[]` es válida:
+quita los servicios ("Continuar sin servicios"). Cada servicio guarda su **precio vigente en ese momento** en
+`compra_servicios.precio_unitario`, así un cambio posterior de precio no altera la compra. `total` es la suma de
+las entradas activas y los servicios, y queda guardado en la compra.
+
+Errores: 400 `DATOS_INVALIDOS` (el cuerpo no es una lista; más de 50 elementos; `servicio_id` que no es un entero
+positivo o repetido; `cantidad` fuera de 1 a 20; servicio inexistente o inactivo) · 404 `NO_ENCONTRADO` ·
+403 `SIN_PERMISO` (compra de otro usuario) · 409 `COMPRA_NO_PENDIENTE` · 409 `RESERVA_VENCIDA` (libera las butacas).
+
+En `GET /api/compras/<id>`, cada servicio trae `servicio_id`, `nombre`, `cantidad`, `precio_unitario` y
+`subtotal`: con `servicio_id` el paso de servicios precarga lo que el cliente ya eligió.
+
 ```http
 POST /api/compras/88/confirmar
 El `total` se recalcula al confirmar (entradas activas + servicios de la compra) y queda guardado en la compra.

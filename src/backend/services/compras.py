@@ -1,5 +1,5 @@
-"""Reservas de butacas, confirmación con QR y factura por email, detalle y cancelación de compras
-(SCRUM-62, SCRUM-66, SCRUM-67, SCRUM-69, SCRUM-70)."""
+"""Reservas de butacas, servicios de la compra, confirmación con QR y factura por email, detalle y cancelación de
+compras (SCRUM-62, SCRUM-64, SCRUM-66, SCRUM-67, SCRUM-69, SCRUM-70)."""
 import base64
 from datetime import datetime
 
@@ -10,8 +10,11 @@ from src.backend.db import consultar, consultar_uno, transaccion
 from src.backend.errores import error_api
 from src.backend.services import correo, perfil, qr
 from src.backend.services.perfil import cancelable_hasta, es_cancelable
-from src.backend.services.validaciones import entero_positivo, requerir_campos
+from src.backend.services.validaciones import datos_invalidos, entero_en_rango, entero_positivo, requerir_campos
 from src.backend.tokens import firmar_qr, leer_cancelacion
+
+MAXIMO_CANTIDAD_SERVICIO = 20  # por servicio y por compra; evita pedidos absurdos (la columna admite hasta 65535)
+MAXIMO_SERVICIOS_POR_COMPRA = 50  # servicios distintos en un mismo pedido; acota el IN (...) de la consulta
 
 
 def reservar(usuario_id, datos):
@@ -146,7 +149,7 @@ def _detalle_compra(compra_id, usuario_id=None):
         (compra_id,),
     )
     servicios = consultar(
-        "SELECT sv.nombre, cs.cantidad, cs.precio_unitario FROM compra_servicios cs "
+        "SELECT cs.servicio_id, sv.nombre, cs.cantidad, cs.precio_unitario FROM compra_servicios cs "
         "JOIN servicios sv ON sv.id = cs.servicio_id "
         "WHERE cs.compra_id = %s ORDER BY sv.nombre",
         (compra_id,),
@@ -165,6 +168,7 @@ def _detalle_compra(compra_id, usuario_id=None):
         "subtotal_entradas": subtotal_entradas,
         "servicios": [
             {
+                "servicio_id": servicio["servicio_id"],
                 "nombre": servicio["nombre"],
                 "cantidad": servicio["cantidad"],
                 "precio_unitario": float(servicio["precio_unitario"]),
@@ -234,44 +238,109 @@ def cancelar_por_token(datos):
     return _cancelar_compra(_id_desde_token_cancelacion(datos["token"]))
 
 
+def _bloquear_compra_pendiente(cursor, compra_id, usuario_id):
+    """Bloquea la compra (FOR UPDATE) y verifica que exista, sea del usuario y esté pendiente.
+
+    Devuelve True si la reserva ya venció: en ese caso la marca vencida y libera sus butacas. Quien llama devuelve el
+    409 con `_reserva_vencida()` después de la transacción, porque `error_api` dentro de ella desharía esos cambios.
+    """
+    cursor.execute(
+        "SELECT id, usuario_id, estado, total, (vence_en <= NOW()) AS vencida "
+        "FROM compras WHERE id = %s FOR UPDATE",
+        (compra_id,),
+    )
+    compra = cursor.fetchone()
+    if compra is None:
+        error_api(404, "NO_ENCONTRADO", "La compra no existe.")
+    if compra["usuario_id"] != usuario_id:
+        error_api(403, "SIN_PERMISO", "No tenés permiso sobre esta compra.")
+    if compra["estado"] != "pendiente":
+        error_api(409, "COMPRA_NO_PENDIENTE", "La compra no está pendiente de pago.")
+    if not compra["vencida"]:
+        return False
+    cursor.execute("UPDATE compras SET estado = 'vencida' WHERE id = %s", (compra_id,))
+    cursor.execute("UPDATE entradas SET activa = NULL WHERE compra_id = %s AND activa = 1", (compra_id,))
+    return True
+
+
+def _reserva_vencida():
+    error_api(409, "RESERVA_VENCIDA", "La reserva venció y se liberaron las butacas.")
+
+
+def _total_compra(cursor, compra_id):
+    """Entradas activas más servicios de la compra, con los precios guardados en ella (no los vigentes)."""
+    cursor.execute("SELECT precio FROM entradas WHERE compra_id = %s AND activa = 1", (compra_id,))
+    entradas = cursor.fetchall()
+    cursor.execute("SELECT cantidad, precio_unitario FROM compra_servicios WHERE compra_id = %s", (compra_id,))
+    servicios = cursor.fetchall()
+    total = sum(entrada["precio"] for entrada in entradas)
+    return total + sum(servicio["cantidad"] * servicio["precio_unitario"] for servicio in servicios)
+
+
+def _servicios_pedidos(datos):
+    """Valida el cuerpo `[{servicio_id, cantidad}]` y devuelve {servicio_id: cantidad}. La lista vacía es válida:
+    quita todos los servicios de la compra ("Continuar sin servicios")."""
+    if type(datos) is not list:
+        datos_invalidos("El cuerpo debe ser una lista de servicios.")
+    if len(datos) > MAXIMO_SERVICIOS_POR_COMPRA:
+        datos_invalidos(f"No se pueden pedir más de {MAXIMO_SERVICIOS_POR_COMPRA} servicios distintos.")
+    pedidos = {}
+    for item in datos:
+        requerir_campos(item, ("servicio_id", "cantidad"))
+        servicio_id = entero_positivo(item["servicio_id"], "servicio_id")
+        if servicio_id in pedidos:  # la PK (compra_id, servicio_id) haría fallar el INSERT con un 500
+            datos_invalidos("No repitas un servicio en la lista.")
+        pedidos[servicio_id] = entero_en_rango(item["cantidad"], "cantidad", 1, MAXIMO_CANTIDAD_SERVICIO)
+    return pedidos
+
+
+def definir_servicios(usuario_id, compra_id, datos):
+    """Reemplaza los servicios de una compra pendiente y recalcula su total (SCRUM-64).
+
+    Cada servicio guarda en `compra_servicios` su precio vigente en este momento: si el admin lo edita después, la
+    compra conserva el precio con el que se eligió.
+    """
+    pedidos = _servicios_pedidos(datos)
+    with transaccion() as cursor:
+        vencida = _bloquear_compra_pendiente(cursor, compra_id, usuario_id)
+        if not vencida:
+            precios = {}
+            if pedidos:
+                marcadores = ", ".join(["%s"] * len(pedidos))
+                cursor.execute(
+                    f"SELECT id, precio FROM servicios WHERE activo = TRUE AND id IN ({marcadores})",
+                    tuple(pedidos),
+                )
+                precios = {fila["id"]: fila["precio"] for fila in cursor.fetchall()}
+            if set(precios) != set(pedidos):
+                datos_invalidos("Uno o más servicios no existen o no están disponibles.")
+            cursor.execute("DELETE FROM compra_servicios WHERE compra_id = %s", (compra_id,))
+            if pedidos:
+                cursor.executemany(
+                    "INSERT INTO compra_servicios (compra_id, servicio_id, cantidad, precio_unitario) "
+                    "VALUES (%s, %s, %s, %s)",
+                    [(compra_id, servicio_id, cantidad, precios[servicio_id])
+                     for servicio_id, cantidad in pedidos.items()],
+                )
+            total = _total_compra(cursor, compra_id)
+            cursor.execute("UPDATE compras SET total = %s WHERE id = %s", (total, compra_id))
+
+    if vencida:
+        _reserva_vencida()
+    return {"id": compra_id, "total": float(total)}
+
+
 def confirmar(usuario, compra_id):
     """Confirma una compra pendiente, genera su QR y envía la factura por email (SCRUM-66, SCRUM-67).
 
     Si la reserva ya venció, la marca como vencida y libera las butacas antes de devolver 409 RESERVA_VENCIDA.
     El envío del email ocurre fuera de la transacción: si SMTP falla, la compra queda confirmada igual.
     """
-    vencida = False
     with transaccion() as cursor:
-        cursor.execute(
-            "SELECT id, usuario_id, estado, total, (vence_en <= NOW()) AS vencida "
-            "FROM compras WHERE id = %s FOR UPDATE",
-            (compra_id,),
-        )
-        compra = cursor.fetchone()
-        if compra is None:
-            error_api(404, "NO_ENCONTRADO", "La compra no existe.")
-        if compra["usuario_id"] != usuario["id"]:
-            error_api(403, "SIN_PERMISO", "No tenés permiso sobre esta compra.")
-        if compra["estado"] != "pendiente":
-            error_api(409, "COMPRA_NO_PENDIENTE", "La compra no está pendiente de pago.")
-        if compra["vencida"]:
-            cursor.execute("UPDATE compras SET estado = 'vencida' WHERE id = %s", (compra_id,))
-            cursor.execute("UPDATE entradas SET activa = NULL WHERE compra_id = %s AND activa = 1", (compra_id,))
-            vencida = True
-        else:
+        vencida = _bloquear_compra_pendiente(cursor, compra_id, usuario["id"])
+        if not vencida:
             token_qr = firmar_qr(compra_id)
-            cursor.execute(
-                "SELECT precio FROM entradas WHERE compra_id = %s AND activa = 1",
-                (compra_id,),
-            )
-            entradas = cursor.fetchall()
-            cursor.execute(
-                "SELECT cantidad, precio_unitario FROM compra_servicios WHERE compra_id = %s",
-                (compra_id,),
-            )
-            servicios = cursor.fetchall()
-            total = sum(entrada["precio"] for entrada in entradas)
-            total += sum(servicio["cantidad"] * servicio["precio_unitario"] for servicio in servicios)
+            total = _total_compra(cursor, compra_id)
             cursor.execute(
                 "UPDATE compras SET estado = 'confirmada', confirmada_en = NOW(), token_qr = %s, total = %s "
                 "WHERE id = %s",
@@ -279,7 +348,7 @@ def confirmar(usuario, compra_id):
             )
 
     if vencida:
-        error_api(409, "RESERVA_VENCIDA", "La reserva venció y se liberaron las butacas.")
+        _reserva_vencida()
 
     qr_png = qr.generar_qr(token_qr)
     detalle = perfil.obtener_compra(compra_id)
