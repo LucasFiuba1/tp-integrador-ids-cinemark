@@ -130,6 +130,11 @@
                       <button type="submit" class="accion-texto accion-peligro">{{ acciones.texto_baja or "Dar de baja" }}</button>
                     </form>
                   {% endif %}
+                  {% if acciones.reactivar and fila.activo is sameas false %}
+                    <form method="post" action="{{ url_for(acciones.reactivar, id=fila.id) }}">
+                      <button type="submit" class="accion-texto">Reactivar</button>
+                    </form>
+                  {% endif %}
                 </td>
               {% endif %}
             </tr>

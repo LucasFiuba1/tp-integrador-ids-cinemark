@@ -4,7 +4,6 @@ from datetime import date, timedelta
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from src.frontend.api_client import llamar
-from src.frontend.ejemplos import servicios_ejemplo
 from src.frontend.filtros import hora
 from src.frontend.sesion import requiere_admin
 from src.frontend.validaciones import leer_formulario, validar_filtros_dashboards, validar_ingreso, validar_servicio
@@ -622,23 +621,61 @@ def _precio_para_campo(precio):
     return f"{float(precio):.2f}".rstrip("0").rstrip(".")
 
 
+def _listar_servicios():
+    servicios, error = llamar("GET", "/api/admin/servicios")
+
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
+
+    return servicios
+
+
 def _abm_servicios(servicio=None):
-    """Listado + formulario de alta (servicio=None) o de edición. En POST valida y, si está bien, vuelve al listado."""
     if request.method == "POST":
         formulario = leer_formulario(request.form, *CAMPOS_SERVICIO)
         errores = validar_servicio(formulario)
+
         if not errores:
-            flash(f"Guardaste el servicio {formulario['nombre']}.", "exito")
-            return redirect(url_for("backoffice.servicios"))
+            datos = {
+                "nombre": formulario["nombre"],
+                "descripcion": formulario["descripcion"] or None,
+                "precio": float(formulario["precio"].replace(",", ".")),
+            }
+
+            if servicio is None:
+                metodo = "POST"
+                ruta = "/api/admin/servicios"
+            else:
+                metodo = "PUT"
+                ruta = f"/api/admin/servicios/{servicio['id']}"
+
+            resultado, error = llamar(metodo, ruta, json=datos)
+
+            if error is None:
+                flash("El servicio se guardó correctamente.", "exito")
+                return redirect(url_for("backoffice.servicios"))
+
+            flash(error["mensaje"], "error")
     else:
-        formulario = {campo: (servicio or {}).get(campo, "") for campo in CAMPOS_SERVICIO}
+        formulario = {
+            campo: (servicio or {}).get(campo) or ""
+            for campo in CAMPOS_SERVICIO
+        }
+
         if servicio:
             formulario["precio"] = _precio_para_campo(servicio["precio"])
+
         errores = {}
+
     pagina = render_template(
         "backoffice/servicios.html",
-        servicios=servicios_ejemplo(), servicio=servicio, formulario=formulario, errores=errores,
+        servicios=_listar_servicios(),
+        servicio=servicio,
+        formulario=formulario,
+        errores=errores,
     )
+
     return pagina, 400 if errores else 200
 
 
@@ -651,17 +688,43 @@ def servicios():
 @backoffice_bp.route("/servicios/<int:id>", methods=["GET", "POST"])
 @requiere_admin
 def editar_servicio(id):
-    servicio = next((s for s in servicios_ejemplo() if s["id"] == id), None)
+    servicio = next(
+        (s for s in _listar_servicios() if s["id"] == id),
+        None,
+    )
+
     if servicio is None:
         flash("Ese servicio no existe.", "error")
         return redirect(url_for("backoffice.servicios"))
+
     return _abm_servicios(servicio)
 
 
 @backoffice_bp.post("/servicios/<int:id>/baja")
 @requiere_admin
 def baja_servicio(id):
-    flash("Quitaste el servicio: ya no se ofrece en las compras nuevas.", "exito")
+    resultado, error = llamar(
+        "DELETE", f"/api/admin/servicios/{id}"
+    )
+
+    if error is not None:
+        flash(error["mensaje"], "error")
+    else:
+        flash("El servicio quedó inactivo.", "exito")
+
+    return redirect(url_for("backoffice.servicios"))
+
+
+@backoffice_bp.post("/servicios/<int:id>/reactivar")
+@requiere_admin
+def reactivar_servicio(id):
+    resultado, error = llamar(
+        "POST", f"/api/admin/servicios/{id}/reactivar"
+    )
+    if error is not None:
+        flash(error["mensaje"], "error")
+    else:
+        flash("El servicio quedó activo.", "exito")
     return redirect(url_for("backoffice.servicios"))
 
 
