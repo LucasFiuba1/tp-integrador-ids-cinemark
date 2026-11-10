@@ -265,7 +265,7 @@ def confirmar(usuario, compra_id):
     if vencida:
         error_api(409, "RESERVA_VENCIDA", "La reserva venció y se liberaron las butacas.")
 
-    qr_png = qr.generar_png(token_qr)
+    qr_png = qr.generar_qr(token_qr)
     detalle = perfil.obtener_compra(compra_id)
     cliente = {"nombre": usuario["nombre"], "email": usuario.get("email", "")}
     email_enviado = correo.enviar_factura(detalle, cliente, qr_png) if detalle is not None else False
