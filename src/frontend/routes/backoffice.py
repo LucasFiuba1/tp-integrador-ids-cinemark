@@ -715,8 +715,7 @@ def ingreso():
     return pagina, 400 if errores else 200
 
 
-# ABM de servicios maquetado (SCRUM-120) con datos de ejemplo que tienen la forma de la respuesta de
-# GET /api/admin/servicios. SCRUM-72 reemplaza servicios_ejemplo y los flash de "guardado" por llamar(...).
+# ABM de servicios (SCRUM-120 y SCRUM-72) sobre /api/admin/servicios.
 CAMPOS_SERVICIO = ("nombre", "descripcion", "precio")
 
 

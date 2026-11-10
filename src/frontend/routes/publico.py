@@ -4,10 +4,12 @@ from datetime import date, datetime
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 
 from src.frontend.api_client import llamar
-from src.frontend.ejemplos import servicios_ejemplo
 from src.frontend.filtros import hora
 from src.frontend.sesion import ir_al_login, requiere_sesion
-from src.frontend.validaciones import leer_formulario, validar_login, validar_pago, validar_registro
+from src.frontend.validaciones import (
+    MAXIMO_CANTIDAD_SERVICIO, leer_formulario, validar_cantidades_servicios, validar_login, validar_pago,
+    validar_registro,
+)
 
 publico_bp = Blueprint("publico", __name__)
 
@@ -286,18 +288,68 @@ def _reserva_vigente(compra):
     return compra["estado"] == "pendiente" and datetime.fromisoformat(compra["vence_en"]) > datetime.now()
 
 
-@publico_bp.get("/compras/<int:compra_id>/servicios")
-@requiere_sesion
-def servicios_compra(compra_id):
+def _compra_pendiente(compra_id):
+    """Detalle de la compra, o None con un aviso si no existe, es ajena o la reserva ya no está activa."""
     compra, error = llamar("GET", f"/api/compras/{compra_id}")
     if error is None and not _reserva_vigente(compra):
         error = {"mensaje": "Esta reserva ya no está activa. Elegí tus butacas de nuevo."}
     if error is not None:
         flash(error["mensaje"], "error")
+        return None
+    return compra
+
+
+def _servicios_activos():
+    """Si la lista no se puede cargar, se avisa y la página sigue: se puede continuar sin servicios."""
+    servicios, error = llamar("GET", "/api/servicios")
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
+    return servicios
+
+
+def _cantidades_del_formulario(servicios, accion):
+    """{servicio_id: texto}, solo de los servicios que se muestran: otro campo que llegue en el POST se ignora."""
+    if accion == "sin_servicios":
+        return {servicio["id"]: "0" for servicio in servicios}
+    return {servicio["id"]: request.form.get(f"cantidad_{servicio['id']}", "").strip() or "0" for servicio in servicios}
+
+
+# Paso opcional entre butacas y pago (SCRUM-65). Las cantidades se guardan con PUT /api/compras/<id>/servicios y el
+# total que se muestra es siempre el del backend: el frontend no suma precios. "accion" sale del botón que se tocó:
+# "actualizar" (o Enter) recalcula el total y vuelve acá; "pago" y "sin_servicios" siguen al pago.
+@publico_bp.route("/compras/<int:compra_id>/servicios", methods=["GET", "POST"])
+@requiere_sesion
+def servicios_compra(compra_id):
+    compra = _compra_pendiente(compra_id)
+    if compra is None:
         return redirect(url_for("publico.inicio"))
-    # La lista de servicios sigue siendo de ejemplo hasta SCRUM-65; el resumen ya es el de la compra real.
-    servicios = [servicio for servicio in servicios_ejemplo() if servicio["activo"]]
-    return render_template("compra/servicios.html", compra=compra, servicios=servicios)
+    servicios = _servicios_activos()
+    elegidas = {servicio["servicio_id"]: str(servicio["cantidad"]) for servicio in compra["servicios"]}
+    cantidades = {servicio["id"]: elegidas.get(servicio["id"], "0") for servicio in servicios}
+    errores, error_api, estado = {}, "", 200
+    if request.method == "POST":
+        accion = request.form.get("accion")
+        cantidades = _cantidades_del_formulario(servicios, accion)
+        errores = validar_cantidades_servicios(cantidades)
+        if errores:
+            estado = 400
+        else:
+            pedido = [{"servicio_id": servicio_id, "cantidad": int(texto)}
+                      for servicio_id, texto in cantidades.items() if int(texto) > 0]
+            _, error = llamar("PUT", f"/api/compras/{compra_id}/servicios", json=pedido)
+            if error is None and accion in ("pago", "sin_servicios"):
+                return redirect(url_for("publico.pago", compra_id=compra_id))
+            if error is None:
+                flash("Actualizamos el total de tu compra.", "exito")
+                return redirect(url_for("publico.servicios_compra", compra_id=compra_id))
+            if error["status"] != 400:  # la compra ya no se puede modificar (vencida, pagada o ajena)
+                flash(error["mensaje"], "error")
+                return redirect(url_for("publico.inicio"))
+            error_api, estado = error["mensaje"], 400
+    pagina = render_template("compra/servicios.html", compra=compra, servicios=servicios, cantidades=cantidades,
+                             errores=errores, error=error_api, maximo_cantidad=MAXIMO_CANTIDAD_SERVICIO)
+    return pagina, estado
 
 
 @publico_bp.route("/compras/<int:compra_id>/pago", methods=["GET", "POST"])

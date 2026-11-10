@@ -106,7 +106,9 @@ COMPRA = {"id": 88, "estado": "pendiente", "vence_en": "2099-11-10T20:10:00", "p
 
 
 def _detalle_compra(*respuesta):
-    return patch("src.frontend.routes.publico.llamar", return_value=respuesta)
+    """Simula GET /api/compras/<id> con `respuesta`; la lista de servicios (SCRUM-65) llega vacía."""
+    return patch("src.frontend.routes.publico.llamar",
+                 side_effect=lambda metodo, ruta, **_: ([], None) if ruta == "/api/servicios" else respuesta)
 
 
 def test_reservar_sin_sesion_vuelve_a_las_butacas_elegidas_despues_del_login(cliente_frontend):
@@ -166,7 +168,7 @@ def test_resumen_muestra_los_datos_reales_de_la_compra(cliente_logueado):
     with _detalle_compra(COMPRA, None) as llamar:
         respuesta = cliente_logueado.get("/compras/88/servicios")
     html = respuesta.get_data(as_text=True)
-    llamar.assert_called_once_with("GET", "/api/compras/88")
+    llamar.assert_any_call("GET", "/api/compras/88")
     assert respuesta.status_code == 200
     for dato in ("Volver al futuro", "Paradiso Centro · Sala 1", "A1, B1", "2 entradas", "$10.000", "20:10"):
         assert dato in html

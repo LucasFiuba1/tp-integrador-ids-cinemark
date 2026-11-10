@@ -41,8 +41,10 @@
    Con url es un link <a> (acciones GET: volver, ir a otra pantalla); sin url es un <button> de tipo tipo.
    bloque lo estira a todo el ancho; clase suma clases propias de la pantalla.
    formulario es el id del <form> que envía el botón cuando está fuera de él (ej. el resumen lateral del pago).
-   deshabilitado: el <button> lleva disabled y el link se muestra sin href ni foco, con aria-disabled. #}
-{% macro boton(texto, variante='blanco', tipo='submit', url='', bloque=false, clase='', formulario='', deshabilitado=false) %}
+   deshabilitado: el <button> lleva disabled y el link se muestra sin href ni foco, con aria-disabled.
+   nombre y valor van en el <button>: el formulario manda nombre=valor según el botón que se tocó (ej. accion=pago). #}
+{% macro boton(texto, variante='blanco', tipo='submit', url='', bloque=false, clase='', formulario='', deshabilitado=false,
+               nombre='', valor='') %}
   {% set clases = "boton boton-" ~ variante ~ (" boton-bloque" if bloque else "") ~ (" " ~ clase if clase else "") %}
   {% if url and deshabilitado %}
     <a class="{{ clases }}" aria-disabled="true">{{ texto }}</a>
@@ -50,7 +52,8 @@
     <a class="{{ clases }}" href="{{ url }}">{{ texto }}</a>
   {% else %}
     <button type="{{ tipo }}" class="{{ clases }}"
-      {%- if formulario %} form="{{ formulario }}"{% endif %}{% if deshabilitado %} disabled{% endif %}>{{ texto }}</button>
+      {%- if formulario %} form="{{ formulario }}"{% endif %}
+      {%- if nombre %} name="{{ nombre }}" value="{{ valor }}"{% endif %}{% if deshabilitado %} disabled{% endif %}>{{ texto }}</button>
   {% endif %}
 {% endmacro %}
 
