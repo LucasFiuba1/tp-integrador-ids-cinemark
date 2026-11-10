@@ -1,4 +1,4 @@
-"""Reserva de butacas, servicios, checkout, cancelación y perfil (SCRUM-1, 2, 3, 25, 26)."""
+"""Reserva de butacas, servicios, checkout, cancelación y perfil (SCRUM-1, 2, 3, 25, 26, 64)."""
 from flask import Blueprint, g, jsonify, request
 
 from src.backend.auth import requiere_rol
@@ -12,6 +12,13 @@ compras_bp = Blueprint("compras", __name__, url_prefix="/api")
 @requiere_rol("cliente")
 def reservar_butacas():
     return jsonify(compras.reservar(g.usuario["id"], cuerpo_json())), 201
+
+
+@compras_bp.put("/compras/<int:compra_id>/servicios")
+@requiere_rol("cliente")
+def definir_servicios(compra_id):
+    # El cuerpo es una lista, no un objeto, por eso no se usa cuerpo_json(); el service valida su forma.
+    return jsonify(compras.definir_servicios(g.usuario["id"], compra_id, request.get_json(silent=True)))
 
 
 @compras_bp.get("/compras/<int:compra_id>")

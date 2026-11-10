@@ -53,7 +53,8 @@ def bd():
         simulacion.consultar_uno.return_value = _fila_detalle()
         simulacion.consultar.side_effect = [
             [{"fila": "D", "numero": 5, "precio": Decimal("5000.00")}, {"fila": "D", "numero": 6, "precio": Decimal("5000.00")}],
-            [{"nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": Decimal("6500.00")}],
+            [{"servicio_id": 1, "nombre": "Combo pochoclos grande", "cantidad": 2,
+              "precio_unitario": Decimal("6500.00")}],
         ]
         simulacion.cursor.fetchone.return_value = _fila_cancelar()
         yield simulacion
@@ -87,7 +88,8 @@ def test_obtener_compra_ok_devuelve_detalle_completo(cliente_backend, cabeceras_
     assert datos["butacas"] == ["D5", "D6"]
     assert datos["subtotal_entradas"] == 10000.0
     assert datos["servicios"] == [
-        {"nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": 6500.0, "subtotal": 13000.0}
+        {"servicio_id": 1, "nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": 6500.0,
+         "subtotal": 13000.0}
     ]
     assert datos["total"] == 23000.0
     assert datos["cancelable"] is True
