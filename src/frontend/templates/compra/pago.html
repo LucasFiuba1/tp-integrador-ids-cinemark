@@ -34,7 +34,7 @@
       {{ boton("Confirmar y pagar", bloque=true, formulario="formulario-pago") }}
     {% endcall %}
   </div>
-  
+
   {# Evita el doble envío: al enviar se deshabilitan los botones del formulario. Es solo comportamiento local (sin
      peticiones); igual el backend rechaza una segunda confirmación y la ruta lleva a la compra ya confirmada. #}
   <script>
