@@ -144,7 +144,7 @@ Solo devuelve los servicios activos (los dados de baja no aparecen), ordenados p
 | POST | `/api/compras` | 👤 | Reserva butacas de una función (compra en estado `pendiente` por 10 minutos). |
 | PUT | `/api/compras/<id>/servicios` | 👤 | Define los servicios de una compra pendiente y recalcula el total. |
 | POST | `/api/compras/<id>/confirmar` | 👤 | Checkout con pago simulado: confirma, genera el QR y envía el email con la factura. |
-| GET | `/api/compras/<id>` | 👤 | Detalle de una compra propia (incluye el QR si está confirmada). |
+| GET | `/api/compras/<id>` | 👤 🛠️ | Detalle de una compra propia (el admin puede ver cualquiera); incluye el QR si está confirmada. |
 | GET | `/api/compras/por-token?token=` | 🌐 | Detalle de la compra identificada por el token firmado del enlace del email (sin requerir sesión). |
 | POST | `/api/compras/<id>/cancelar` | 👤 | Cancela una compra propia dentro del plazo permitido. |
 | POST | `/api/compras/cancelar-por-token` | 🌐 | Cancela desde el enlace del email (el token firmado identifica la compra). |
@@ -180,6 +180,22 @@ El `total` se recalcula al confirmar (entradas activas + servicios de la compra)
 ```
 
 `qr_png_base64` es el QR de ingreso: codifica `<FRONTEND_URL>/admin/ingreso?token=<token_qr>` (el mismo `token_qr` que valida `POST /api/admin/ingresos/validar`), así la cámara del celular abre directo la pantalla de validación del backoffice.
+
+```http
+GET /api/compras/88
+
+200 OK
+{
+  "id": 88, "estado": "confirmada", "pelicula": "Volver al futuro", "poster_url": "https://image.tmdb.org/...",
+  "local": "Paradiso Centro", "sala": "Sala 1", "funcion": "2026-11-12T20:30:00", "butacas": ["D5", "D6"],
+  "subtotal_entradas": 10000.00,
+  "servicios": [ { "nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": 6500.00, "subtotal": 13000.00 } ],
+  "total": 23000.00, "email": "ana@email.com", "vence_en": null, "utilizada_en": null, "cancelada_en": null,
+  "cancelable": true, "cancelable_hasta": "2026-11-12T18:30:00", "qr_png_base64": "iVBORw0..."
+}
+```
+
+`estado` es `pendiente`, `confirmada`, `cancelada` o `vencida`; una `pendiente` cuyo `vence_en` ya pasó se informa como `vencida` aunque la base todavía no se haya actualizado. `vence_en` solo tiene valor en las pendientes en plazo y `qr_png_base64` solo en las confirmadas. `cancelable` y `cancelable_hasta` se calculan igual que en el perfil. Errores: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (un cliente pidiendo una compra ajena). `GET /api/compras/por-token` devuelve el mismo detalle.
 
 Errores de confirmación: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `COMPRA_NO_PENDIENTE` · 409 `RESERVA_VENCIDA` (libera las butacas). Si el envío por SMTP falla, la compra queda confirmada igual con `"email_enviado": false`.
 
