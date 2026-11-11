@@ -6,7 +6,7 @@ from datetime import datetime
 import pymysql
 from flask import current_app
 
-from src.backend.db import consultar, consultar_uno, transaccion
+from src.backend.db import consultar, consultar_uno, marcadores, transaccion
 from src.backend.errores import error_api
 from src.backend.services import correo, perfil, qr
 from src.backend.services.perfil import cancelable_hasta, es_cancelable
@@ -53,9 +53,8 @@ def reservar(usuario_id, datos):
                 (funcion_id,),
             )
 
-            marcadores = ", ".join(["%s"] * len(butaca_ids))
             cursor.execute(
-                f"SELECT id FROM butacas WHERE sala_id = %s AND id IN ({marcadores})",
+                "SELECT id FROM butacas WHERE sala_id = %s AND id IN (" + marcadores(len(butaca_ids)) + ")",
                 (funcion["sala_id"], *butaca_ids),
             )
             butacas_validas = {fila["id"] for fila in cursor.fetchall()}
@@ -64,7 +63,7 @@ def reservar(usuario_id, datos):
             cursor.execute(
                 "SELECT b.fila, b.numero FROM entradas e "
                 "JOIN butacas b ON b.id = e.butaca_id "
-                f"WHERE e.funcion_id = %s AND e.activa = 1 AND e.butaca_id IN ({marcadores}) "
+                "WHERE e.funcion_id = %s AND e.activa = 1 AND e.butaca_id IN (" + marcadores(len(butaca_ids)) + ") "
                 "ORDER BY b.fila, b.numero FOR UPDATE",
                 (funcion_id, *butaca_ids),
             )
@@ -306,9 +305,8 @@ def definir_servicios(usuario_id, compra_id, datos):
         if not vencida:
             precios = {}
             if pedidos:
-                marcadores = ", ".join(["%s"] * len(pedidos))
                 cursor.execute(
-                    f"SELECT id, precio FROM servicios WHERE activo = TRUE AND id IN ({marcadores})",
+                    "SELECT id, precio FROM servicios WHERE activo = TRUE AND id IN (" + marcadores(len(pedidos)) + ")",
                     tuple(pedidos),
                 )
                 precios = {fila["id"]: fila["precio"] for fila in cursor.fetchall()}

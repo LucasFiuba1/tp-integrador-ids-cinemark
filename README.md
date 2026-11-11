@@ -170,8 +170,5 @@ valores esperados del seed están en [Dashboards](docs/endpoints.md#dashboards).
 | Lucas Cirillo Berardi |
 | Santiago Fernandez Bain |
 | Juan Pablo Bruzone |
-| Francisco Martinez |
-| Víctor Daniel Morinigo |
-| Nicolas Valenzuela |
-| Joaquin Zavala |
-| Martin Simajowich |
+| Joaquín Nicolás Zavala Eguez |
+| Martín Simajowich |

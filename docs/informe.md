@@ -16,9 +16,6 @@
 | Lucas Cirillo Berardi | Desarrollo full-stack y coordinación |
 | Santiago Fernandez Bain | Desarrollo full-stack |
 | Juan Pablo Bruzone | Desarrollo full-stack |
-| Francisco Martinez | Desarrollo full-stack |
-| Víctor Daniel Morinigo | Desarrollo full-stack |
-| Nicolás Valenzuela | Desarrollo full-stack |
 | Joaquín Nicolás Zavala Eguez | Desarrollo full-stack |
 | Martín Simajowich | Desarrollo full-stack |
 
