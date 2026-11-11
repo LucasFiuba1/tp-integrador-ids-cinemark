@@ -7,8 +7,10 @@ from src.frontend.api_client import llamar
 from src.frontend.filtros import hora
 from src.frontend.sesion import requiere_admin
 from src.frontend.validaciones import (
+    datos_funcion,
     leer_formulario,
     validar_filtros_dashboards,
+    validar_funcion,
     validar_ingreso,
     validar_local,
     validar_sala,
@@ -108,25 +110,23 @@ def funciones():
 
 
 def _crear_funcion(formulario):
-    """Alta de una función. Si el backend la rechaza, vuelve a mostrar el formulario con lo que cargó el admin
-    (local, película, sala, fecha y precio) en vez de vaciarlo (SCRUM-81)."""
-    datos = {
-        "pelicula_id": request.form.get("pelicula_id", type=int),
-        "sala_id": request.form.get("sala_id", type=int),
-        "fecha_hora": formulario["fecha_hora"] + ":00",
-        "precio": request.form.get("precio", type=float),
-    }
-    _, error = llamar("POST", "/api/admin/funciones", json=datos)
+    """Alta de una función. Si el formulario es inválido o el backend la rechaza, vuelve a mostrarlo con lo que
+    cargó el admin (local, película, sala, fecha y precio) en vez de vaciarlo (SCRUM-81)."""
+    local_id = request.form.get("local_id", type=int)
+    errores = validar_funcion(formulario)
+    if errores:
+        return _pantalla_funciones(local_id, "", formulario, errores), 400
+    _, error = llamar("POST", "/api/admin/funciones", json=datos_funcion(formulario))
     if error is None:
         flash("La función fue creada correctamente.", "exito")
         return redirect(url_for("backoffice.funciones"))
     flash(error["mensaje"], "error")
-    local_id = request.form.get("local_id", type=int)
     return _pantalla_funciones(local_id, "", formulario), error["status"]
 
 
-def _pantalla_funciones(local_id, fecha, enviado=None):
-    """Listado de funciones con el formulario de alta. `enviado` es el formulario que el backend rechazó."""
+def _pantalla_funciones(local_id, fecha, enviado=None, errores=None):
+    """Listado de funciones con el formulario de alta. `enviado` es el formulario rechazado y `errores`, sus
+    mensajes por campo."""
     locales = _listar_locales()
     local = _local_elegido(locales, local_id)
 
@@ -163,6 +163,7 @@ def _pantalla_funciones(local_id, fecha, enviado=None):
         locales=_opciones(locales, "nombre"),
         salas=_opciones(salas, "nombre"),
         formulario=formulario,
+        errores=errores or {},
         funciones=funciones,
         fecha=fecha,
     )
@@ -177,37 +178,29 @@ def editar_funcion(id):
         flash("La función no existe.", "error")
         return redirect(url_for("backoffice.funciones"))
 
-    if request.method == "POST":
-        pelicula_id = request.form.get("pelicula_id", type=int)
-        sala_id = request.form.get("sala_id", type=int)
-        fecha_hora = request.form.get("fecha_hora", "")
-        precio = request.form.get("precio", type=float)
-
-        datos = {
-            "pelicula_id": pelicula_id,
-            "sala_id": sala_id,
-            "fecha_hora": fecha_hora + ":00",
-            "precio": precio,
-        }
-
-        funcion_modificada, error = llamar("PUT", f"/api/admin/funciones/{id}", json=datos)
-
-        if error is not None:
-            flash(error["mensaje"], "error")
-        else:
-            flash("La función fue modificada correctamente.", "exito")
-
-        return redirect(url_for("backoffice.funciones"))
-
-    peliculas = _listar_peliculas()
-    salas = _listar_salas(funcion["local_id"])
-
     formulario = {
         "pelicula_id": funcion["pelicula_id"],
         "sala_id": funcion["sala_id"],
         "fecha_hora": funcion["fecha_hora"][:16],
         "precio": funcion["precio"],
     }
+    errores = {}
+    status = 200
+
+    if request.method == "POST":
+        formulario = leer_formulario(request.form, *CAMPOS_FUNCION)
+        errores = validar_funcion(formulario)
+        status = 400
+        if not errores:
+            _, error = llamar("PUT", f"/api/admin/funciones/{id}", json=datos_funcion(formulario))
+            if error is None:
+                flash("La función fue modificada correctamente.", "exito")
+                return redirect(url_for("backoffice.funciones"))
+            flash(error["mensaje"], "error")
+            status = error["status"]
+
+    peliculas = _listar_peliculas()
+    salas = _listar_salas(funcion["local_id"])
 
     return render_template(
         "backoffice/funcion_editar.html",
@@ -215,7 +208,8 @@ def editar_funcion(id):
         peliculas=_opciones(peliculas, "titulo"),
         salas=_opciones(salas, "nombre"),
         formulario=formulario,
-    )
+        errores=errores,
+    ), status
 
 
 @backoffice_bp.post("/funciones/<int:id>/baja")

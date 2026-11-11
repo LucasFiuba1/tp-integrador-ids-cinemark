@@ -559,3 +559,53 @@ def test_funciones_con_id_inexistente_vuelve_al_listado(
 
     assert respuesta.status_code == 302
     assert respuesta.headers["Location"] == "/admin/funciones"
+
+# --- SCRUM-81: el formulario se valida antes de llamar a la API (sin mensajes crudos del backend) ---
+FUNCION_VALIDA = {"pelicula_id": "1", "local_id": "1", "sala_id": "1", "fecha_hora": "2026-11-25T20:30", "precio": "6500"}
+
+
+def _llamadas_de_escritura(llamar):
+    return [llamada for llamada in llamar.call_args_list if llamada.args[0] in ("POST", "PUT")]
+
+
+@pytest.mark.parametrize("campo, valor, mensaje", [
+    ("precio", "", "Ingresá el precio."),
+    ("precio", "caro", "El precio tiene que ser un número, por ejemplo 2500."),
+    ("precio", "0", "El precio tiene que ser mayor a $0 y menor a $100.000.000."),
+    ("precio", "-10", "El precio tiene que ser mayor a $0 y menor a $100.000.000."),
+    ("fecha_hora", "", "Ingresá la fecha y la hora de la función."),
+    ("fecha_hora", "mañana", "Ingresá la fecha y la hora de la función."),
+    ("pelicula_id", "", "Elegí la película."),
+    ("sala_id", "x", "Elegí la sala."),
+])
+@pytest.mark.parametrize("url", ["/admin/funciones", "/admin/funciones/1"])
+def test_funcion_con_datos_invalidos_muestra_el_error_sin_llamar_a_la_api(
+    cliente_admin, api_funciones, url, campo, valor, mensaje,
+):
+    respuesta = cliente_admin.post(url, data={**FUNCION_VALIDA, campo: valor})
+
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 400
+    assert f'id="error-{campo}">{mensaje}<' in html
+    assert _llamadas_de_escritura(api_funciones) == []
+
+
+def test_crear_funcion_con_precio_con_coma_lo_manda_como_numero(cliente_admin, api_funciones):
+    cliente_admin.post("/admin/funciones", data={**FUNCION_VALIDA, "precio": "6500,50"})
+
+    assert _llamadas_de_escritura(api_funciones)[0].kwargs["json"]["precio"] == 6500.5
+
+
+def test_editar_funcion_con_error_de_la_api_conserva_lo_cargado(cliente_admin):
+    def api(metodo, ruta, json=None, params=None):
+        if metodo == "PUT":
+            return None, {"status": 409, "codigo": "FUNCION_SUPERPUESTA", "mensaje": "Ya hay una función superpuesta en esa sala."}
+        return _api_simulada(metodo, ruta, json, params)
+
+    with patch("src.frontend.routes.backoffice.llamar", side_effect=api):
+        respuesta = cliente_admin.post("/admin/funciones/1", data={**FUNCION_VALIDA, "precio": "7100"})
+
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 409
+    assert "Ya hay una función superpuesta en esa sala." in html
+    assert 'value="7100"' in html
