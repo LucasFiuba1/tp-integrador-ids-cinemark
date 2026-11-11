@@ -5,6 +5,7 @@ Si el dict está vacío, el formulario es válido. Los límites siguen a docs/ba
 """
 import re
 from datetime import date
+from urllib.parse import parse_qs, urlsplit
 
 PATRON_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 PATRON_VENCIMIENTO = re.compile(r"^(0[1-9]|1[0-2])/(\d{2})$")
@@ -107,6 +108,15 @@ def _error_token_qr(token):
     if len(token) > MAXIMO_CODIGO_QR:
         return "El código es demasiado largo; revisá que sea el de la entrada."
     return None
+
+
+def token_del_qr(texto):
+    """El QR de la entrada es la URL /admin/ingreso?token=... Si el lector (o el admin) pega la URL entera, se usa
+    solo el token; cualquier otro texto se devuelve tal cual para que lo valide el backend (SCRUM-81)."""
+    partes = urlsplit(texto)
+    if partes.scheme in ("http", "https"):
+        return parse_qs(partes.query).get("token", [texto])[0].strip()
+    return texto
 
 
 def validar_ingreso(datos):
