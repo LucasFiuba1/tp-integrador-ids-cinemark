@@ -2,7 +2,7 @@
    cantidades: {servicio_id: texto del campo}, precargadas con lo que la compra ya tiene. errores: {servicio_id:
    mensaje} de la validación del formulario; error: mensaje del backend. El total del resumen es el del backend. #}
 {% extends "base.html" %}
-{% from "macros.html" import pasos_compra, resumen_compra, cabecera_pagina, boton, campo %}
+{% from "macros.html" import pasos_compra, resumen_compra, cabecera_pagina, boton, campo, tarjeta_servicio %}
 
 {% block titulo %}Servicios - Cine Paradiso{% endblock %}
 
@@ -23,21 +23,10 @@
       <section class="servicios-lista" aria-label="Servicios disponibles">
         {% for servicio in servicios %}
           {% set cantidad = cantidades[servicio.id] %}
-          <article class="servicio-tarjeta{% if cantidad != '0' %} servicio-elegido{% endif %}">
-            {# Sin imágenes en la base: el tono sale del id (como el póster) y la palabra, del nombre. #}
-            <div class="servicio-imagen servicio-imagen-{{ ((servicio.id - 1) % 4) + 1 }}" aria-hidden="true">
-              <span>{{ (servicio.nombre.split() | first) | upper }}</span>
-            </div>
-            <div class="servicio-informacion">
-              <h2>{{ servicio.nombre }}</h2>
-              {% if servicio.descripcion %}<p>{{ servicio.descripcion }}</p>{% endif %}
-              <p class="servicio-precio">{{ servicio.precio | precio }}</p>
-            </div>
-            <div class="servicio-cantidad">
-              {{ campo("cantidad_" ~ servicio.id, "Cantidad", "number", cantidad, requerido=false, minimo=0,
-                       maximo=maximo_cantidad, paso=1, error=errores.get(servicio.id, "")) }}
-            </div>
-          </article>
+          {% call tarjeta_servicio(servicio, elegido=cantidad != '0') %}
+            {{ campo("cantidad_" ~ servicio.id, "Cantidad", "number", cantidad, requerido=false, minimo=0,
+                     maximo=maximo_cantidad, paso=1, error=errores.get(servicio.id, "")) }}
+          {% endcall %}
         {% else %}
           <p class="estado-vacio">Por ahora no hay servicios disponibles. Podés seguir sin servicios.</p>
         {% endfor %}

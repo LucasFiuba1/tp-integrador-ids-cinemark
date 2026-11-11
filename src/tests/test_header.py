@@ -91,20 +91,28 @@ def test_iconos_son_svg_locales_con_su_tamano(cliente_frontend, backend_ok):
             f'src="/static/{ruta}" width="{tamano}" height="{tamano}"' in header
 
 
-def test_secciones_sin_pantalla_quedan_deshabilitadas(cliente_logueado, backend_ok):
+def test_menu_enlaza_servicios_y_mis_compras(cliente_logueado, backend_ok):
     header = _header(cliente_logueado.get("/").get_data(as_text=True))
-    for texto in ("Servicios", "Mis compras"):
-        assert f'<span class="menu-deshabilitado" title="Próximamente">{texto} ' in header
-    assert '<a href="/perfil">Mi perfil</a>' in header  # SCRUM-116: el perfil ya tiene pantalla
+    assert '<a href="/servicios">Servicios</a>' in header
+    assert '<a href="/mis-compras">Mis compras</a>' in header
+    assert '<a href="/perfil">Mi perfil</a>' in header
     assert 'href="/" aria-current="page">Películas</a>' in header
+    assert "menu-deshabilitado" not in header
+
+
+def test_menu_marca_servicios_como_pagina_actual(cliente_frontend, backend_ok):
+    header = _header(cliente_frontend.get("/servicios").get_data(as_text=True))
+    assert '<a href="/servicios" aria-current="page">Servicios</a>' in header
 
 
 def test_ruta_disponible_solo_con_endpoints_sin_parametros(app_frontend):
     with app_frontend.test_request_context():
         assert ruta_disponible("publico.inicio")
+        assert ruta_disponible("publico.servicios")
+        assert ruta_disponible("publico.mis_compras")
         assert ruta_disponible("backoffice.inicio")
         assert not ruta_disponible("publico.servicios_compra")  # pide compra_id
-        assert not ruta_disponible("publico.mis_compras")
+        assert not ruta_disponible("publico.no_existe")
 
 
 def test_menu_mobile_se_abre_sin_js_y_con_etiqueta(cliente_frontend, backend_ok):

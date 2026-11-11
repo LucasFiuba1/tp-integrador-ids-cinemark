@@ -65,33 +65,49 @@ def _id_pelicula(texto):
     return int(texto) if texto.isdecimal() and int(texto) > 0 else None
 
 
+def _cartelera(local_id="", fecha=""):
+    """Películas en cartel (GET /api/cartelera) con los filtros que vengan. Devuelve (peliculas, error)."""
+    params = {nombre: valor for nombre, valor in (("local_id", local_id), ("fecha", fecha)) if valor}
+    datos, error = llamar("GET", "/api/cartelera", params=params or None)
+    peliculas = None if error else _solo_peliculas(datos)
+    if error is None and peliculas is None:
+        error = {"mensaje": "No pudimos leer la cartelera. Probá de nuevo en unos minutos."}
+    return (peliculas, None) if error is None else ([], error)
+
+
+def _contexto_header(local_id=""):
+    """Locales y películas para los selectores del header en las pantallas que no arman la cartelera.
+
+    Las películas son las que están en cartel en el local elegido. Si algo falla, ese selector queda deshabilitado
+    (el header no avisa: la pantalla tiene su propio contenido).
+    """
+    peliculas, _ = _cartelera(local_id)
+    return {"header_locales": _opciones_locales(), "header_peliculas": _header_peliculas(peliculas)}
+
+
+# Elegir una película en el header lleva a su detalle (con el local y la fecha elegidos), así la selección cambia lo
+# que se ve desde cualquier pantalla. Sin película, la cartelera se filtra por local y fecha en el backend.
 @publico_bp.get("/")
 def inicio():
     local_id = (request.args.get("local_id") or "").strip()
     fecha = (request.args.get("fecha") or "").strip()
     pelicula_id = _id_pelicula(request.args.get("pelicula_id"))
-    params = {nombre: valor for nombre, valor in (("local_id", local_id), ("fecha", fecha)) if valor}
-    datos, error = llamar("GET", "/api/cartelera", params=params or None)
-    locales = _opciones_locales()
-    peliculas = [] if error else _solo_peliculas(datos)
-    error_cartelera = bool(error) or peliculas is None
-    if error_cartelera:
-        flash(error["mensaje"] if error else "No pudimos leer la cartelera. Probá de nuevo en unos minutos.", "error")
-        peliculas = []
-    # La cartelera del backend no filtra por película: el catálogo del header sale de la respuesta completa.
-    header_peliculas = _header_peliculas(peliculas)
     if pelicula_id is not None:
-        peliculas = [pelicula for pelicula in peliculas if pelicula["id"] == pelicula_id]
+        return redirect(url_for("publico.detalle_pelicula", id=pelicula_id, local_id=local_id or None,
+                                fecha=fecha or None))
+    peliculas, error = _cartelera(local_id, fecha)
+    locales = _opciones_locales()
+    if error:
+        flash(error["mensaje"], "error")
     return render_template(
         "inicio.html",
         peliculas=peliculas,
         locales=[OPCION_TODOS_LOS_LOCALES, *locales],
         local_id=local_id,
         fecha=fecha,
-        pelicula_id=str(pelicula_id) if pelicula_id is not None else "",
-        error_cartelera=error_cartelera,
+        error_cartelera=error is not None,
         header_locales=locales,
-        header_peliculas=header_peliculas,
+        header_peliculas=_header_peliculas(peliculas),
     )
 
 
@@ -131,6 +147,15 @@ def _funciones_filtradas(funciones, local_id, fecha):
     return sorted(funciones, key=lambda funcion: (str(funcion.get("nombre_local") or ""), str(funcion.get("fecha_hora") or "")))
 
 
+def _peliculas_del_header_en_detalle(pelicula, local_id):
+    """Las películas en cartel del local elegido, para poder cambiar de película desde el detalle. La que se está
+    viendo siempre está (aunque no tenga funciones en ese local), así el selector la muestra elegida."""
+    peliculas, _ = _cartelera(local_id)
+    if all(otra["id"] != pelicula["id"] for otra in peliculas):
+        peliculas = [pelicula, *peliculas]
+    return _header_peliculas(peliculas)
+
+
 @publico_bp.get("/peliculas/<int:id>")
 def detalle_pelicula(id):
     pelicula, error = llamar("GET", f"/api/peliculas/{id}")
@@ -155,7 +180,8 @@ def detalle_pelicula(id):
         filtro_activo=bool(local_id or fecha),
         total_funciones=len([funcion for funcion in funciones if isinstance(funcion, dict)]),
         header_locales=locales,
-        header_peliculas=_header_peliculas([pelicula]) if pelicula.get("id") is not None else [],
+        header_peliculas=_peliculas_del_header_en_detalle(pelicula, local_id),
+        pelicula_id=str(pelicula["id"]),
     )
 
 # Ingresar y crear cuenta (SCRUM-88, SCRUM-46). El formulario se valida acá y después en el backend; si hay errores
@@ -234,6 +260,25 @@ def _mensaje_conflicto(seleccionadas, butacas_mapa, mensaje_api):
     tomadas = [f"{butaca['fila']}{butaca['numero']}" for butaca in butacas_mapa
                if butaca["id"] in seleccionadas and butaca["estado"] != "libre"]
     return f"Estas butacas ya no están disponibles: {', '.join(tomadas)}. Elegí otras." if tomadas else mensaje_api
+
+
+@publico_bp.get("/servicios")
+def servicios():
+    """Servicios activos (menú del header). Es público: se pueden ver antes de comprar."""
+    lista, error = llamar("GET", "/api/servicios")
+    if error is None and not isinstance(lista, list):
+        error = {"mensaje": "No pudimos leer los servicios. Probá de nuevo en unos minutos."}
+    if error:
+        flash(error["mensaje"], "error")
+    lista = [] if error else [servicio for servicio in lista if isinstance(servicio, dict) and "id" in servicio]
+    return render_template("servicios.html", servicios=lista, sin_datos=error is not None, **_contexto_header())
+
+
+@publico_bp.get("/mis-compras")
+@requiere_sesion
+def mis_compras():
+    """Menú "Mis compras" del header: las compras están en el perfil, con sus pestañas."""
+    return redirect(url_for("publico.perfil") + "#titulo-compras")
 
 
 # Ver el mapa de butacas es público (GET); reservar (POST) pide sesión. Por eso el chequeo va acá y no con
