@@ -18,7 +18,7 @@ Primero se recorrieron sin sesión, con Chromium (Playwright), los pasos que no 
 navegador integrado, un integrante inició sesión con su cuenta de cliente y se recorrieron los flujos A y B con la
 compra de prueba **#90001** (función 19, butaca A1, combo y gaseosa). El pago simulado lo completó el integrante.
 
-Los pasos de admin quedan ⏳: la base publicada no acepta la contraseña del admin de `seed.sql` (ver E3).
+Los pasos de admin quedaron ⏳ en esta corrida porque el admin no podía ingresar (E3, ya corregido en la base). Quedan para la próxima corrida.
 
 ### Hallazgos de esta corrida
 
@@ -26,8 +26,8 @@ Los pasos de admin quedan ⏳: la base publicada no acepta la contraseña del ad
 |---|---|---|
 | E1 | Al confirmar la compra no llega el email con la factura y el QR: la pantalla muestra "No pudimos enviar el email a …". El plan gratuito de Render bloquea la salida SMTP (puertos 25/465/587, ver [deploy](deploy.md)). Sin email tampoco se puede probar la cancelación desde el enlace del correo. | ❌ Abierto: hay que mandar el correo por una API HTTP (por ejemplo, un proveedor con plan gratuito) o publicar en un hosting que permita SMTP. |
 | E2 | La pantalla de compra confirmada no tenía botón para cancelar (el enunciado pide "checkout con … botón cancelar"); solo un texto que mandaba al email o al perfil. | ✅ Arreglado en esta rama: botón "Cancelar compra" mientras `cancelable` sea verdadero. |
-| E3 | El admin de `seed.sql` no puede ingresar en la base publicada: la base se cargó con otros datos o se cambió la contraseña. | ❌ Abierto: recargar el admin del seed en la base publicada o compartir la cuenta con el equipo. |
-| R4 | Las películas publicadas no tienen póster (ver [responsive](responsive/README.md)). | ❌ Abierto: falta recargar los `poster_url` del seed en la base publicada. |
+| E3 | El admin de `seed.sql` no podía ingresar en la base publicada: en TiDB tenía un hash `pbkdf2:sha256:600000` cargado a mano, que no venía de ninguna versión de `seed.sql` ni correspondía a la contraseña del seed. El código del login estaba bien. | ✅ Corregido en la base el 10/11: la fila del admin tiene el hash de `seed.sql`. |
+| R4 | Las películas publicadas no tenían póster (ver [responsive](responsive/README.md)). | ✅ Corregido en la base el 10/11: los 8 `poster_url` de `seed.sql`, solo donde estaban en `NULL`. La API devuelve póster en las 7 películas en cartel. |
 
 ### Flujo A: compra completa, QR y película vista
 
