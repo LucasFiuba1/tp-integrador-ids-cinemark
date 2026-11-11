@@ -41,9 +41,13 @@ real (Chrome en Android y Safari en iPhone), que este relevamiento no cubre.
 
 ## Hallazgos
 
-| # | Severidad | Hallazgo | Dónde |
-|---|---|---|---|
-| R1 | Media | Los selectores del header ("Elegí local" / "Elegí película") aparecen vacíos con el texto "Todavía no hay locales para elegir" en todas las pantallas que no son cartelera, detalle o servicios. `_contexto_header()` solo se pasa en esas tres rutas de `routes/publico.py`. | `/ingresar`, `/registro`, `/funciones/<id>/butacas`, perfil y compra |
-| R2 | Baja | Cada butaca mide ~20 × 20 px en 375 px: se puede tocar, pero queda lejos de los 44 px recomendados y es fácil equivocarse de asiento. | `/funciones/<id>/butacas` |
-| R3 | Baja | En celular los selectores del header miden 15–20 px de alto y el botón "VER" 22 px; los dos `select` usan letra menor a 16 px, por lo que Safari iOS hace zoom al tocarlos. | Header en todas las pantallas |
-| R4 | Media (datos) | Ninguna película de la cartelera publicada tiene `poster_url` (la API devuelve `null`), así que se ve el degradado con el título en vez del póster que pide el enunciado. Son las películas del seed; las importadas desde TMDB sí traen póster. | `/`, `/peliculas/<id>` |
+Las capturas de la tabla de arriba son del sitio publicado **antes** de los arreglos. Los arreglos se verificaron con
+el frontend de esta rama corriendo en local contra la API publicada, emulando un celular táctil de 375 px:
+[cartelera](inicio-375-arreglado.png), [ingresar](ingresar-375-arreglado.png) y [butacas](butacas-375-arreglado.png).
+
+| # | Severidad | Hallazgo | Dónde | Estado |
+|---|---|---|---|---|
+| R1 | Media | Los selectores del header ("Elegí local" / "Elegí película") aparecían vacíos, con el texto "Todavía no hay locales para elegir", en todas las pantallas salvo cartelera, detalle y servicios: solo esas tres rutas le pasaban los datos al header. | `/ingresar`, `/registro`, `/funciones/<id>/butacas`, perfil y compra | ✅ Arreglado: un context processor de `routes/publico.py` le da al header `contexto_header()`, que el header llama solo si la vista no le pasó los selectores (la cartelera y el detalle no consultan dos veces). |
+| R2 | Baja | Cada butaca medía ~20 × 20 px en 375 px: era fácil tocar la de al lado. | `/funciones/<id>/butacas` | ✅ Arreglado: mínimo de 28 px (`--ancho-butaca-minimo`). En salas anchas la grilla se desplaza de costado dentro de su panel (la página no) y arranca alineada a la izquierda (`justify-content: safe center`). |
+| R3 | Baja | En celular los selectores del header medían 15–20 px de alto y el botón "VER" 22 px; los `select` usaban letra de 13 px y Safari en iOS hacía zoom al tocarlos. | Header en todas las pantallas | ✅ Arreglado en pantallas táctiles (`pointer: coarse`): selects de 44 px de alto (`--alto-tactil`) con letra de 16 px, y área táctil de 44 px en "VER" sin cambiar cómo se ve. La fila mantiene su alto. |
+| R4 | Media (datos) | Ninguna película de la cartelera publicada tiene `poster_url` (la API devuelve `null`), así que se ve el degradado con el título en vez del póster. | `/`, `/peliculas/<id>` | ⏳ Ya resuelto en el código: `seed.sql` trae los pósters de TMDB desde el commit `9406fcc`. Falta cargar esos `poster_url` en la base publicada (no se tocó desde esta rama). |
