@@ -13,13 +13,13 @@
     <form method="post" action="{{ url_for('backoffice.editar_funcion', id=funcion.id) }}" class="formulario-funcion" novalidate>
 
       <div class="formulario-linea formulario-funcion-selects">
-        {{ filtro("pelicula_id", "Película", peliculas, formulario.pelicula_id) }}
-        {{ filtro("sala_id", "Sala", salas, formulario.sala_id) }}
+        {{ filtro("pelicula_id", "Película", peliculas, formulario.pelicula_id, error=errores.pelicula_id) }}
+        {{ filtro("sala_id", "Sala", salas, formulario.sala_id, error=errores.sala_id) }}
       </div>
 
       <div class="formulario-linea">
-        {{ campo("fecha_hora", "Fecha y hora", tipo="datetime-local", valor=formulario.fecha_hora) }}
-        {{ campo("precio", "Precio de la entrada", tipo="number", valor=formulario.precio) }}
+        {{ campo("fecha_hora", "Fecha y hora", tipo="datetime-local", valor=formulario.fecha_hora, error=errores.fecha_hora) }}
+        {{ campo("precio", "Precio de la entrada", tipo="number", valor=formulario.precio, error=errores.precio) }}
 
         <div class="formulario-linea-acciones">
           {{ boton("Guardar cambios") }}

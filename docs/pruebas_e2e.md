@@ -10,7 +10,7 @@ falla se registra como **Bug** en Jira (proyecto `SCRUM`) antes del 20/11.
   servicios se duermen y la primera respuesta puede tardar hasta un minuto.
 - **Capturas:** `docs/e2e/<flujo><paso>.png` (por ejemplo `docs/e2e/A7.png`).
 
-Estados: ✅ pasó · ❌ falló (con el Bug) · ⏳ pendiente.
+Estados: ✅ pasó · ❌ falló (con el Bug) · ⏳ pendiente · ⏸️ fuera de alcance por ahora.
 
 ## Última ejecución: 10/11/2026
 
@@ -27,13 +27,14 @@ puerta (A11–A13). Datos de prueba que quedaron en la base publicada: local, sa
 
 | # | Hallazgo | Estado |
 |---|---|---|
-| E1 | Al confirmar la compra no llega el email con la factura y el QR: la pantalla muestra "No pudimos enviar el email a …". El plan gratuito de Render bloquea la salida SMTP (puertos 25/465/587, ver [deploy](deploy.md)). Sin email tampoco se puede probar la cancelación desde el enlace del correo. | ❌ Abierto: hay que mandar el correo por una API HTTP (por ejemplo, un proveedor con plan gratuito) o publicar en un hosting que permita SMTP. |
+| E1 | Al confirmar la compra no llega el email con la factura y el QR: la pantalla muestra "No pudimos enviar el email a …". El plan gratuito de Render bloquea la salida SMTP (puertos 25/465/587, ver [deploy](deploy.md)). Sin email tampoco se puede probar la cancelación desde el enlace del correo. | ⏸️ Fuera de alcance por ahora (decisión del grupo, 10/11): para resolverlo hay que mandar el correo por una API HTTP o publicar en un hosting que permita SMTP. |
 | E2 | La pantalla de compra confirmada no tenía botón para cancelar (el enunciado pide "checkout con … botón cancelar"); solo un texto que mandaba al email o al perfil. | ✅ Arreglado en esta rama: botón "Cancelar compra" mientras `cancelable` sea verdadero. |
 | E3 | El admin de `seed.sql` no podía ingresar en la base publicada: en TiDB tenía un hash `pbkdf2:sha256:600000` cargado a mano, que no venía de ninguna versión de `seed.sql` ni correspondía a la contraseña del seed. El código del login estaba bien. | ✅ Corregido en la base el 10/11: la fila del admin tiene el hash de `seed.sql`. |
 | E4 | En `/admin/funciones`, si la API rechazaba la función (por ejemplo, superpuesta), el formulario volvía vacío y había que cargar película, sala, fecha y precio de nuevo. | ✅ Arreglado en esta rama: el error se muestra en la misma pantalla (HTTP 409) con los datos que se habían cargado. |
 | E5 | Toda validación de QR daba error 500: en TiDB faltaba la tabla `validaciones_ingreso` de `schema.sql`. | ✅ Corregido en la base el 10/11: se creó la tabla con la definición de `schema.sql`. |
-| E6 | El QR y el enlace de cancelación apuntan a `http://localhost:5001/...`: la variable `FRONTEND_URL` del backend en Render no tiene la URL del sitio publicado. Al escanear el QR con el celular no abre nada. | ❌ Abierto: cargar `FRONTEND_URL=https://cine-paradiso-web.onrender.com` en el servicio de la API en Render y redesplegar. |
+| E6 | El QR y el enlace de cancelación apuntan a `http://localhost:5001/...`: la variable `FRONTEND_URL` del backend en Render no tiene la URL del sitio publicado. Al escanear el QR con el celular no abre nada. | ✅ Corregido el 10/11: `FRONTEND_URL=https://cine-paradiso-web.onrender.com` cargada en el servicio de la API en Render y declarada en `render.yaml`. Rige para las compras nuevas (el QR se arma al confirmar). |
 | E7 | Al pegar en `/admin/ingreso` lo que lee el celular del QR (la URL entera con `?token=`) respondía "QR inválido". | ✅ Arreglado en esta rama: el formulario acepta la URL y manda solo el token (`token_del_qr`). |
+| E8 | En `/admin/funciones`, un precio vacío o inválido mostraba el mensaje técnico de la API ("precio debe ser positivo y tener como máximo dos decimales"). | ✅ Arreglado: el formulario de alta y edición se valida antes de llamar a la API (`validar_funcion`), con el error al lado de cada campo, y los mensajes de precio de la API quedaron en lenguaje claro. |
 | R4 | Las películas publicadas no tenían póster (ver [responsive](responsive/README.md)). | ✅ Corregido en la base el 10/11: los 8 `poster_url` de `seed.sql`, solo donde estaban en `NULL`. La API devuelve póster en las 7 películas en cartel. |
 
 ### Flujo A: compra completa, QR y película vista
@@ -49,7 +50,7 @@ puerta (A11–A13). Datos de prueba que quedaron en la base publicada: local, sa
 | A7 | Con sesión, elegir 2 butacas y "Continuar". | Reserva pendiente por 10 minutos; pasa a servicios. | Butaca A1 reservada: "Reservamos tus butacas hasta las 22:28" (10 minutos) y pasa a servicios. El header de esta pantalla seguía vacío en el sitio publicado (R1, arreglado en esta rama). | ✅ |
 | A8 | Agregar servicios (por ejemplo 1 pochoclo y 1 gaseosa). | El total suma entradas y servicios. | Combo pochoclos grande × 1 ($6.500) y gaseosa × 1 ($2.500): total $14.500 = $5.500 + $6.500 + $2.500. | ✅ |
 | A9 | Pago simulado y confirmar. | Pantalla de compra confirmada con el QR y el botón de cancelar. | Compra #90001 confirmada, con el QR (PNG de 360 px) y el detalle. No había botón para cancelar (E2, arreglado en esta rama). | ✅ (E2) |
-| A10 | Revisar el email del cliente. | Llega la factura con el detalle, el QR (embebido y adjunto) y el enlace de cancelación. | No llega: "No pudimos enviar el email a …" (E1). | ❌ E1 |
+| A10 | Revisar el email del cliente. | Llega la factura con el detalle, el QR (embebido y adjunto) y el enlace de cancelación. | No llega: "No pudimos enviar el email a …" (E1). | ⏸️ E1 |
 | A11 | Admin: `/admin/ingreso`, validar el QR de la compra en su función. | "Ingreso válido"; la compra queda marcada como utilizada. | Validando la compra #90002 en la función 30001: "✓ Acceso permitido · Butaca C4 · Ratatouille · Compra #90002". Antes, error 500 (E5) y "QR inválido" al pegar la URL del QR (E7). | ✅ (E5, E7) |
 | A12 | Validar el mismo QR otra vez. | Rechazo "ya utilizado". | "Este QR ya se usó el 10/11 a las 22:44". Con otra función elegida, rechaza porque el QR no corresponde a esa función. | ✅ |
 | A13 | Cliente: abrir `/perfil`. | La compra figura en consumos y la película en "películas vistas". | "Ratatouille" figura en películas vistas del cliente (verificado con la consulta del perfil `listar_peliculas_vistas`). | ✅ |
@@ -58,12 +59,12 @@ puerta (A11–A13). Datos de prueba que quedaron en la base publicada: local, sa
 
 | Paso | Acción | Resultado esperado | Resultado obtenido | Estado |
 |---|---|---|---|---|
-| B1 | Hacer una compra confirmada para una función a más de 2 horas (pasos A7–A9). | Compra confirmada y email recibido. | Compra #90001 confirmada (A7–A9); el email no llegó (E1). | ❌ E1 |
-| B2 | Abrir el enlace "Cancelar compra" del email. | Página de cancelación con el detalle de la compra, sin pedir login. | Sin email (E1). La misma página se abrió desde el perfil (`/compras/90001/cancelar`): muestra el detalle y avisa que libera la butaca A1 y anula el QR. | ❌ E1 |
+| B1 | Hacer una compra confirmada para una función a más de 2 horas (pasos A7–A9). | Compra confirmada y email recibido. | Compra #90001 confirmada (A7–A9); el email no llegó (E1). | ⏸️ E1 |
+| B2 | Abrir el enlace "Cancelar compra" del email. | Página de cancelación con el detalle de la compra, sin pedir login. | Sin email (E1). La misma página se abrió desde el perfil (`/compras/90001/cancelar`): muestra el detalle y avisa que libera la butaca A1 y anula el QR. | ⏸️ E1 |
 | B3 | Confirmar la cancelación. | Compra cancelada, email de aviso de cancelación y QR invalidado. | "Cancelaste la compra #90001. Liberamos las butacas y el QR ya no es válido." La compra pasa a la pestaña Canceladas. No se pudo comprobar el email de aviso (E1). | ✅ |
 | B4 | Volver al mapa de butacas de la función. | Las butacas de la compra vuelven a estar libres. | La función 19 vuelve a "96 de 96" butacas libres. | ✅ |
 | B5 | Admin: `/admin/dashboards`. | La cancelación aparece en el tablero de cancelaciones. | "Volver al futuro" con 100% de cancelaciones en el tablero (la compra #90001). | ✅ |
-| B6 | Validar en la puerta el QR de la compra cancelada. | Rechazo "compra cancelada". | No se pudo probar: el token del QR llega solo por email (E1) y la compra #90001 ya estaba cancelada. Lo cubren las pruebas de `test_ingreso.py` y del service de validación. | ⏳ E1 |
+| B6 | Validar en la puerta el QR de la compra cancelada. | Rechazo "compra cancelada". | No se pudo probar: el token del QR llega solo por email (E1) y la compra #90001 ya estaba cancelada. Lo cubren las pruebas de `test_ingreso.py` y del service de validación. | ⏸️ E1 |
 | B7 | Abrir `/cancelar/<token inventado>`. | Mensaje claro de enlace inválido, sin traceback. | "No pudimos abrir la compra" (HTTP 400), página amigable. | ✅ |
 
 ### Flujo C: administración

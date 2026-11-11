@@ -70,7 +70,7 @@ Si una versión fijada de una dependencia no está disponible o no soporta el Py
 
 Hay dos alternativas: variables del panel de cada sitio WSGI o un `.env` privado. Preferir el panel si permite separar los secretos por servicio.
 
-- **Backend:** `SECRET_KEY`, todas las `DB_*`, `TMDB_API_KEY`, `MINUTOS_RESERVA`, `HORAS_LIMITE_CANCELACION`; `SMTP_*` cuando exista la implementación.
+- **Backend:** `SECRET_KEY`, todas las `DB_*`, `TMDB_API_KEY`, `MINUTOS_RESERVA`, `HORAS_LIMITE_CANCELACION`, `FRONTEND_URL` (la URL pública del sitio: la usan el QR y el enlace de cancelación); `SMTP_*` cuando exista la implementación.
 - **Frontend:** `FRONTEND_SECRET_KEY`, `BACKEND_URL`.
 - Generar dos claves **nuevas para este deploy**, como indica [la guía del entorno](entorno.md#3-generar-las-dos-claves-de-la-aplicación). No copiar las de un compañero.
 - Usar HTTPS en `BACKEND_URL`, sin `/api` al final. Si la API se publica en `https://CUENTA.alwaysdata.net/api`, la base es `https://CUENTA.alwaysdata.net`: las rutas de la aplicación ya empiezan por `/api`.
