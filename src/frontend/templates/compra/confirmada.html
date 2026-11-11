@@ -28,6 +28,10 @@
     <div class="confirmada-acciones">
       {{ boton("Ver mis compras", url=url_for('publico.perfil')) }}
       {{ boton("Volver a cartelera", "borde", url=url_for('publico.inicio')) }}
+      {# El checkout ofrece cancelar (enunciado y SCRUM-81) mientras falten más de 2 horas para la función. #}
+      {% if compra.cancelable %}
+        {{ boton("Cancelar compra", "borde", url=url_for('publico.cancelar_compra', compra_id=compra.id)) }}
+      {% endif %}
     </div>
 
     <p class="aviso confirmada-nota">Podés cancelar tu compra hasta 2 horas antes de la función, desde el email o desde
