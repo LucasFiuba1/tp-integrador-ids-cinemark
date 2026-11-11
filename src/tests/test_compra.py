@@ -266,3 +266,11 @@ def test_precio_usa_formato_argentino():
     assert precio(23000) == "$23.000"
     assert precio(6500.5) == "$6.500,50"
     assert precio(None) is None
+
+
+# --- SCRUM-81: el checkout ofrece cancelar mientras se pueda ---
+@pytest.mark.parametrize("cancelable, se_ofrece", [(True, True), (False, False)])
+def test_compra_confirmada_ofrece_cancelar_solo_si_todavia_se_puede(cliente_logueado, cancelable, se_ofrece):
+    with _api(compras=(dict(COMPRA_CONFIRMADA, cancelable=cancelable),)):
+        html = cliente_logueado.get(RUTA_CONFIRMADA).get_data(as_text=True)
+    assert ('href="/compras/1042/cancelar">Cancelar compra</a>' in html) is se_ofrece

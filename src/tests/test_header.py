@@ -3,6 +3,7 @@ sesión, links sin romper, menú mobile sin JS, íconos locales y selectores de 
 import re
 from pathlib import Path
 
+import pytest
 from flask import render_template_string
 
 from src.frontend.header import ruta_disponible
@@ -177,3 +178,37 @@ def test_header_usa_el_catalogo_de_la_vista_y_los_query_params(app_frontend):
         html = render_template_string(plantilla, header_locales=LOCALES, header_peliculas=PELICULAS)
     assert '<option value="1" selected>Palermo</option>' in html
     assert '<option value="7" selected>Cinema Paradiso</option>' in html
+
+
+# --- SCRUM-82: el header tiene datos en todas las pantallas del cliente ---
+CARTELERA_API = [{"id": 7, "titulo": "Cinema Paradiso"}]
+
+
+@pytest.mark.header_real
+@pytest.mark.parametrize("url", ["/ingresar", "/registro", "/cancelar/token-invalido"])
+def test_header_en_pantallas_sin_cartelera_pide_locales_y_peliculas(cliente_frontend, llamar_publico, url):
+    llamar_publico.respuestas = {"/api/cartelera": (CARTELERA_API, None)}
+    llamar_publico.return_value = (None, {"status": 404, "codigo": "NO_ENCONTRADO", "mensaje": "No existe."})
+    header = _header(cliente_frontend.get(url).get_data(as_text=True))
+    assert '<option value="1">Paradiso Centro</option>' in header
+    assert '<option value="7">Cinema Paradiso</option>' in header
+    assert "Todavía no hay locales para elegir." not in header
+
+
+@pytest.mark.header_real
+def test_header_de_la_cartelera_no_vuelve_a_pedir_los_selectores(cliente_frontend, llamar_publico):
+    llamar_publico.respuestas = {"/api/cartelera": (CARTELERA_API, None)}
+    cliente_frontend.get("/")
+    rutas = [llamada.args[1] for llamada in llamar_publico.call_args_list]
+    assert rutas.count("/api/locales") == 1
+    assert rutas.count("/api/cartelera") == 1
+
+
+@pytest.mark.header_real
+def test_header_con_backend_caido_deja_los_selectores_deshabilitados(cliente_frontend, llamar_publico):
+    caido = (None, {"status": 503, "codigo": "BACKEND_NO_DISPONIBLE", "mensaje": "No se pudo conectar."})
+    llamar_publico.locales = caido
+    llamar_publico.return_value = caido
+    respuesta = cliente_frontend.get("/ingresar")
+    assert respuesta.status_code == 200
+    assert "Todavía no hay locales para elegir." in _header(respuesta.get_data(as_text=True))

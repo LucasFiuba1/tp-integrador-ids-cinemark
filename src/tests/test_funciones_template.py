@@ -311,13 +311,15 @@ def test_crear_funcion_muestra_error_de_solapamiento(
                 "fecha_hora": "2026-11-25T20:30",
                 "precio": "6500",
             },
-            follow_redirects=True,
         )
 
-    assert respuesta.status_code == 200
-    assert "Ya hay una función superpuesta en esa sala." in respuesta.get_data(
-        as_text=True
-    )
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 409
+    assert "Ya hay una función superpuesta en esa sala." in html
+    # SCRUM-81: el formulario conserva lo que cargó el admin en vez de vaciarse.
+    assert 'value="2026-11-25T20:30"' in html
+    assert 'value="6500"' in html
+    assert '<option value="1" selected' in html
 
 
 # --- edición ---

@@ -85,6 +85,20 @@ def _contexto_header(local_id=""):
     return {"header_locales": _opciones_locales(), "header_peliculas": _header_peliculas(peliculas)}
 
 
+@publico_bp.context_processor
+def datos_del_header():
+    """Las pantallas del cliente que no arman la cartelera (ingresar, butacas, compra, perfil...) también muestran
+    los selectores del header con datos (SCRUM-82). Se pasa la función y no el resultado: el header la llama solo si
+    la vista no mandó header_locales, así la cartelera y el detalle no consultan dos veces al backend."""
+    return {"contexto_header": _header_diferido}
+
+
+def _header_diferido(local_id=""):
+    """Lo que llama el header cuando la vista no le pasó los selectores. Función aparte para que las pruebas puedan
+    apagarla (conftest.py) sin tocar _contexto_header, que usan servicios y otras vistas."""
+    return _contexto_header(local_id)
+
+
 # Elegir una película en el header lleva a su detalle (con el local y la fecha elegidos), así la selección cambia lo
 # que se ve desde cualquier pantalla. Sin película, la cartelera se filtra por local y fecha en el backend.
 @publico_bp.get("/")

@@ -13,6 +13,7 @@ from src.frontend.validaciones import (
     validar_local,
     validar_sala,
     validar_servicio,
+    token_del_qr,
 )
 
 backoffice_bp = Blueprint("backoffice", __name__, url_prefix="/admin")
@@ -95,34 +96,37 @@ def _opciones(registros, campo_texto):
         for registro in registros
     ]
 
+CAMPOS_FUNCION = ("pelicula_id", "local_id", "sala_id", "fecha_hora", "precio")
+
+
 @backoffice_bp.route("/funciones", methods=["GET", "POST"])
 @requiere_admin
 def funciones():
     if request.method == "POST":
-        pelicula_id = request.form.get("pelicula_id", type=int)
-        sala_id = request.form.get("sala_id", type=int)
-        fecha_hora = request.form.get("fecha_hora", "")
-        precio = request.form.get("precio", type=float)
+        return _crear_funcion(leer_formulario(request.form, *CAMPOS_FUNCION))
+    return _pantalla_funciones(request.args.get("local_id", type=int), request.args.get("fecha", ""))
 
-        datos = {
-            "pelicula_id": pelicula_id,
-            "sala_id": sala_id,
-            "fecha_hora": fecha_hora + ":00",
-            "precio": precio,
-        }
 
-        funcion, error = llamar("POST", "/api/admin/funciones", json=datos)
-
-        if error is not None:
-            flash(error["mensaje"], "error")
-        else:
-            flash("La función fue creada correctamente.", "exito")
-
+def _crear_funcion(formulario):
+    """Alta de una función. Si el backend la rechaza, vuelve a mostrar el formulario con lo que cargó el admin
+    (local, película, sala, fecha y precio) en vez de vaciarlo (SCRUM-81)."""
+    datos = {
+        "pelicula_id": request.form.get("pelicula_id", type=int),
+        "sala_id": request.form.get("sala_id", type=int),
+        "fecha_hora": formulario["fecha_hora"] + ":00",
+        "precio": request.form.get("precio", type=float),
+    }
+    _, error = llamar("POST", "/api/admin/funciones", json=datos)
+    if error is None:
+        flash("La función fue creada correctamente.", "exito")
         return redirect(url_for("backoffice.funciones"))
+    flash(error["mensaje"], "error")
+    local_id = request.form.get("local_id", type=int)
+    return _pantalla_funciones(local_id, "", formulario), error["status"]
 
-    local_id = request.args.get("local_id", type=int)
-    fecha = request.args.get("fecha", "")
 
+def _pantalla_funciones(local_id, fecha, enviado=None):
+    """Listado de funciones con el formulario de alta. `enviado` es el formulario que el backend rechazó."""
     locales = _listar_locales()
     local = _local_elegido(locales, local_id)
 
@@ -150,6 +154,8 @@ def funciones():
         "fecha_hora": "",
         "precio": "",
     }
+    if enviado is not None:
+        formulario.update({campo: valor for campo, valor in enviado.items() if campo != "local_id"})
 
     return render_template(
         "backoffice/funciones.html",
@@ -701,6 +707,7 @@ def ingreso():
         resultado = None
     else:
         formulario = leer_formulario(request.form, "funcion_id", "token")
+        formulario["token"] = token_del_qr(formulario["token"])
         errores = validar_ingreso(formulario)
         if "funcion_id" not in errores:
             session["funcion_ingreso"] = int(formulario["funcion_id"])

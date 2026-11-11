@@ -65,6 +65,23 @@ def cabeceras_cliente(app_backend, usuarios):
 
 
 # --- frontend ---
+def pytest_configure(config):
+    config.addinivalue_line("markers", "header_real: el header pide sus selectores al backend (simulado) como en producción.")
+
+
+@pytest.fixture(autouse=True)
+def header_sin_backend(request):
+    """Desde SCRUM-82 el header de las pantallas del cliente pide locales y películas al backend cuando la vista no
+    se los pasa. Para que las pruebas de cada pantalla sigan contando solo sus propias llamadas a la API, acá esas
+    dos consultas devuelven listas vacías. Las pruebas del header usan @pytest.mark.header_real."""
+    if request.node.get_closest_marker("header_real"):
+        yield
+        return
+    vacio = {"header_locales": [], "header_peliculas": []}
+    with patch("src.frontend.routes.publico._header_diferido", return_value=vacio):
+        yield
+
+
 @pytest.fixture
 def app_frontend():
     app = crear_frontend()
