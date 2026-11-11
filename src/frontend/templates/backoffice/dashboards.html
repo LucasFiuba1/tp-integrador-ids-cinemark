@@ -1,31 +1,43 @@
-{# Dashboards (Figma B1 desktop y M1 mobile): KPI de la semana y los cuatro tableros del enunciado.
-   franjas_horarias, ocupacion, ventas_genero y cancelaciones tienen la forma de las respuestas de
-   GET /api/admin/dashboards/<tablero>; resumen trae los totales y la variación contra la semana anterior. #}
+{# Dashboards (Figma B1 desktop y M1 mobile): filtros del período y local, KPI y los cuatro tableros del enunciado.
+   franjas_horarias, ventas_genero y cancelaciones son las respuestas de GET /api/admin/dashboards/<tablero>;
+   ocupacion y ocupacion_funciones son por_pelicula y por_funcion de /ocupacion. resumen trae los totales del
+   período, calculados en la ruta a partir de esas respuestas. #}
 {% extends "backoffice/base_admin.html" %}
-{% from "macros.html" import cabecera_pagina, tarjeta_kpi, barra, columnas %}
+{% from "macros.html" import cabecera_pagina, campo, filtro, boton, tabla, tarjeta_kpi, barra, columnas %}
 
 {% block titulo %}Dashboards · Backoffice · Cine Paradiso{% endblock %}
 
-{# Tablero sin datos en el período (ej. una semana sin ventas). #}
+{# Tablero sin datos en el período (ej. una semana sin ventas o el backend sin responder). #}
 {% macro sin_datos() %}<p class="estado-vacio">Todavía no hay datos para este período.</p>{% endmacro %}
 
-{# Variación contra la semana anterior: ▲ / ▼ con el número sin signo. #}
-{% macro variacion(valor, sufijo) %}{{ "▲" if valor >= 0 else "▼" }} {{ valor | abs | numero }}{{ sufijo }} vs. semana anterior{% endmacro %}
+{# Barras de un tablero. Se resaltan todas las filas que empatan en el valor más alto; sin `maximo`, la escala es ese valor. #}
+{% macro lista_barras(filas, clave_etiqueta, clave_valor, sufijo='', maximo=none) %}
+  {% set mayor = filas | map(attribute=clave_valor) | max if filas else 0 %}
+  {% for fila in filas %}
+    {{ barra(fila[clave_etiqueta], fila[clave_valor], maximo=maximo or mayor, sufijo=sufijo,
+             destacada=mayor > 0 and fila[clave_valor] == mayor) }}
+  {% else %}
+    {{ sin_datos() }}
+  {% endfor %}
+{% endmacro %}
 
 {% block admin %}
-  {{ cabecera_pagina("Dashboards", bajada="Resumen de ventas y ocupación · últimos 7 días") }}
+  {{ cabecera_pagina("Dashboards", bajada="Ventas y ocupación del período elegido") }}
+
+  {# Formulario GET: los filtros quedan en la URL, así se puede recargar o compartir la vista filtrada. #}
+  <form method="get" action="{{ url_for('backoffice.dashboards') }}" class="panel formulario-linea dashboards-filtros"
+    aria-label="Filtros de los dashboards" novalidate>
+    {{ campo("desde", "Desde", "date", filtros.desde, error=errores.desde) }}
+    {{ campo("hasta", "Hasta", "date", filtros.hasta, error=errores.hasta) }}
+    {{ filtro("local_id", "Local", opciones_locales, filtros.local_id) }}
+    <div class="formulario-linea-acciones">{{ boton("Filtrar") }}</div>
+  </form>
 
   <div class="kpis">
-    {{ tarjeta_kpi("Entradas vendidas", resumen.entradas | numero, variacion(resumen.entradas_variacion, "%"),
-                   "positivo" if resumen.entradas_variacion >= 0 else "negativo") }}
-    {{ tarjeta_kpi("Ingresos", resumen.monto | precio, variacion(resumen.monto_variacion, "%"),
-                   "positivo" if resumen.monto_variacion >= 0 else "negativo") }}
-    {{ tarjeta_kpi("Ocupación promedio", resumen.ocupacion | numero ~ "%", variacion(resumen.ocupacion_variacion, " pts"),
-                   "positivo" if resumen.ocupacion_variacion >= 0 else "negativo") }}
-    {# Que suban las cancelaciones es malo: el tono va al revés que en el resto. #}
-    {{ tarjeta_kpi("Compras canceladas", resumen.cancelaciones | numero ~ "%",
-                   variacion(resumen.cancelaciones_variacion, " pts"),
-                   "negativo" if resumen.cancelaciones_variacion > 0 else "positivo") }}
+    {{ tarjeta_kpi("Entradas vendidas", resumen.entradas | numero) }}
+    {{ tarjeta_kpi("Ingresos por entradas", resumen.monto | precio) }}
+    {{ tarjeta_kpi("Ocupación promedio", resumen.ocupacion | numero ~ "%") }}
+    {{ tarjeta_kpi("Compras canceladas", resumen.cancelaciones | numero ~ "%") }}
   </div>
 
   <div class="dashboards">
@@ -37,34 +49,34 @@
 
     <section class="panel" aria-labelledby="titulo-ocupacion">
       <h2 id="titulo-ocupacion">Ocupación por película</h2>
-      {% for fila in ocupacion %}
-        {{ barra(fila.pelicula, fila.ocupacion, sufijo="%", destacada=loop.first) }}
-      {% else %}
-        {{ sin_datos() }}
-      {% endfor %}
+      {{ lista_barras(ocupacion, "pelicula", "ocupacion", sufijo="%", maximo=100) }}
       <p class="panel-nota">Butacas vendidas sobre la capacidad de sus funciones.</p>
     </section>
 
     <section class="panel" aria-labelledby="titulo-generos">
       <h2 id="titulo-generos">Ventas por género</h2>
-      {% set maximo_entradas = ventas_genero | map(attribute="entradas") | max if ventas_genero else 0 %}
-      {% for fila in ventas_genero %}
-        {{ barra(fila.genero, fila.entradas, maximo=maximo_entradas, destacada=loop.first) }}
-      {% else %}
-        {{ sin_datos() }}
-      {% endfor %}
-      <p class="panel-nota">Entradas vendidas por género de la película.</p>
+      {{ lista_barras(ventas_genero, "genero", "entradas") }}
+      <p class="panel-nota">Cada venta se cuenta en el género principal de la película.</p>
     </section>
 
     <section class="panel" aria-labelledby="titulo-cancelaciones">
       <h2 id="titulo-cancelaciones">Cancelaciones por película</h2>
-      {% set maximo_porcentaje = cancelaciones | map(attribute="porcentaje") | max if cancelaciones else 0 %}
-      {% for fila in cancelaciones %}
-        {{ barra(fila.pelicula, fila.porcentaje, maximo=maximo_porcentaje, sufijo="%", destacada=loop.first) }}
-      {% else %}
-        {{ sin_datos() }}
-      {% endfor %}
+      {{ lista_barras(cancelaciones, "pelicula", "porcentaje", sufijo="%") }}
       <p class="panel-nota">Porcentaje de compras canceladas sobre las vendidas.</p>
     </section>
   </div>
+
+  <section class="dashboards-funciones" aria-labelledby="titulo-funciones">
+    <h2 id="titulo-funciones">Ocupación por función</h2>
+    <p class="panel-nota">Las 10 funciones con mayor ocupación del período.</p>
+    {{ tabla([
+         {"clave": "pelicula", "titulo": "Película"},
+         {"clave": "local", "titulo": "Local"},
+         {"clave": "sala", "titulo": "Sala"},
+         {"clave": "fecha_hora", "titulo": "Función", "tipo": "fecha_hora"},
+         {"clave": "vendidas", "titulo": "Vendidas"},
+         {"clave": "capacidad", "titulo": "Capacidad"},
+         {"clave": "ocupacion", "titulo": "Ocupación", "tipo": "porcentaje"},
+       ], ocupacion_funciones, vacio="Todavía no hay datos para este período.") }}
+  </section>
 {% endblock %}

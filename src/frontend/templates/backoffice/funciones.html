@@ -1,34 +1,51 @@
-{# Programación de funciones (Figma B3): formulario de nueva función y listado con disponibilidad y acciones.
-   peliculas, locales y salas son opciones {"valor", "texto"}; formulario, los valores iniciales del formulario;
-   funciones, la respuesta de GET /api/admin/funciones (con libres y capacidad). salas son solo las del local elegido:
-   cambiar de local recarga la pantalla con el formulario GET ?local_id= (sin JS), y el POST lo envía oculto. #}
+{# Programación de funciones del backoffice.
+   peliculas, locales y salas son opciones {"valor", "texto"}.
+   funciones contiene la respuesta de GET /api/admin/funciones.
+   El listado se puede filtrar por local y fecha. #}
 {% extends "backoffice/base_admin.html" %}
 {% from "macros.html" import cabecera_pagina, campo, boton, filtro, tabla %}
 
 {% block titulo %}Funciones · Backoffice · Cine Paradiso{% endblock %}
 
 {% block admin %}
-  {{ cabecera_pagina("Funciones", bajada="Programación por local y sala",
-                     accion={"texto": "Nueva función", "url": url_for("backoffice.funciones") ~ "#formulario-funcion"}) }}
+  {{ cabecera_pagina(
+       "Funciones",
+       bajada="Programación por local y sala",
+       accion={
+         "texto": "Nueva función",
+         "url": url_for("backoffice.funciones") ~ "#formulario-funcion"
+       }
+     ) }}
 
   <section class="panel" id="formulario-funcion" aria-labelledby="titulo-formulario-funcion">
     <h2 id="titulo-formulario-funcion">Nueva función</h2>
-    <form method="get" action="{{ url_for('backoffice.funciones') }}#formulario-funcion" class="formulario-linea">
+
+    <form method="get" action="{{ url_for('backoffice.funciones') }}" class="formulario-linea">
       {{ filtro("local_id", "Local", locales, formulario.local_id) }}
-      <div class="formulario-linea-acciones">{{ boton("Ver salas del local", clase="boton boton-secundario") }}</div>
+      {{ campo("fecha", "Filtrar por fecha", tipo="date", valor=fecha, requerido=false) }}
+
+      <div class="formulario-linea-acciones">
+        {{ boton("Filtrar", "borde") }}
+      </div>
     </form>
+
     <form method="post" action="{{ url_for('backoffice.funciones') }}" class="formulario-funcion" novalidate>
       <input type="hidden" name="local_id" value="{{ formulario.local_id }}">
+
       <div class="formulario-linea formulario-funcion-selects">
         {{ filtro("pelicula_id", "Película", peliculas, formulario.pelicula_id) }}
         {{ filtro("sala_id", "Sala", salas, formulario.sala_id) }}
       </div>
+
       <div class="formulario-linea">
-        {{ campo("fecha", "Fecha", tipo="date", valor=formulario.fecha) }}
-        {{ campo("hora", "Hora", tipo="time", valor=formulario.hora) }}
+        {{ campo("fecha_hora", "Fecha y hora", tipo="datetime-local", valor=formulario.fecha_hora) }}
         {{ campo("precio", "Precio de la entrada", tipo="number", valor=formulario.precio, placeholder="$0") }}
-        <div class="formulario-linea-acciones">{{ boton("Guardar función") }}</div>
+
+        <div class="formulario-linea-acciones">
+          {{ boton("Guardar función") }}
+        </div>
       </div>
+
       <p class="panel-nota">El sistema valida que la sala esté libre en ese horario.</p>
     </form>
   </section>
@@ -39,8 +56,11 @@
        {"clave": "sala", "titulo": "Sala"},
        {"clave": "fecha_hora", "titulo": "Fecha y hora", "tipo": "fecha_hora"},
        {"clave": "precio", "titulo": "Precio", "tipo": "precio"},
-       {"clave": "libres", "titulo": "Libres", "tipo": "libres"},
      ], funciones,
-     acciones={"editar": "backoffice.editar_funcion", "baja": "backoffice.baja_funcion", "texto_baja": "Quitar"},
+     acciones={
+       "editar": "backoffice.editar_funcion",
+       "baja": "backoffice.baja_funcion",
+       "texto_baja": "Quitar"
+     },
      vacio="Todavía no hay funciones programadas. Cargá la primera con el formulario de arriba.") }}
 {% endblock %}

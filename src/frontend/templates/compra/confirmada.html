@@ -1,7 +1,8 @@
 {# Compra confirmada (Figma D6 desktop y M6 mobile): QR de ingreso y datos de la compra.
-   compra tiene la forma de GET /api/compras/<id> con estado confirmada (incluye qr_png_base64). #}
+   compra tiene la forma de GET /api/compras/<id> con estado confirmada (incluye qr_png_base64).
+   email_enviado es False si el backend no pudo mandar la factura: la compra igual está confirmada. #}
 {% extends "base.html" %}
-{% from "macros.html" import detalle_compra %}
+{% from "macros.html" import detalle_compra, boton %}
 
 {% block titulo %}Compra confirmada · Cine Paradiso{% endblock %}
 
@@ -10,7 +11,12 @@
     <header class="confirmada-cabecera">
       <span class="confirmada-icono" aria-hidden="true">✓</span>
       <h1>¡Compra confirmada!</h1>
-      <p class="cabecera-bajada">Enviamos la factura y tu QR de ingreso a {{ compra.email }}</p>
+      {% if email_enviado %}
+        <p class="cabecera-bajada">Enviamos la factura y tu QR de ingreso a {{ compra.email }}</p>
+      {% else %}
+        <p class="aviso aviso-error" role="alert">No pudimos enviar el email a {{ compra.email }}. Tu compra está
+          confirmada: guardá este QR, lo necesitás para entrar.</p>
+      {% endif %}
     </header>
 
     <article class="panel ticket" aria-labelledby="titulo-ticket">
@@ -20,9 +26,8 @@
     </article>
 
     <div class="confirmada-acciones">
-      {# Mi perfil todavía no tiene pantalla (igual que en base.html): el link se completa cuando exista. #}
-      <a class="boton" href="#">Ver mis compras</a>
-      <a class="boton boton-secundario" href="{{ url_for('publico.inicio') }}">Volver a cartelera</a>
+      {{ boton("Ver mis compras", url=url_for('publico.perfil')) }}
+      {{ boton("Volver a cartelera", "borde", url=url_for('publico.inicio')) }}
     </div>
 
     <p class="aviso confirmada-nota">Podés cancelar tu compra hasta 2 horas antes de la función, desde el email o desde

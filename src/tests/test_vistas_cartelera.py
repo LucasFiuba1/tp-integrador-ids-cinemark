@@ -3,9 +3,11 @@
 El contexto que las rutas le pasan a los templates se verifica reemplazando render_template; el HTML se prueba
 con el render real solo donde importa (header y 404).
 """
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
+
+from src.tests.utilidades import llamadas_sin_locales
 
 ERROR_BACKEND = {"status": 503, "codigo": "BACKEND_NO_DISPONIBLE", "mensaje": "No se pudo conectar con el servidor."}
 
@@ -21,21 +23,21 @@ PELICULA = {
     "poster_url": None, "duracion_min": 116, "clasificacion": "ATP", "genero": "Ciencia ficción",
     "funciones": [
         {"id": 12, "fecha_hora": "2026-11-10T20:30:00", "precio": 5500.0,
-         "nombre_sala": "Sala 1", "nombre_local": "Paradiso Centro"},
+         "nombre_sala": "Sala 1", "local_id": 1, "nombre_local": "Paradiso Centro"},
         {"id": 13, "fecha_hora": "2026-11-11T18:00:00", "precio": 5500.0,
-         "nombre_sala": "Sala 1", "nombre_local": "Paradiso Belgrano"},
+         "nombre_sala": "Sala 1", "local_id": 2, "nombre_local": "Paradiso Belgrano"},
         {"id": 14, "fecha_hora": "2026-11-10T22:00:00", "precio": 6000.0,
-         "nombre_sala": "Sala 2", "nombre_local": "Paradiso Centro"},
+         "nombre_sala": "Sala 2", "local_id": 1, "nombre_local": "Paradiso Centro"},
         {"id": 15, "fecha_hora": "2026-11-10T16:00:00", "precio": 5000.0,
-         "nombre_sala": "Sala 3", "nombre_local": "Paradiso Belgrano"},
+         "nombre_sala": "Sala 3", "local_id": 2, "nombre_local": "Paradiso Belgrano"},
     ],
 }
 
 
 @pytest.fixture
-def llamar():
-    with patch("src.frontend.routes.publico.llamar") as llamar:
-        yield llamar
+def llamar(llamar_publico):
+    # GET /api/locales responde los locales del seed (ver LOCALES_API en utilidades.py); el resto, return_value.
+    return llamar_publico
 
 
 @pytest.fixture
@@ -67,7 +69,7 @@ def test_cartelera_sin_filtros_llama_solo_a_la_cartelera_y_no_a_salud(cliente_fr
     llamar.return_value = (list(CARTELERA), None)
     respuesta = cliente_frontend.get("/")
     assert respuesta.status_code == 200
-    llamar.assert_called_once_with("GET", "/api/cartelera", params=None)
+    assert llamadas_sin_locales(llamar) == [call("GET", "/api/cartelera", params=None)]
     assert contexto["plantilla"] == "inicio.html"
     assert "estado_api" not in contexto
     assert contexto["peliculas"] == CARTELERA
@@ -78,22 +80,22 @@ def test_cartelera_sin_filtros_llama_solo_a_la_cartelera_y_no_a_salud(cliente_fr
 def test_cartelera_envia_local_y_fecha_a_la_api(cliente_frontend, llamar, contexto):
     llamar.return_value = ([], None)
     cliente_frontend.get("/?local_id=2&fecha=2026-11-10")
-    llamar.assert_called_once_with("GET", "/api/cartelera", params={"local_id": "2", "fecha": "2026-11-10"})
+    assert llamadas_sin_locales(llamar) == [call("GET", "/api/cartelera", params={"local_id": "2", "fecha": "2026-11-10"})]
     assert contexto["local_id"] == "2" and contexto["fecha"] == "2026-11-10"
 
 
 def test_cartelera_no_envia_la_pelicula_a_la_api(cliente_frontend, llamar, contexto):
     llamar.return_value = (list(CARTELERA), None)
     cliente_frontend.get("/?local_id=1&pelicula_id=7")
-    llamar.assert_called_once_with("GET", "/api/cartelera", params={"local_id": "1"})
+    assert llamadas_sin_locales(llamar) == [call("GET", "/api/cartelera", params={"local_id": "1"})]
 
 
-def test_cartelera_ofrece_locales_del_seed_y_peliculas_para_el_header(cliente_frontend, llamar, contexto):
+def test_cartelera_ofrece_locales_de_la_api_y_peliculas_para_el_header(cliente_frontend, llamar, contexto):
     llamar.return_value = (list(CARTELERA), None)
     cliente_frontend.get("/")
     assert contexto["header_locales"] == [
-        {"valor": "1", "texto": "Paradiso Centro"},
         {"valor": "2", "texto": "Paradiso Belgrano"},
+        {"valor": "1", "texto": "Paradiso Centro"},
         {"valor": "3", "texto": "Paradiso Palermo"},
     ]
     assert contexto["header_peliculas"] == [
@@ -101,6 +103,27 @@ def test_cartelera_ofrece_locales_del_seed_y_peliculas_para_el_header(cliente_fr
         {"valor": "7", "texto": "Cinema Paradiso"},
     ]
     assert {"valor": "", "texto": "Todos"} in contexto["locales"]
+
+
+def test_cartelera_muestra_un_local_nuevo_de_la_api(cliente_frontend, llamar, contexto):
+    llamar.locales = ([{"id": 4, "nombre": "Paradiso Sur"}], None)
+    llamar.return_value = (list(CARTELERA), None)
+    cliente_frontend.get("/")
+    assert contexto["header_locales"] == [{"valor": "4", "texto": "Paradiso Sur"}]
+    assert contexto["locales"] == [{"valor": "", "texto": "Todos"}, {"valor": "4", "texto": "Paradiso Sur"}]
+
+
+@pytest.mark.parametrize("respuesta_locales", [
+    (None, ERROR_BACKEND), (None, None), ({"id": 1}, None), ([None, "x", {"nombre": "Sin id"}], None),
+])
+def test_cartelera_con_locales_caidos_o_inesperados_ofrece_solo_todos(cliente_frontend, llamar, contexto, respuesta_locales):
+    llamar.locales = respuesta_locales
+    llamar.return_value = (list(CARTELERA), None)
+    respuesta = cliente_frontend.get("/")
+    assert respuesta.status_code == 200
+    assert contexto["locales"] == [{"valor": "", "texto": "Todos"}]
+    assert contexto["header_locales"] == []
+    assert contexto["peliculas"] == CARTELERA
 
 
 def test_cartelera_header_mantiene_la_seleccion_del_get(cliente_frontend, llamar):
@@ -204,7 +227,7 @@ def test_detalle_llama_una_sola_vez_y_ordena_funciones_por_local_y_fecha(cliente
     llamar.return_value = (dict(PELICULA), None)
     respuesta = cliente_frontend.get("/peliculas/3")
     assert respuesta.status_code == 200
-    llamar.assert_called_once_with("GET", "/api/peliculas/3")
+    assert llamadas_sin_locales(llamar) == [call("GET", "/api/peliculas/3")]
     assert contexto["plantilla"] == "pelicula.html"
     assert _ids_funciones(contexto) == [15, 13, 12, 14]
     assert contexto["total_funciones"] == 4
@@ -216,7 +239,7 @@ def test_detalle_llama_una_sola_vez_y_ordena_funciones_por_local_y_fecha(cliente
 def test_detalle_ofrece_catalogos_para_el_header(cliente_frontend, llamar, contexto):
     llamar.return_value = (dict(PELICULA), None)
     cliente_frontend.get("/peliculas/3")
-    assert [local["valor"] for local in contexto["header_locales"]] == ["1", "2", "3"]
+    assert [local["valor"] for local in contexto["header_locales"]] == ["2", "1", "3"]
     assert contexto["header_peliculas"] == [{"valor": "3", "texto": "Volver al futuro"}]
     assert {"valor": "", "texto": "Todos"} in contexto["locales"]
 
@@ -228,6 +251,23 @@ def test_detalle_filtra_funciones_por_local(cliente_frontend, llamar, contexto):
     assert contexto["local_id"] == "1"
     assert contexto["filtro_activo"] is True
     assert contexto["total_funciones"] == 4
+
+
+def test_detalle_filtra_por_id_del_local_aunque_cambie_el_nombre(cliente_frontend, llamar, contexto):
+    llamar.locales = ([{"id": 1, "nombre": "Paradiso Centro (renovado)"}], None)
+    llamar.return_value = (dict(PELICULA), None)
+    cliente_frontend.get("/peliculas/3?local_id=1")
+    assert _ids_funciones(contexto) == [12, 14]
+    assert contexto["errores_filtro"] == {}
+
+
+def test_detalle_con_locales_caidos_no_rompe_y_muestra_todas_las_funciones(cliente_frontend, llamar, contexto):
+    llamar.locales = (None, ERROR_BACKEND)
+    llamar.return_value = (dict(PELICULA), None)
+    respuesta = cliente_frontend.get("/peliculas/3")
+    assert respuesta.status_code == 200
+    assert contexto["locales"] == [{"valor": "", "texto": "Todos"}]
+    assert _ids_funciones(contexto) == [15, 13, 12, 14]
 
 
 def test_detalle_filtra_funciones_por_fecha(cliente_frontend, llamar, contexto):

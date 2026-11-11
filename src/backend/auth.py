@@ -37,7 +37,7 @@ def requiere_rol(*roles):
             except BadSignature:
                 error_api(401, "TOKEN_INVALIDO", "El token es inválido o venció.")
             usuario = consultar_uno(
-                "SELECT id, nombre, rol FROM usuarios WHERE id = %s", (datos.get("user_id"),)
+                "SELECT id, nombre, email, rol FROM usuarios WHERE id = %s", (datos.get("user_id"),)
             )
             if usuario is None:
                 error_api(401, "TOKEN_INVALIDO", "El token es inválido o venció.")

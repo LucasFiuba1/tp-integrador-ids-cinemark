@@ -65,6 +65,7 @@ Pesos: `--peso-normal` (400), `--peso-medio` (500), `--peso-negrita` (700). Inte
 | `--ancho-formulario` | 416 px (tarjeta de ingresar y crear cuenta) |
 | `--ancho-ticket` | 640 px (compra confirmada) |
 | `--alto-grafico` | 192 px (gráfico de columnas de los dashboards) |
+| `--ancho-columna-grafico` | 96 px (ancho máximo de cada columna del gráfico) |
 | `--transicion` | 150 ms para hover |
 
 ## Breakpoints (mobile-first)
@@ -136,7 +137,7 @@ flash se muestran dentro del panel principal. Las vistas se protegen con `@requi
 | Macro (`macros.html`) | Uso |
 |---|---|
 | `cabecera_pagina(titulo, accion=none, bajada='')` | `h1`, bajada opcional y botón blanco: `accion={"texto": "Importar de TMDB", "url": url_for(...)}`. |
-| `tabla(columnas, filas, acciones={}, vacio=...)` | Tabla dentro de un `.panel`. Columnas `{"clave", "titulo", "tipo"}`: `tipo: "estado"` muestra un badge (con `"textos": {valor: leyenda}` opcional), `"activo"` hace lo mismo a partir de un booleano (`true` → `activa`, `false` → `inactiva`), `"precio"` muestra `$6.500` y `"hora"` / `"fecha_hora"` formatean fechas ISO. Acciones `{"editar": endpoint, "baja": endpoint}` que reciben `id`: "Editar" es un link y "Dar de baja" un `<form method="post">` en rojo (`"texto_baja"` cambia la leyenda, ej. "Quitar"), que no se ofrece si `fila.activa` o `fila.activo` es `false`. Sin filas muestra `vacio`. En mobile cada fila se apila con la etiqueta de cada dato. |
+| `tabla(columnas, filas, acciones={}, vacio=...)` | Tabla dentro de un `.panel`. Columnas `{"clave", "titulo", "tipo"}`: `tipo: "estado"` muestra un badge (con `"textos": {valor: leyenda}` opcional), `"activo"` hace lo mismo a partir de un booleano (`true` → `activa`, `false` → `inactiva`), `"precio"` muestra `$6.500`, `"porcentaje"` muestra `74%` y `"hora"` / `"fecha_hora"` formatean fechas ISO. Acciones `{"editar": endpoint, "baja": endpoint}` que reciben `id`: "Editar" es un link y "Dar de baja" un `<form method="post">` en rojo (`"texto_baja"` cambia la leyenda, ej. "Quitar"), que no se ofrece si `fila.activa` o `fila.activo` es `false`. Sin filas muestra `vacio`. En mobile cada fila se apila con la etiqueta de cada dato. |
 | `badge_estado(estado, texto='')` | Palabra en mayúscula con borde: `activa` (verde), `inactiva` (gris, borde punteado), `cancelada` (rojo), `utilizada` (blanco). Se distingue por el texto, no solo por el color; `texto` cambia la leyenda (ej. "En cartelera"). |
 | `tarjeta_kpi(titulo, valor, detalle='', tono='')` | Indicador de los dashboards; agrupar en `<div class="kpis">` (2 por fila en mobile, 4 en desktop). `tono` `positivo`/`negativo` colorea el detalle. |
 | `barra(etiqueta, valor, maximo=100, sufijo='', destacada=false)` | Fila etiqueta / pista / valor; ancho `valor / maximo` con tope 100 %. Relleno blanco y `destacada` en `--color-primario`. El valor se muestra con el filtro `numero`. |
@@ -157,10 +158,11 @@ alta/edición de los ABM: campos apilados en mobile y en una fila con el botón 
 | Macro (`macros.html`) | Uso |
 |---|---|
 | `pasos_compra(actual)` | Pasos Función → Butacas → Servicios → Pago; los anteriores a `actual` (1 a 4) llevan ✓ en rojo y el actual va en blanco con `aria-current="step"`. |
-| `resumen_compra(compra)` | Panel lateral con póster, función, detalle de entradas y servicios, total y vencimiento de la reserva. `compra` tiene la forma de `GET /api/compras/<id>`; se usa con `{% call resumen_compra(compra) %}` y el botón de la pantalla va adentro. |
+| `resumen_compra(compra)` | Panel lateral con póster, función, butacas, detalle de entradas y servicios, total y vencimiento de la reserva. `compra` tiene la forma de `GET /api/compras/<id>`; se usa con `{% call resumen_compra(compra) %}` y el botón de la pantalla va adentro. |
 | `datos(filas, clase='')` | Lista `<dl>` etiqueta → valor en dos columnas; `filas` es una lista de tuplas. La usan validar ingreso, el resumen y el ticket. |
 | `casilla(nombre, etiqueta, valor='', error='')` | Checkbox con su texto (aceptar términos), con el mismo manejo de error que `campo`. |
-| `boton(..., formulario='')` | `formulario` es el `id` del `<form>` que envía el botón cuando queda fuera de él (resumen del pago). |
+| `boton(texto, variante='blanco', tipo='submit', url='', bloque=false, clase='', formulario='', deshabilitado=false, nombre='', valor='')` | Botón del Figma con variantes `blanco` (por defecto), `rojo` (acción principal destacada, `--color-primario`) y `borde` (secundaria, fondo transparente). Con `url` es un link `<a>` para acciones GET; sin `url` es un `<button>`. `bloque` lo estira a todo el ancho, `clase` suma clases de la pantalla y `formulario` es el `id` del `<form>` que envía el botón cuando queda fuera de él (resumen del pago). `deshabilitado` agrega `disabled` (o `aria-disabled` sin `href` en el link) y lo muestra atenuado. `nombre` y `valor` identifican qué botón envió el formulario cuando hay varios (paso de servicios: `accion=pago`). |
+| `campo(nombre, etiqueta, tipo='text', valor='', requerido=true, placeholder='', autocompletar='', minimo=none, maximo=none, paso=none, opciones=[], error='', enfocar=false, deshabilitado=false)` | Label + campo + mensaje de error. `tipo`: `text`, `email`, `password`, `number`, `date`, `datetime-local` o `select`. `minimo` / `maximo` son `minlength` / `maxlength` en texto y `min` / `max` en `number` y fechas; `paso` es el `step`. En `select`, `opciones` es una lista `{"valor", "texto"}` (como `filtro`) y `placeholder` va como opción vacía. Con `error` marca el borde en `--color-error` y muestra el mensaje debajo con `aria-describedby`. |
 
 ## Ejemplo
 

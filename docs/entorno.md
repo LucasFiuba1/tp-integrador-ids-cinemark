@@ -56,18 +56,18 @@ Los valores por defecto siguientes son los del código cuando falta una variable
 
 El frontend no se conecta directamente a MySQL ni consulta TMDB. No necesita esas credenciales si se despliega por separado. La cookie está **firmada, no cifrada**: no guardar contraseñas ni claves de servicios en la sesión.
 
-### Correo: configuración reservada
+### Correo (SMTP)
 
 | Variable | Para qué sirve | Valor |
 |---|---|---|
-| `SMTP_HOST` | Servidor de salida de correo. | Por ejemplo, `smtp.gmail.com`; default del código: vacío. |
-| `SMTP_PORT` | Puerto SMTP. | La plantilla usa `587` (habitualmente STARTTLS); entero. |
+| `SMTP_HOST` | Servidor de salida de correo. | Por ejemplo, `smtp.gmail.com`; default del código: vacío (no envía y deja un aviso en el log). |
+| `SMTP_PORT` | Puerto SMTP. | La plantilla usa `587` (STARTTLS si el servidor lo anuncia); con `465` se usa TLS directo (`SMTP_SSL`). |
 | `SMTP_USER` | Usuario/cuenta que envía el correo. | Dirección de correo o usuario entregado por el proveedor. |
 | `SMTP_PASSWORD` | Credencial SMTP. | En Gmail, contraseña de aplicación, **no** contraseña normal de la cuenta. |
+| `MAIL_FROM` | Dirección que figura como remitente (`From`). | Si se deja vacía, usa `SMTP_USER`. |
+| `FRONTEND_URL` | Dirección pública del sitio del cliente (sin `/` al final). | `http://localhost:5001` en local; se usa para el enlace "Cancelar compra" del email y para la URL `/admin/ingreso?token=...` que codifica el QR. |
 
-**Estado actual:** el backend lee estos valores, pero el envío de emails no está implementado. Completarlos no envía facturas ni QR, ni configura TLS por sí solo. Se pueden dejar `SMTP_USER` y `SMTP_PASSWORD` vacíos hasta implementar y probar el envío. Tampoco existe una variable que seleccione SSL/STARTTLS: lo deberá resolver la implementación.
-
-Para Gmail, cuando se implemente: activar verificación en dos pasos y crear una [contraseña de aplicación](https://myaccount.google.com/apppasswords). No todas las cuentas permiten hacerlo; ver [ayuda de Google](https://support.google.com/accounts/answer/185833). No pegar esa credencial en issues, chats ni capturas.
+Para Gmail: activar verificación en dos pasos y crear una [contraseña de aplicación](https://myaccount.google.com/apppasswords). No todas las cuentas permiten hacerlo; ver [ayuda de Google](https://support.google.com/accounts/answer/185833). No pegar esa credencial en issues, chats ni capturas.
 
 ## 3. Generar las dos claves de la aplicación
 

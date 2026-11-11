@@ -15,7 +15,13 @@
        {"clave": "precio", "titulo": "Precio", "tipo": "precio"},
        {"clave": "activo", "titulo": "Estado", "tipo": "activo", "textos": {"activa": "Activo", "inactiva": "Inactivo"}},
      ], servicios,
-     acciones={"editar": "backoffice.editar_servicio", "baja": "backoffice.baja_servicio", "texto_baja": "Quitar"},
+     acciones={
+      "editar": "backoffice.editar_servicio",
+      "baja": "backoffice.baja_servicio",
+      "texto_baja": "Quitar",
+      "confirmacion": "¿Seguro que querés dar de baja este servicio?",
+      "reactivar": "backoffice.reactivar_servicio",
+      },
      vacio="Todavía no hay servicios. Cargá el primero con el formulario de abajo.") }}
 
   <section class="panel" id="formulario-servicio" aria-labelledby="titulo-formulario-servicio">

@@ -55,7 +55,7 @@ una base con datos que se deban conservar ni en hosting.
 
 ## Ejecución
 
-En dos terminales, desde la raíz del repo:
+En dos terminales, desde la raíz del repo (en Windows con PowerShell usar `.\.venv\Scripts\Activate.ps1`, o en Git Bash `source .venv/Scripts/activate`):
 
 ```bash
 source .venv/bin/activate
@@ -67,7 +67,13 @@ source .venv/bin/activate
 flask --app src.frontend.app run --port 5001 --debug    # Sitio en http://localhost:5001
 ```
 
-Verificación rápida: `http://localhost:5000/api/salud` devuelve `{"estado": "ok"}` y la portada del sitio muestra el estado de la API.
+Verificación rápida: `http://localhost:5000/api/salud` devuelve `{"estado": "ok"}` y la portada del sitio muestra la cartelera sin avisos de conexión.
+
+### Verificación de extremo a extremo (compra y validación de QR)
+
+1. Abrir `http://localhost:5001/ingresar` e iniciar sesión como cliente (`ana@mail.com` / `cliente1234`).
+2. Elegir una película de la cartelera, seleccionar una función futura, marcar al menos una butaca libre y continuar hasta confirmar el pago simulado para obtener el código QR y la factura.
+3. Cerrar sesión, ingresar como administrador (`admin@cineparadiso.com` / `admin1234`), ir a `/admin/validar` y validar el código QR de la entrada para la función reservada.
 
 Usuarios de prueba que carga `seed.sql`:
 
@@ -92,9 +98,31 @@ Desde la raíz, con el entorno virtual activado:
 python -m pytest src/tests -v
 ```
 
-Las pruebas iniciales verifican la API de salud, el formato de errores y la
-portada con la API disponible o caída, sin requerir MySQL ni servidores activos.
-Al implementar compras, reservas y permisos, agregar sus pruebas en `tests/`.
+Las pruebas usan pytest y `unittest.mock`, sin clases ni servicios externos.
+Las utilidades comunes están en `src/tests/utilidades.py` y las fixtures en
+`src/tests/conftest.py`: `app_backend`, `cliente_backend`, `cabeceras_admin`
+y `cabeceras_cliente` permiten probar endpoints con tokens firmados por rol.
+`usuario` y `cabeceras` conservan el usuario admin de las pruebas existentes.
+
+Para simular la base de un service, indicar el módulo donde se usan las
+operaciones (los imports directos también necesitan parchearse):
+
+```python
+from src.tests.utilidades import afirmar_error_json, simular_bd
+
+def test_pelicula_inexistente(cliente_backend, cabeceras_admin):
+    with simular_bd(destinos=("src.backend.services.peliculas",)) as bd:
+        bd.consultar_uno.return_value = None
+        respuesta = cliente_backend.patch(
+            "/api/admin/peliculas/99", json={"titulo": "Nuevo"}, headers=cabeceras_admin,
+        )
+    afirmar_error_json(respuesta, 404, "NO_ENCONTRADO")
+```
+
+La simulación ofrece mocks de `consultar`, `consultar_uno`, `ejecutar`,
+`transaccion` y su cursor; al salir del `with` restaura los originales.
+La autenticación se simula por separado con las fixtures de usuarios:
+no incluir `src.backend.auth` entre los destinos del service.
 
 Para verificar las consultas de dashboards contra el `seed.sql` real (SCRUM-76),
 hay pruebas MySQL opcionales. Requieren una base **descartable y aislada** en
@@ -142,8 +170,5 @@ valores esperados del seed están en [Dashboards](docs/endpoints.md#dashboards).
 | Lucas Cirillo Berardi |
 | Santiago Fernandez Bain |
 | Juan Pablo Bruzone |
-| Francisco Martinez |
-| Víctor Daniel Morinigo |
-| Nicolas Valenzuela |
-| Joaquin Zavala |
-| Martin Simajowich |
+| Joaquín Nicolás Zavala Eguez |
+| Martín Simajowich |

@@ -1,0 +1,15 @@
+{% extends "email/base.html" %}
+
+{% block titulo %}Compra #{{ compra.id }} confirmada · Cine Paradiso{% endblock %}
+{% block encabezado %}¡Compra confirmada!{% endblock %}
+{% block bajada %}Hola {{ cliente.nombre }}, acá tenés tu factura y el código QR para presentar al ingresar a la sala.{% endblock %}
+
+{% block antes_detalle %}
+  <img class="qr" src="cid:{{ qr_cid }}" alt="Código QR de ingreso de la compra #{{ compra.id }}">
+{% endblock %}
+
+{% block pie %}
+  <p class="nota">Podés cancelar tu compra hasta {{ config.HORAS_LIMITE_CANCELACION }} horas antes de la función
+    (hasta las {{ compra.cancelable_hasta | fecha_hora }}). Al cancelar se liberan las butacas y el QR deja de ser válido.</p>
+  <p><a class="boton" href="{{ enlace_cancelacion }}">Cancelar compra</a></p>
+{% endblock %}

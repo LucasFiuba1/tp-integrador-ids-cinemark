@@ -1,17 +1,87 @@
-"""Pruebas del perfil del cliente maquetado con datos de ejemplo (SCRUM-116)."""
+"""Pruebas del perfil del cliente (SCRUM-116 maqueta, SCRUM-50 integración con el backend).
+
+El backend se simula parcheando llamar en la ruta: cada prueba puede cambiar las respuestas en perfil_api.
+"""
 import re
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
 from src.frontend.filtros import dia_semana
-from src.frontend.routes.publico import _cancelable_hasta, _perfil_ejemplo, _pestana_compra
+from src.frontend.routes.publico import RUTAS_PERFIL, _pestana_compra
+
+
+def _perfil_api():
+    """Respuestas de GET /api/auth/me, /api/me/compras y /api/me/peliculas-vistas (forma de docs/endpoints.md)."""
+    return {
+        "usuario": {"id": 7, "nombre": "Lucas Berardi", "email": "lucas@email.com", "rol": "cliente"},
+        "compras": [
+            {"id": 1042, "estado": "confirmada", "total": 23000.0, "utilizada_en": None, "vence_en": None,
+             "funcion": {"id": 13, "pelicula_id": 5, "fecha_hora": "2026-11-20T19:30:00",
+                         "pelicula": "La noche del telón",
+                         "poster_url": None, "sala": "Sala 1", "local": "Paradiso Centro"},
+             "butacas": ["D5", "D6", "D7"],
+             "servicios": [{"nombre": "Combo pochoclos grande", "cantidad": 1, "precio_unitario": 6500.0}],
+             "token_qr": "qr-1042", "cancelable": True, "cancelable_hasta": "2026-11-20T17:30:00"},
+            {"id": 1043, "estado": "confirmada", "total": 19000.0, "utilizada_en": None, "vence_en": None,
+             "funcion": {"id": 11, "pelicula_id": 6, "fecha_hora": "2026-11-21T21:00:00",
+                         "pelicula": "Código medianoche",
+                         "poster_url": None, "sala": "Sala VIP", "local": "Paradiso Palermo"},
+             "butacas": ["B4"], "servicios": [{"nombre": "Acceso VIP", "cantidad": 1, "precio_unitario": 8000.0}],
+             "token_qr": "qr-1043", "cancelable": True, "cancelable_hasta": "2026-11-21T19:00:00"},
+            {"id": 1044, "estado": "pendiente", "total": 6000.0, "utilizada_en": None,
+             "vence_en": "2026-11-07T19:42:00",
+             "funcion": {"id": 12, "pelicula_id": 1, "fecha_hora": "2026-11-23T17:00:00",
+                         "pelicula": "Pequeños gigantes",
+                         "poster_url": None, "sala": "Sala 2", "local": "Paradiso Belgrano"},
+             "butacas": ["F7"], "servicios": [], "token_qr": None, "cancelable": False,
+             "cancelable_hasta": "2026-11-23T15:00:00"},
+            {"id": 1031, "estado": "confirmada", "total": 16500.0, "utilizada_en": "2026-10-18T19:52:00",
+             "vence_en": None,
+             "funcion": {"id": 6, "pelicula_id": 3, "fecha_hora": "2026-10-18T20:00:00",
+                         "pelicula": "Aventuras en el Plata",
+                         "poster_url": None, "sala": "Sala 3", "local": "Paradiso Centro"},
+             "butacas": ["E8", "E9"], "servicios": [], "token_qr": "qr-1031", "cancelable": False,
+             "cancelable_hasta": "2026-10-18T18:00:00"},
+            {"id": 1035, "estado": "cancelada", "total": 8500.0, "utilizada_en": None, "vence_en": None,
+             "cancelada_en": "2026-10-20T12:10:00",
+             "funcion": {"id": 9, "pelicula_id": 7, "fecha_hora": "2026-10-21T18:00:00",
+                         "pelicula": "Sombras del pasado",
+                         "poster_url": None, "sala": "Sala 1", "local": "Paradiso Belgrano"},
+             "butacas": ["C7"], "servicios": [], "token_qr": None, "cancelable": False,
+             "cancelable_hasta": "2026-10-21T16:00:00"},
+        ],
+        "peliculas_vistas": [
+            {"pelicula_id": 3, "titulo": "Aventuras en el Plata", "poster_url": None, "duracion_min": 102,
+             "clasificacion": "ATP", "genero": "Aventura", "utilizada_en": "2026-10-18T19:52:00"},
+            {"pelicula_id": 4, "titulo": "El jardín de cristal", "poster_url": None, "duracion_min": 118,
+             "clasificacion": "+13", "genero": "Drama", "utilizada_en": "2026-10-11T20:41:00"},
+            {"pelicula_id": 1, "titulo": "Pequeños gigantes", "poster_url": None, "duracion_min": 95,
+             "clasificacion": "ATP", "genero": "Animación", "utilizada_en": "2026-10-04T17:02:00"},
+            {"pelicula_id": 2, "titulo": "Cuando cae la lluvia", "poster_url": None, "duracion_min": 124,
+             "clasificacion": "+16", "genero": "Drama", "utilizada_en": "2026-09-27T21:55:00"},
+        ],
+    }
 
 
 @pytest.fixture
-def ahora_fijo():
-    """Fecha actual fija: las compras de ejemplo de noviembre de 2026 quedan como próximas."""
+def perfil_api():
+    """Backend simulado: dict con las respuestas (editable en cada prueba) y el mock de llamar en la ruta."""
+    datos = _perfil_api()
+    claves = {ruta: clave for clave, ruta in RUTAS_PERFIL}
+
+    def responder(metodo, ruta, json=None, params=None):
+        return datos[claves[ruta]], None
+
+    with patch("src.frontend.routes.publico.llamar", side_effect=responder) as llamar:
+        yield {"datos": datos, "llamar": llamar}
+
+
+@pytest.fixture
+def ahora_fijo(perfil_api):
+    """Fecha actual fija: las compras de noviembre de 2026 quedan como próximas."""
     with patch("src.frontend.routes.publico.datetime") as reloj:
         reloj.now.return_value = datetime(2026, 11, 7, 12, 0)
         reloj.fromisoformat = datetime.fromisoformat
@@ -46,7 +116,6 @@ def test_perfil_con_sesion_muestra_cuenta_compras_y_vistas(cliente_logueado, aho
         assert _titulo_compra(titulo) in html
     assert 'href="/perfil?estado=proximas" aria-current="page">Próximas</a>' in html
     assert 'href="/compras/1042/cancelar"' in html and 'href="/compras/1044/pago"' in html
-    # A 14 días de la función 1043 (21/11) todavía se puede cancelar: la ruta calcula cancelable con la hora actual.
     assert 'href="/compras/1043/cancelar"' in html and "No se puede cancelar" not in html
     assert "<script" not in html and 'style="' not in html
 
@@ -86,7 +155,7 @@ CANCELAR_DESHABILITADO = 'boton-deshabilitado" aria-disabled="true">Cancelar'
 
 
 @pytest.fixture
-def reloj():
+def reloj(perfil_api):
     """Como ahora_fijo, pero cada prueba elige la hora actual con reloj.now.return_value."""
     with patch("src.frontend.routes.publico.datetime") as simulado:
         simulado.fromisoformat = datetime.fromisoformat
@@ -128,10 +197,45 @@ def test_perfil_por_post_devuelve_405(cliente_logueado):
     assert cliente_logueado.post("/perfil").status_code == 405
 
 
-def test_perfil_no_llama_al_backend(cliente_logueado, ahora_fijo):
-    with patch("src.frontend.api_client.requests.request") as peticion:
-        assert cliente_logueado.get("/perfil").status_code == 200
-    peticion.assert_not_called()
+def test_perfil_pide_cuenta_compras_y_vistas_al_backend(cliente_logueado, ahora_fijo, perfil_api):
+    assert cliente_logueado.get("/perfil").status_code == 200
+    rutas = [llamada.args for llamada in perfil_api["llamar"].call_args_list]
+    assert rutas == [("GET", "/api/auth/me"), ("GET", "/api/me/compras"), ("GET", "/api/me/peliculas-vistas")]
+
+
+def test_perfil_con_backend_caido_avisa_sin_romper(cliente_logueado):
+    # Sin parchear llamar: requests falla de verdad contra http://api.test y llamar devuelve BACKEND_NO_DISPONIBLE.
+    with patch("src.frontend.api_client.requests.request", side_effect=requests.ConnectionError):
+        respuesta = cliente_logueado.get("/perfil")
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 200
+    assert "No se pudo conectar con el servidor." in html
+    assert "No pudimos cargar tus compras." in html and "No pudimos cargar las películas que viste." in html
+    assert "No tenés compras en esta sección." not in html
+    assert "<h1>Ana</h1>" in html  # el nombre sale de la sesión
+
+
+def test_perfil_con_error_del_backend_muestra_el_mensaje(cliente_logueado):
+    error = {"status": 500, "codigo": "ERROR", "mensaje": "El servidor respondió con un error."}
+    with patch("src.frontend.routes.publico.llamar", return_value=(None, error)):
+        html = cliente_logueado.get("/perfil").get_data(as_text=True)
+    assert "El servidor respondió con un error." in html
+    assert "No pudimos cargar tus compras." in html
+
+
+def test_perfil_con_sesion_vencida_redirige_al_login(cliente_logueado):
+    vencida = Mock(ok=False, status_code=401, content=b"{}")
+    vencida.json.return_value = {"error": {"codigo": "TOKEN_INVALIDO", "mensaje": "El token es inválido o venció."}}
+    with patch("src.frontend.api_client.requests.request", return_value=vencida):
+        respuesta = cliente_logueado.get("/perfil")
+    assert respuesta.status_code == 302
+    assert respuesta.headers["Location"].endswith("/ingresar")
+
+
+def test_perfil_sin_email_no_muestra_parrafo_vacio(cliente_logueado, ahora_fijo, perfil_api):
+    del perfil_api["datos"]["usuario"]["email"]
+    html = cliente_logueado.get("/perfil").get_data(as_text=True)
+    assert "<p></p>" not in html and "<h1>Lucas Berardi</h1>" in html
 
 
 # Query params raros en ?estado=
@@ -167,7 +271,7 @@ def test_perfil_con_estado_repetido_valido_usa_el_primero_y_no_rompe(cliente_log
 ])
 def test_perfil_cada_pestana_muestra_solo_sus_compras(cliente_logueado, ahora_fijo, estado, titulos):
     html = cliente_logueado.get(f"/perfil?estado={estado}").get_data(as_text=True)
-    todas = {compra["funcion"]["pelicula"] for compra in _perfil_ejemplo()["compras"]}
+    todas = {compra["funcion"]["pelicula"] for compra in _perfil_api()["compras"]}
     for titulo in todas:
         assert (_titulo_compra(titulo) in html) == (titulo in titulos)
 
@@ -179,31 +283,22 @@ def test_perfil_pestana_vacia_muestra_mensaje(cliente_logueado, reloj):
     assert "No tenés compras en esta sección." in html
 
 
-def test_perfil_sin_peliculas_vistas_muestra_mensaje(cliente_logueado, ahora_fijo):
-    datos = _perfil_ejemplo()
-    datos["peliculas_vistas"] = []
-    with patch("src.frontend.routes.publico._perfil_ejemplo", return_value=datos):
-        html = cliente_logueado.get("/perfil").get_data(as_text=True)
+def test_perfil_sin_peliculas_vistas_muestra_mensaje(cliente_logueado, ahora_fijo, perfil_api):
+    perfil_api["datos"]["peliculas_vistas"] = []
+    html = cliente_logueado.get("/perfil").get_data(as_text=True)
     assert "Todavía no viste películas con nosotros." in html
 
 
-def test_perfil_ejemplo_tiene_los_datos_que_usa_la_pantalla():
-    datos = _perfil_ejemplo()
-    assert {"id", "nombre", "email"} <= set(datos["usuario"])
-    for compra in datos["compras"]:
-        assert {"id", "estado", "total", "butacas", "servicios", "funcion", "cancelable"} <= set(compra)
-        datetime.fromisoformat(compra["funcion"]["fecha_hora"])
-        assert compra["estado"] in ("confirmada", "pendiente", "cancelada")
-        assert not (compra["cancelable"] and compra["estado"] != "confirmada")
-        if compra["estado"] == "pendiente":
-            datetime.fromisoformat(compra["vence_en"])
-    assert len({compra["id"] for compra in datos["compras"]}) == len(datos["compras"])
+def test_perfil_sin_compras_muestra_mensaje_en_cada_pestana(cliente_logueado, ahora_fijo, perfil_api):
+    perfil_api["datos"]["compras"] = []
+    for estado in ("proximas", "historial", "canceladas"):
+        assert "No tenés compras en esta sección." in cliente_logueado.get(f"/perfil?estado={estado}").get_data(as_text=True)
 
 
-def test_perfil_ejemplo_devuelve_una_copia_nueva_en_cada_llamada():
-    primero = _perfil_ejemplo()
-    primero["compras"].clear()
-    assert _perfil_ejemplo()["compras"]
+@pytest.mark.parametrize("clave", ["compras", "peliculas_vistas", "usuario"])
+def test_perfil_con_respuesta_nula_del_backend_no_rompe(cliente_logueado, ahora_fijo, perfil_api, clave):
+    perfil_api["datos"][clave] = None
+    assert cliente_logueado.get("/perfil").status_code == 200
 
 
 # _pestana_compra en los límites
@@ -228,17 +323,6 @@ def test_pestana_compra_cancelada_y_usada_va_a_canceladas():
 
 def test_pestana_compra_pendiente_futura_es_proxima():
     assert _pestana_compra(_compra(estado="pendiente"), datetime(2026, 11, 7, 12, 0)) == "proximas"
-
-
-# _cancelable_hasta
-@pytest.mark.parametrize("fecha_hora, esperada", [
-    ("2026-11-20T19:30:00", "2026-11-20T17:30:00"),
-    ("2026-11-21T01:00:00", "2026-11-20T23:00:00"),  # cruza la medianoche
-    ("2026-03-01T00:30:00", "2026-02-28T22:30:00"),  # cruza el mes
-    ("2026-11-20T19:30", "2026-11-20T17:30:00"),     # sin segundos
-])
-def test_cancelable_hasta_resta_el_limite_de_horas(fecha_hora, esperada):
-    assert _cancelable_hasta(fecha_hora, 2).isoformat() == esperada
 
 
 def test_horas_limite_cancelacion_coincide_con_el_backend(app_frontend, app_backend):
@@ -307,46 +391,31 @@ def test_tarjeta_compra_escapa_el_titulo_de_la_pelicula(renderizar):
     assert "&lt;script&gt;" in html
 
 
-@pytest.mark.parametrize("momento", [
-    datetime(2026, 11, 20, 17, 30, 0),   # justo en el límite: el backend (ahora < límite) ya no deja cancelar
-    datetime(2026, 11, 20, 17, 30, 1),
-    datetime(2026, 11, 20, 18, 45, 0),   # a 45 minutos de la función
-])
-def test_perfil_deshabilita_cancelar_cuando_faltan_menos_de_2_horas(cliente_logueado, reloj, momento):
-    reloj.now.return_value = momento
+def test_perfil_respeta_cancelable_del_backend(cliente_logueado, ahora_fijo, perfil_api):
+    # El plazo lo decide el backend: si dice que no, el botón queda deshabilitado aunque falten días.
+    perfil_api["datos"]["compras"][0]["cancelable"] = False
     html = cliente_logueado.get("/perfil").get_data(as_text=True)
     assert CANCELAR_HABILITADO not in html
-
-
-def test_perfil_ofrece_cancelar_un_segundo_antes_del_limite(cliente_logueado, reloj):
-    reloj.now.return_value = datetime(2026, 11, 20, 17, 29, 59)
-    html = cliente_logueado.get("/perfil").get_data(as_text=True)
-    assert CANCELAR_HABILITADO in html
+    assert "No se puede cancelar: faltan menos de 2 horas" in html
 
 
 @pytest.mark.parametrize("fecha_hora", ["", "20/11/2026 19:30"])
-def test_perfil_con_fecha_de_funcion_vacia_o_mal_formada_no_rompe(cliente_logueado, ahora_fijo, fecha_hora):
+def test_perfil_con_fecha_de_funcion_vacia_o_mal_formada_no_rompe(cliente_logueado, ahora_fijo, fecha_hora, perfil_api):
     # Sin fecha válida la compra va al historial y no se puede cancelar.
-    datos = _perfil_ejemplo()
-    datos["compras"][0]["funcion"]["fecha_hora"] = fecha_hora
-    with patch("src.frontend.routes.publico._perfil_ejemplo", return_value=datos):
-        assert cliente_logueado.get("/perfil").status_code == 200
+    perfil_api["datos"]["compras"][0]["funcion"]["fecha_hora"] = fecha_hora
+    assert cliente_logueado.get("/perfil").status_code == 200
 
 
 @pytest.mark.parametrize("fecha_hora", ["2027-01-01 al mediodía", "2027-13-01T10:00:00"])
-def test_perfil_con_fecha_futura_mal_formada_no_rompe(cliente_logueado, ahora_fijo, fecha_hora):
-    datos = _perfil_ejemplo()
-    datos["compras"][0]["funcion"]["fecha_hora"] = fecha_hora
-    with patch("src.frontend.routes.publico._perfil_ejemplo", return_value=datos):
-        respuesta = cliente_logueado.get("/perfil")
+def test_perfil_con_fecha_futura_mal_formada_no_rompe(cliente_logueado, ahora_fijo, fecha_hora, perfil_api):
+    perfil_api["datos"]["compras"][0]["funcion"]["fecha_hora"] = fecha_hora
+    respuesta = cliente_logueado.get("/perfil")
     assert respuesta.status_code == 200
 
 
-def test_perfil_con_fecha_de_funcion_nula_no_rompe(cliente_logueado, ahora_fijo):
-    datos = _perfil_ejemplo()
-    datos["compras"][0]["funcion"]["fecha_hora"] = None
-    with patch("src.frontend.routes.publico._perfil_ejemplo", return_value=datos):
-        respuesta = cliente_logueado.get("/perfil")
+def test_perfil_con_fecha_de_funcion_nula_no_rompe(cliente_logueado, ahora_fijo, perfil_api):
+    perfil_api["datos"]["compras"][0]["funcion"]["fecha_hora"] = None
+    respuesta = cliente_logueado.get("/perfil")
     assert respuesta.status_code == 200
 
 
@@ -432,9 +501,7 @@ def test_perfil_peliculas_vistas_sin_link_con_h3_y_fecha(cliente_logueado, ahora
     assert '<p class="tarjeta-pelicula-genero">Vista el 11/10</p>' in html
 
 
-def test_perfil_pelicula_vista_sin_fecha_no_rompe(cliente_logueado, ahora_fijo):
-    datos = _perfil_ejemplo()
-    datos["peliculas_vistas"][0]["utilizada_en"] = None
-    with patch("src.frontend.routes.publico._perfil_ejemplo", return_value=datos):
-        respuesta = cliente_logueado.get("/perfil")
+def test_perfil_pelicula_vista_sin_fecha_no_rompe(cliente_logueado, ahora_fijo, perfil_api):
+    perfil_api["datos"]["peliculas_vistas"][0]["utilizada_en"] = None
+    respuesta = cliente_logueado.get("/perfil")
     assert respuesta.status_code == 200

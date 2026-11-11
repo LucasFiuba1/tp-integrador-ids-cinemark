@@ -23,7 +23,7 @@
         <h2 class="destacada-titulo" id="destacada-titulo">{{ destacada.titulo or "Película sin título" }}</h2>
         {% set meta = [destacada.genero, tiempo, destacada.clasificacion] | select | join(" · ") %}
         {% if meta %}<p class="destacada-meta">{{ meta }}</p>{% endif %}
-        <a class="boton" href="{{ url_destacada }}">Comprar entradas</a>
+        {{ boton("Comprar entradas", url=url_destacada) }}
       </div>
       <div class="destacada-poster">{{ poster_pelicula(destacada, decorativo=true) }}</div>
     </section>
@@ -67,12 +67,12 @@
     {% elif error_cartelera %}
       <div class="estado-vacio">
         <p>La cartelera no se pudo cargar.</p>
-        <a class="boton boton-secundario" href="{{ request.full_path }}">Reintentar</a>
+        {{ boton("Reintentar", "borde", url=request.full_path) }}
       </div>
     {% elif filtrada %}
       <div class="estado-vacio">
         <p>No hay funciones para los filtros que elegiste.</p>
-        <a class="boton boton-secundario" href="{{ url_for('publico.inicio') }}">Ver toda la cartelera</a>
+        {{ boton("Ver toda la cartelera", "borde", url=url_for('publico.inicio')) }}
       </div>
     {% else %}
       <p class="estado-vacio">Por el momento no hay funciones disponibles en cartelera.</p>

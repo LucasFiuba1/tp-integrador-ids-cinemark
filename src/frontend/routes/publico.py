@@ -1,32 +1,48 @@
 """Páginas para el cliente: cartelera, compra y perfil."""
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 from src.frontend.api_client import llamar
-from src.frontend.ejemplos import servicios_ejemplo
 from src.frontend.filtros import hora
 from src.frontend.sesion import ir_al_login, requiere_sesion
-from src.frontend.validaciones import leer_formulario, validar_login, validar_pago, validar_registro
+from src.frontend.validaciones import (
+    MAXIMO_CANTIDAD_SERVICIO,
+    leer_formulario,
+    validar_cantidades_servicios,
+    validar_login,
+    validar_pago,
+    validar_registro,
+)
 
 publico_bp = Blueprint("publico", __name__)
 
-# El desplegable usa los locales del seed: GET /api/locales todavía no está en el backend.
-LOCALES_CARTELERA = (
-    {"valor": "", "texto": "Todos"},
-    {"valor": "1", "texto": "Paradiso Centro"},
-    {"valor": "2", "texto": "Paradiso Belgrano"},
-    {"valor": "3", "texto": "Paradiso Palermo"},
-)
+OPCION_TODOS_LOS_LOCALES = {"valor": "", "texto": "Todos"}
 
 
-def _header_locales():
-    # El header ya trae su opción "Elegí local": acá van solo los locales reales.
-    return [local for local in LOCALES_CARTELERA if local["valor"]]
+def _opciones_locales():
+    """Locales de GET /api/locales como opciones {"valor", "texto"} para el header y los filtros (SCRUM-126).
 
-
-def _nombres_locales():
-    return {local["valor"]: local["texto"] for local in _header_locales()}
+    Si el backend falla o responde algo inesperado, la lista queda vacía: el filtro solo ofrece "Todos" y la página
+    se muestra igual.
+    """
+    datos, error = llamar("GET", "/api/locales")
+    if error or not isinstance(datos, list):
+        return []
+    return [
+        {"valor": str(local["id"]), "texto": str(local.get("nombre") or f"Local {local['id']}")}
+        for local in datos
+        if isinstance(local, dict) and local.get("id") is not None
+    ]
 
 
 def _header_peliculas(peliculas):
@@ -56,6 +72,7 @@ def inicio():
     pelicula_id = _id_pelicula(request.args.get("pelicula_id"))
     params = {nombre: valor for nombre, valor in (("local_id", local_id), ("fecha", fecha)) if valor}
     datos, error = llamar("GET", "/api/cartelera", params=params or None)
+    locales = _opciones_locales()
     peliculas = [] if error else _solo_peliculas(datos)
     error_cartelera = bool(error) or peliculas is None
     if error_cartelera:
@@ -68,12 +85,12 @@ def inicio():
     return render_template(
         "inicio.html",
         peliculas=peliculas,
-        locales=LOCALES_CARTELERA,
+        locales=[OPCION_TODOS_LOS_LOCALES, *locales],
         local_id=local_id,
         fecha=fecha,
         pelicula_id=str(pelicula_id) if pelicula_id is not None else "",
         error_cartelera=error_cartelera,
-        header_locales=_header_locales(),
+        header_locales=locales,
         header_peliculas=header_peliculas,
     )
 
@@ -82,13 +99,16 @@ MENSAJE_LOCAL_INVALIDO = "No reconocemos ese local. Te mostramos las funciones d
 MENSAJE_FECHA_INVALIDA = "La fecha no es válida (usá el formato AAAA-MM-DD). Te mostramos las funciones de todos los días."
 
 
-def _filtros_detalle(args):
-    """Valida local_id y fecha del GET. Devuelve (local, fecha, errores): lo inválido queda vacío y con su mensaje."""
-    locales = _nombres_locales()
+def _filtros_detalle(args, locales):
+    """Valida local_id (contra las opciones de locales) y fecha del GET.
+
+    Devuelve (local, fecha, errores): lo inválido queda vacío y con su mensaje.
+    """
+    ids_locales = {local["valor"] for local in locales}
     local_id = (args.get("local_id") or "").strip()
     fecha = (args.get("fecha") or "").strip()
     errores = {}
-    if local_id and local_id not in locales:
+    if local_id and local_id not in ids_locales:
         errores["local_id"] = MENSAJE_LOCAL_INVALIDO
         local_id = ""
     if fecha:
@@ -102,11 +122,10 @@ def _filtros_detalle(args):
     return local_id, fecha, errores
 
 
-def _funciones_filtradas(funciones, nombre_local, fecha):
-    # GET /api/peliculas/<id> no trae local_id de cada función: se filtra por nombre del local (seed).
+def _funciones_filtradas(funciones, local_id, fecha):
     funciones = [funcion for funcion in funciones if isinstance(funcion, dict)]
-    if nombre_local:
-        funciones = [funcion for funcion in funciones if funcion.get("nombre_local") == nombre_local]
+    if local_id:
+        funciones = [funcion for funcion in funciones if str(funcion.get("local_id")) == local_id]
     if fecha:
         funciones = [funcion for funcion in funciones if str(funcion.get("fecha_hora") or "")[:10] == fecha]
     return sorted(funciones, key=lambda funcion: (str(funcion.get("nombre_local") or ""), str(funcion.get("fecha_hora") or "")))
@@ -122,19 +141,20 @@ def detalle_pelicula(id):
             return render_template("errores/404.html"), 404
         flash(error["mensaje"], "error")
         return redirect(url_for("publico.inicio"))
-    local_id, fecha, errores_filtro = _filtros_detalle(request.args)
+    locales = _opciones_locales()
+    local_id, fecha, errores_filtro = _filtros_detalle(request.args, locales)
     funciones = pelicula.get("funciones") if isinstance(pelicula.get("funciones"), list) else []
-    filtradas = _funciones_filtradas(funciones, _nombres_locales().get(local_id), fecha)
+    filtradas = _funciones_filtradas(funciones, local_id, fecha)
     return render_template(
         "pelicula.html",
         pelicula={**pelicula, "funciones": filtradas},
-        locales=LOCALES_CARTELERA,
+        locales=[OPCION_TODOS_LOS_LOCALES, *locales],
         local_id=local_id,
         fecha=fecha,
         errores_filtro=errores_filtro,
         filtro_activo=bool(local_id or fecha),
         total_funciones=len([funcion for funcion in funciones if isinstance(funcion, dict)]),
-        header_locales=_header_locales(),
+        header_locales=locales,
         header_peliculas=_header_peliculas([pelicula]) if pelicula.get("id") is not None else [],
     )
 
@@ -151,10 +171,12 @@ def _registrar_e_iniciar_sesion(formulario):
 
 
 def _abrir_sesion(usuario):
+    # siguiente es la página que pidió el login (la guarda sesion.ir_al_login): se vuelve ahí en vez de al inicio.
+    siguiente = session.get("siguiente")
     session.clear()
     session.update(token=usuario["token"], rol=usuario["rol"], nombre=usuario["nombre"])
     flash(f"¡Hola, {usuario['nombre']}!", "exito")
-    return _ir_al_inicio(usuario["rol"])
+    return redirect(siguiente) if siguiente else _ir_al_inicio(usuario["rol"])
 
 
 def _ir_al_inicio(rol):
@@ -199,149 +221,295 @@ def salir():
     return redirect(url_for("publico.inicio"))
 
 
+MAXIMO_DIGITOS_ID = 18  # int() falla con textos larguísimos; ningún id real se acerca a este largo
+
+
+def _ids_butacas(valores):
+    # isdecimal() y no isdigit(): "²" es dígito pero int("²") falla y la página daría error 500.
+    return [int(valor) for valor in valores if valor.isdecimal() and len(valor) <= MAXIMO_DIGITOS_ID and int(valor) > 0]
+
+
+def _mensaje_conflicto(seleccionadas, butacas_mapa, mensaje_api):
+    """Nombra las butacas elegidas que se ocuparon, según el mapa recién pedido: el 409 del backend no siempre las dice."""
+    tomadas = [f"{butaca['fila']}{butaca['numero']}" for butaca in butacas_mapa
+               if butaca["id"] in seleccionadas and butaca["estado"] != "libre"]
+    return f"Estas butacas ya no están disponibles: {', '.join(tomadas)}. Elegí otras." if tomadas else mensaje_api
+
+
 # Ver el mapa de butacas es público (GET); reservar (POST) pide sesión. Por eso el chequeo va acá y no con
-# @requiere_sesion, que protegería los dos métodos.
+# @requiere_sesion, que protegería los dos métodos. Las butacas elegidas viajan en la URL para que, al volver del
+# login, sigan marcadas (la grilla solo marca las que continúan libres).
 @publico_bp.route("/funciones/<int:funcion_id>/butacas", methods=["GET", "POST"])
 def butacas(funcion_id):
-    seleccionadas = []
+    seleccionadas = _ids_butacas(request.args.getlist("butaca_ids"))
     error_formulario = ""
-    datos_invalidos = False
+    estado = 200
+    hay_conflicto = False
     if request.method == "POST":
-        if not session.get("token"):
-            return ir_al_login("Ingresá para reservar tus butacas.")
         valores = request.form.getlist("butaca_ids")
-        # isdecimal() y no isdigit(): "²" es dígito pero int("²") falla y la página daría error 500.
-        seleccionadas = [int(valor) for valor in valores if valor.isdecimal() and int(valor) > 0]
+        seleccionadas = _ids_butacas(valores)
+        if not session.get("token"):
+            destino = url_for("publico.butacas", funcion_id=funcion_id, butaca_ids=seleccionadas)
+            return ir_al_login("Ingresá para reservar tus butacas.", volver_a=destino)
         if not valores or len(seleccionadas) != len(valores):
             error_formulario = "Elegí al menos una butaca libre."
-            datos_invalidos = True
+            estado = 400
         else:
             compra, error = llamar("POST", "/api/compras", json={"funcion_id": funcion_id, "butaca_ids": seleccionadas})
             if error is None:
+                session["compra_id"] = compra["id"]
                 flash(f"Reservamos tus butacas hasta las {hora(compra['vence_en'])}.", "exito")
                 return redirect(url_for("publico.servicios_compra", compra_id=compra["id"]))
             error_formulario = error["mensaje"]
+            estado = error["status"]
+            hay_conflicto = error["codigo"] == "BUTACA_OCUPADA"
     funcion, error = llamar("GET", f"/api/funciones/{funcion_id}")
     mapa, error_mapa = (None, error) if error else llamar("GET", f"/api/funciones/{funcion_id}/butacas")
     if error_mapa:
         flash(error_mapa["mensaje"], "error")
         return redirect(url_for("publico.inicio"))
+    if hay_conflicto:
+        error_formulario = _mensaje_conflicto(seleccionadas, mapa["butacas"], error_formulario)
     return render_template(
         "compra/butacas.html", funcion=funcion, mapa=mapa, seleccionadas=seleccionadas, error=error_formulario,
-    ), 400 if datos_invalidos else 200
+    ), estado
 
 
-# Pago y compra confirmada maquetados (SCRUM-114) con una compra de ejemplo que tiene la forma de la respuesta de
-# GET /api/compras/<id>. SCRUM-68 reemplaza _compra_ejemplo por llamar(...) y el POST por /api/compras/<id>/confirmar.
+# Pago y compra confirmada (SCRUM-68). Las dos pantallas muestran el detalle real de GET /api/compras/<id> y el pago
+# confirma con POST /api/compras/<id>/confirmar: el total y el QR son los del backend. Los datos de la tarjeta solo se
+# validan acá y no viajan al backend, porque el pago es simulado.
 CAMPOS_PAGO = ("titular", "numero", "vencimiento", "codigo_seguridad", "acepto")
-# QR de ejemplo (codifica CP-1042-D5): PNG de 23 x 23 px que la pantalla agranda sin suavizar.
-QR_EJEMPLO = (
-    "iVBORw0KGgoAAAANSUhEUgAAABcAAAAXAQAAAADIUekNAAAAZ0lEQVR42gFcAKP/Af8A/wMBExoCPvT4BOTwxAIARAACABQAAL76+gMh7TAA"
-    "/5P+AIgE7gHTq/ACAb1EAgsTiAQDHCwCHRvoAwEynwI+3fQC5PPEAgBq9AQAzc8CHOPIAyH7vAH/AP8IeCMEJ5FRrwAAAABJRU5ErkJggg=="
-)
+MENSAJE_RESERVA_INACTIVA = "Esta reserva ya no está activa. Elegí tus butacas de nuevo."
+# Rechazos del backend que no se arreglan reintentando el pago: se vuelve al inicio en vez de al formulario.
+ERRORES_SIN_REINTENTO = ("COMPRA_NO_PENDIENTE", "RESERVA_VENCIDA", "NO_ENCONTRADO", "SIN_PERMISO")
+
+def _reserva_vigente(compra):
+    # El backend marca "vencida" recién al reservar de nuevo o al confirmar: una pendiente puede tener el plazo ya pasado.
+    return compra["estado"] == "pendiente" and datetime.fromisoformat(compra["vence_en"]) > datetime.now()
 
 
-def _compra_ejemplo(compra_id, confirmada=False):
-    return {
-        "id": compra_id, "estado": "confirmada" if confirmada else "pendiente", "vence_en": "2026-10-24T19:05:00",
-        "pelicula": "La noche del telón",
-        "poster_url": None, "local": "Paradiso Centro", "sala": "Sala 1",
-        "funcion": "2026-10-24T19:30:00", "butacas": ["D5", "D6", "D7"], "subtotal_entradas": 16500,
-        "servicios": [{"nombre": "Combo pochoclos grande", "cantidad": 1, "subtotal": 6500}], "total": 23000,
-        "email": "lucas@email.com", "qr_png_base64": QR_EJEMPLO if confirmada else None, "cancelable": confirmada,
-    }
+def _compra_pendiente(compra_id):
+    """Detalle de la compra, o None con un aviso si no existe, es ajena o la reserva ya no está activa."""
+    compra, error = llamar("GET", f"/api/compras/{compra_id}")
+    if error is None and not _reserva_vigente(compra):
+        error = {"mensaje": MENSAJE_RESERVA_INACTIVA}
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return None
+    return compra
 
 
-@publico_bp.get("/compras/<int:compra_id>/servicios")
+def _servicios_activos():
+    """Si la lista no se puede cargar, se avisa y la página sigue: se puede continuar sin servicios."""
+    servicios, error = llamar("GET", "/api/servicios")
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
+    return servicios
+
+
+def _cantidades_del_formulario(servicios, accion):
+    """{servicio_id: texto}, solo de los servicios que se muestran: otro campo que llegue en el POST se ignora."""
+    if accion == "sin_servicios":
+        return {servicio["id"]: "0" for servicio in servicios}
+    return {servicio["id"]: request.form.get(f"cantidad_{servicio['id']}", "").strip() or "0" for servicio in servicios}
+
+
+# Paso opcional entre butacas y pago (SCRUM-65). Las cantidades se guardan con PUT /api/compras/<id>/servicios y el
+# total que se muestra es siempre el del backend: el frontend no suma precios. "accion" sale del botón que se tocó:
+# "actualizar" (o Enter) recalcula el total y vuelve acá; "pago" y "sin_servicios" siguen al pago.
+@publico_bp.route("/compras/<int:compra_id>/servicios", methods=["GET", "POST"])
 @requiere_sesion
 def servicios_compra(compra_id):
-    servicios = [servicio for servicio in servicios_ejemplo() if servicio["activo"]]
-    return render_template("compra/servicios.html", compra=_compra_ejemplo(compra_id), servicios=servicios)
+    compra = _compra_pendiente(compra_id)
+    if compra is None:
+        return redirect(url_for("publico.inicio"))
+    servicios = _servicios_activos()
+    elegidas = {servicio["servicio_id"]: str(servicio["cantidad"]) for servicio in compra["servicios"]}
+    cantidades = {servicio["id"]: elegidas.get(servicio["id"], "0") for servicio in servicios}
+    errores, error_api, estado = {}, "", 200
+    if request.method == "POST":
+        accion = request.form.get("accion")
+        cantidades = _cantidades_del_formulario(servicios, accion)
+        errores = validar_cantidades_servicios(cantidades)
+        if errores:
+            estado = 400
+        else:
+            pedido = [{"servicio_id": servicio_id, "cantidad": int(texto)}
+                      for servicio_id, texto in cantidades.items() if int(texto) > 0]
+            _, error = llamar("PUT", f"/api/compras/{compra_id}/servicios", json=pedido)
+            if error is None and accion in ("pago", "sin_servicios"):
+                return redirect(url_for("publico.pago", compra_id=compra_id))
+            if error is None:
+                flash("Actualizamos el total de tu compra.", "exito")
+                return redirect(url_for("publico.servicios_compra", compra_id=compra_id))
+            if error["status"] != 400:  # la compra ya no se puede modificar (vencida, pagada o ajena)
+                flash(error["mensaje"], "error")
+                return redirect(url_for("publico.inicio"))
+            error_api, estado = error["mensaje"], 400
+    pagina = render_template("compra/servicios.html", compra=compra, servicios=servicios, cantidades=cantidades,
+                             errores=errores, error=error_api, maximo_cantidad=MAXIMO_CANTIDAD_SERVICIO)
+    return pagina, estado
+
+
+def _ya_confirmada(compra_id, error):
+    if error["codigo"] != "COMPRA_NO_PENDIENTE":
+        return False
+    compra, error_detalle = llamar("GET", f"/api/compras/{compra_id}")
+    return error_detalle is None and compra["estado"] == "confirmada"
+
+
+def _confirmar_pago(compra_id):
+    resultado, error = llamar("POST", f"/api/compras/{compra_id}/confirmar")
+    destino = url_for("publico.compra_confirmada", compra_id=compra_id)
+    if error is None:
+        if resultado["email_enviado"]:
+            session.pop("email_fallido", None)
+        else:
+            session["email_fallido"] = compra_id
+    elif not _ya_confirmada(compra_id, error):
+        flash(error["mensaje"], "error")
+        sin_reintento = error["codigo"] in ERRORES_SIN_REINTENTO
+        destino = url_for("publico.inicio") if sin_reintento else url_for("publico.pago", compra_id=compra_id)
+    return redirect(destino)
 
 
 @publico_bp.route("/compras/<int:compra_id>/pago", methods=["GET", "POST"])
 @requiere_sesion
 def pago(compra_id):
+    compra, error = llamar("GET", f"/api/compras/{compra_id}")
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return redirect(url_for("publico.inicio"))
+    if compra["estado"] == "confirmada":  # volver atrás o repetir el envío no vuelve a cobrar
+        return redirect(url_for("publico.compra_confirmada", compra_id=compra_id))
+    if not _reserva_vigente(compra):
+        flash(MENSAJE_RESERVA_INACTIVA, "error")
+        return redirect(url_for("publico.inicio"))
     formulario = leer_formulario(request.form, *CAMPOS_PAGO)
     errores = validar_pago(formulario) if request.method == "POST" else {}
     if request.method == "POST" and not errores:
-        return redirect(url_for("publico.compra_confirmada", compra_id=compra_id))
+        return _confirmar_pago(compra_id)
     # Los datos sensibles de la tarjeta no se devuelven a la página, como la contraseña en el login.
     formulario.update(numero="", codigo_seguridad="")
-    pagina = render_template("compra/pago.html", compra=_compra_ejemplo(compra_id), formulario=formulario,
-                             errores=errores)
+    pagina = render_template("compra/pago.html", compra=compra, formulario=formulario, errores=errores)
     return pagina, 400 if errores else 200
 
 
 @publico_bp.get("/compras/<int:compra_id>/confirmada")
 @requiere_sesion
 def compra_confirmada(compra_id):
-    return render_template("compra/confirmada.html", compra=_compra_ejemplo(compra_id, confirmada=True))
+    compra, error = llamar("GET", f"/api/compras/{compra_id}")
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return redirect(url_for("publico.inicio"))
+    if compra["estado"] != "confirmada":
+        pendiente = _reserva_vigente(compra)
+        flash("Completá el pago para confirmar tu compra." if pendiente else "Esta compra no está confirmada.", "error")
+        destino = url_for("publico.pago", compra_id=compra_id) if pendiente else url_for("publico.inicio")
+        return redirect(destino)
+    email_enviado = session.get("email_fallido") != compra_id
+    return render_template("compra/confirmada.html", compra=compra, email_enviado=email_enviado)
 
-
-# Cancelación maquetada (SCRUM-115) con la compra confirmada de ejemplo. SCRUM-70 reemplaza _compra_ejemplo por
-# llamar("GET", f"/api/compras/{compra_id}") y el POST por /api/compras/<id>/cancelar (errores 409 con flash).
+# Cancelación desde el perfil (con sesión) o desde el enlace firmado del email (sin sesión, SCRUM-70).
+# Abrir el enlace con GET solo muestra el resumen y el botón de confirmación; la cancelación ocurre solo con POST.
 @publico_bp.route("/compras/<int:compra_id>/cancelar", methods=["GET", "POST"])
 @requiere_sesion
 def cancelar_compra(compra_id):
+    volver_url = url_for("publico.perfil")
+    accion_url = url_for("publico.cancelar_compra", compra_id=compra_id)
     if request.method == "POST":
-        flash(f"Cancelaste la compra #{compra_id}. Liberamos las butacas y el QR ya no es válido.", "exito")
-        return redirect(url_for("publico.inicio"))
-    return render_template("compra/cancelar.html", compra=_compra_ejemplo(compra_id, confirmada=True))
+        _, error = llamar("POST", f"/api/compras/{compra_id}/cancelar")
+        if error is None:
+            flash(f"Cancelaste la compra #{compra_id}. Liberamos las butacas y el QR ya no es válido.", "exito")
+            return redirect(volver_url)
+        flash(error["mensaje"], "error")
+        compra, error_detalle = llamar("GET", f"/api/compras/{compra_id}")
+        if error_detalle is not None:
+            return redirect(volver_url)
+        return (
+            render_template(
+                "compra/cancelar.html",
+                compra=compra,
+                accion_url=accion_url,
+                volver_url=volver_url,
+                motivo_rechazo=error["mensaje"],
+            ),
+            error["status"],
+        )
+
+    compra, error = llamar("GET", f"/api/compras/{compra_id}")
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return redirect(volver_url)
+    return render_template("compra/cancelar.html", compra=compra, accion_url=accion_url, volver_url=volver_url)
 
 
-# Perfil del cliente maquetado (SCRUM-116). Los datos de ejemplo tienen la forma de GET /api/auth/me,
-# GET /api/me/compras y GET /api/me/peliculas-vistas (más lo que pide el mockup y la API todavía no manda: el email,
-# la compra pendiente con vence_en y la duración y clasificación de las vistas). SCRUM-49 los reemplaza por llamar(...).
+@publico_bp.route("/cancelar/<token>", methods=["GET", "POST"])
+def cancelar_por_token(token):
+    volver_url = url_for("publico.inicio")
+    accion_url = url_for("publico.cancelar_por_token", token=token)
+    if request.method == "POST":
+        resultado, error = llamar("POST", "/api/compras/cancelar-por-token", json={"token": token})
+        if error is None:
+            compra, _ = llamar("GET", "/api/compras/por-token", params={"token": token})
+            flash(f"Cancelaste la compra #{resultado['id']}. Liberamos las butacas y el QR ya no es válido.", "exito")
+            return render_template(
+                "compra/cancelar.html", compra=compra, cancelada_exito=True, volver_url=volver_url
+            )
+        if error["codigo"] == "TOKEN_INVALIDO":
+            return (
+                render_template(
+                    "compra/cancelar.html", compra=None, error_enlace=error["mensaje"], volver_url=volver_url
+                ),
+                error["status"],
+            )
+        compra, error_detalle = llamar("GET", "/api/compras/por-token", params={"token": token})
+        if error_detalle is not None:
+            return (
+                render_template(
+                    "compra/cancelar.html", compra=None, error_enlace=error_detalle["mensaje"], volver_url=volver_url
+                ),
+                error_detalle["status"],
+            )
+        return (
+            render_template(
+                "compra/cancelar.html",
+                compra=compra,
+                accion_url=accion_url,
+                volver_url=volver_url,
+                motivo_rechazo=error["mensaje"],
+            ),
+            error["status"],
+        )
+
+    compra, error = llamar("GET", "/api/compras/por-token", params={"token": token})
+    if error is not None:
+        return (
+            render_template("compra/cancelar.html", compra=None, error_enlace=error["mensaje"], volver_url=volver_url),
+            error["status"],
+        )
+    return render_template("compra/cancelar.html", compra=compra, accion_url=accion_url, volver_url=volver_url)
+
+
+# Perfil del cliente (SCRUM-50 sobre la maqueta de SCRUM-116): cuenta, compras por pestaña y películas vistas.
+# Los tres datos salen del backend (GET /api/auth/me, /api/me/compras y /api/me/peliculas-vistas); el backend ya
+# dice si cada compra es cancelable y hasta cuándo, así la regla del plazo vive en un solo lugar.
 PESTANAS_PERFIL = (("proximas", "Próximas"), ("historial", "Historial"), ("canceladas", "Canceladas"))
+RUTAS_PERFIL = (
+    ("usuario", "/api/auth/me"), ("compras", "/api/me/compras"), ("peliculas_vistas", "/api/me/peliculas-vistas"),
+)
 
 
-def _perfil_ejemplo():
-    return {
-        "usuario": {"id": 7, "nombre": "Lucas Berardi", "email": "lucas@email.com", "rol": "cliente"},
-        "compras": [
-            {"id": 1042, "estado": "confirmada", "total": 23000.0, "utilizada_en": None,
-             "funcion": {"id": 13, "pelicula_id": 5, "fecha_hora": "2026-11-20T19:30:00",
-                         "pelicula": "La noche del telón",
-                         "poster_url": None, "sala": "Sala 1", "local": "Paradiso Centro"},
-             "butacas": ["D5", "D6", "D7"],
-             "servicios": [{"nombre": "Combo pochoclos grande", "cantidad": 1, "precio_unitario": 6500.0}],
-             "cancelable": True},
-            {"id": 1043, "estado": "confirmada", "total": 19000.0, "utilizada_en": None,
-             "funcion": {"id": 11, "pelicula_id": 6, "fecha_hora": "2026-11-21T21:00:00",
-                         "pelicula": "Código medianoche",
-                         "poster_url": None, "sala": "Sala VIP", "local": "Paradiso Palermo"},
-             "butacas": ["B4"], "servicios": [{"nombre": "Acceso VIP", "cantidad": 1, "precio_unitario": 8000.0}],
-             "cancelable": False},
-            {"id": 1044, "estado": "pendiente", "total": 6000.0, "utilizada_en": None,
-             "vence_en": "2026-11-07T19:42:00",
-             "funcion": {"id": 12, "pelicula_id": 1, "fecha_hora": "2026-11-23T17:00:00",
-                         "pelicula": "Pequeños gigantes",
-                         "poster_url": None, "sala": "Sala 2", "local": "Paradiso Belgrano"},
-             "butacas": ["F7"], "servicios": [], "cancelable": False},
-            {"id": 1031, "estado": "confirmada", "total": 16500.0, "utilizada_en": "2026-10-18T19:52:00",
-             "funcion": {"id": 6, "pelicula_id": 3, "fecha_hora": "2026-10-18T20:00:00",
-                         "pelicula": "Aventuras en el Plata",
-                         "poster_url": None, "sala": "Sala 3", "local": "Paradiso Centro"},
-             "butacas": ["E8", "E9"], "servicios": [], "cancelable": False},
-            {"id": 1035, "estado": "cancelada", "total": 8500.0, "utilizada_en": None,
-             "cancelada_en": "2026-10-20T12:10:00",
-             "funcion": {"id": 9, "pelicula_id": 7, "fecha_hora": "2026-10-21T18:00:00",
-                         "pelicula": "Sombras del pasado",
-                         "poster_url": None, "sala": "Sala 1", "local": "Paradiso Belgrano"},
-             "butacas": ["C7"], "servicios": [], "cancelable": False},
-        ],
-        "peliculas_vistas": [
-            {"pelicula_id": 3, "titulo": "Aventuras en el Plata", "poster_url": None, "duracion_min": 102,
-             "clasificacion": "ATP", "utilizada_en": "2026-10-18T19:52:00"},
-            {"pelicula_id": 4, "titulo": "El jardín de cristal", "poster_url": None, "duracion_min": 118,
-             "clasificacion": "+13", "utilizada_en": "2026-10-11T20:41:00"},
-            {"pelicula_id": 1, "titulo": "Pequeños gigantes", "poster_url": None, "duracion_min": 95,
-             "clasificacion": "ATP", "utilizada_en": "2026-10-04T17:02:00"},
-            {"pelicula_id": 2, "titulo": "Cuando cae la lluvia", "poster_url": None, "duracion_min": 124,
-             "clasificacion": "+16", "utilizada_en": "2026-09-27T21:55:00"},
-        ],
-    }
+def _datos_perfil():
+    """Pide al backend los datos del perfil. Devuelve (datos, error) con el primer error que aparezca."""
+    datos = {}
+    for clave, ruta in RUTAS_PERFIL:
+        respuesta, error = llamar("GET", ruta)
+        if error:
+            return None, error
+        datos[clave] = respuesta
+    return datos, None
 
 
 def _fecha_funcion(fecha_hora):
@@ -356,44 +524,29 @@ def _fecha_funcion(fecha_hora):
 def _pestana_compra(compra, ahora):
     """Canceladas aparte; las usadas, las de función ya pasada o sin fecha válida van al historial y el resto son
     próximas."""
-    if compra["estado"] == "cancelada":
+    if compra.get("estado") == "cancelada":
         return "canceladas"
-    fecha = _fecha_funcion(compra["funcion"].get("fecha_hora"))
+    fecha = _fecha_funcion((compra.get("funcion") or {}).get("fecha_hora"))
     if compra.get("utilizada_en") or fecha is None or fecha < ahora.replace(microsecond=0):
         return "historial"
     return "proximas"
 
 
-def _cancelable_hasta(fecha_hora, horas_limite):
-    """Último momento para cancelar (datetime), o None si la fecha de la función no es válida."""
-    fecha = _fecha_funcion(fecha_hora)
-    return None if fecha is None else fecha - timedelta(hours=horas_limite)
-
-
-def _compra_perfil(compra, ahora, horas_limite):
-    # Igual que el backend: se puede cancelar una compra confirmada mientras ahora < límite.
-    hasta = _cancelable_hasta(compra["funcion"].get("fecha_hora"), horas_limite)
-    return dict(
-        compra,
-        cancelable_hasta=hasta.isoformat(timespec="seconds") if hasta else None,
-        cancelable=compra["estado"] == "confirmada" and hasta is not None and ahora < hasta,
-    )
-
-
 @publico_bp.get("/perfil")
 @requiere_sesion
 def perfil():
-    datos = _perfil_ejemplo()
     claves = [clave for clave, _ in PESTANAS_PERFIL]
     # Una pestaña que no existe (?estado=cualquiera) muestra las próximas en lugar de romper la página.
     pestana = request.args.get("estado") if request.args.get("estado") in claves else claves[0]
+    datos, error = _datos_perfil()
+    if error:
+        flash(error["mensaje"], "error")
+        datos = {"usuario": {"nombre": session.get("nombre") or "Mi perfil"}, "compras": [], "peliculas_vistas": []}
     ahora = datetime.now()
-    horas_limite = current_app.config["HORAS_LIMITE_CANCELACION"]
-    compras = [
-        _compra_perfil(compra, ahora, horas_limite)
-        for compra in datos["compras"] if _pestana_compra(compra, ahora) == pestana
-    ]
+    compras = [compra for compra in datos["compras"] or [] if _pestana_compra(compra, ahora) == pestana]
     return render_template(
-        "perfil.html", usuario=datos["usuario"], compras=compras, peliculas_vistas=datos["peliculas_vistas"],
-        pestanas=PESTANAS_PERFIL, pestana=pestana, horas_limite=horas_limite,
+        "perfil.html", usuario=datos["usuario"] or {}, compras=compras,
+        peliculas_vistas=datos["peliculas_vistas"] or [],
+        pestanas=PESTANAS_PERFIL, pestana=pestana, horas_limite=current_app.config["HORAS_LIMITE_CANCELACION"],
+        sin_datos=error is not None,
     )

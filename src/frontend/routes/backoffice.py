@@ -1,11 +1,19 @@
 """Páginas del administrador (ABM, dashboards y validación de QR)."""
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from datetime import date, timedelta
 
-from src.frontend.ejemplos import servicios_ejemplo
-from src.frontend.sesion import requiere_admin
-from src.frontend.validaciones import leer_formulario, validar_codigo_qr, validar_servicio
+from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from src.frontend.api_client import llamar
+from src.frontend.filtros import hora
+from src.frontend.sesion import requiere_admin
+from src.frontend.validaciones import (
+    leer_formulario,
+    validar_filtros_dashboards,
+    validar_ingreso,
+    validar_local,
+    validar_sala,
+    validar_servicio,
+)
 
 backoffice_bp = Blueprint("backoffice", __name__, url_prefix="/admin")
 
@@ -16,139 +24,343 @@ SECCIONES = (
     ("funciones", "Funciones"),
     ("locales", "Locales y salas"),
     ("servicios", "Servicios"),
-    ("validar", "Validar ingreso"),
+    ("ingreso", "Validar ingreso"),
 )
 
 # Secciones que ya tienen su vista; el resto muestra la pantalla provisoria. Al implementar una
 # (SCRUM-53, 55, 57, 72, 74, 77), agregar su endpoint acá y definir la vista con ese mismo endpoint.
-SECCIONES_IMPLEMENTADAS = ("dashboards", "peliculas", "funciones", "locales", "servicios", "validar")
+SECCIONES_IMPLEMENTADAS = ("dashboards", "peliculas", "funciones", "locales", "servicios", "ingreso")
 
 
-def _locales_ejemplo():
-    return [
-        {
-            "id": 1,
-            "nombre": "Paradiso Centro",
-            "direccion": "Av. Corrientes 1234, CABA",
-            "activa": True,
-            "salas": [
-                {"id": 1, "nombre": "Sala 1", "capacidad": 132, "activa": True},
-                {"id": 2, "nombre": "Sala 2", "capacidad": 132, "activa": True},
-            ]
-        },
-        {
-            "id": 2,
-            "nombre": "Paradiso Belgrano",
-            "direccion": "Av. Cabildo 5678, CABA",
-            "activa": True,
-            "salas": [
-                {"id": 3, "nombre": "Sala 1", "capacidad": 96, "activa": True},
-                {"id": 4, "nombre": "Sala 2", "capacidad": 96, "activa": True},
-            ]
-        },
-        {
-            "id": 3,
-            "nombre": "Paradiso Palermo",
-            "direccion": "Av. Santa Fe 4321, CABA",
-            "activa": True,
-            "salas": [
-                {"id": 5, "nombre": "Sala VIP", "capacidad": 36, "activa": True},
-            ]
-        }
-    ]
+# Programación de funciones del backoffice (SCRUM-57).
 
-
-# Programación de funciones maquetada (SCRUM-119, Figma B3) con datos de ejemplo. "funciones" tiene la forma de
-# GET /api/admin/funciones más "libres" y "capacidad", que la API todavía no devuelve. Al conectarla se reemplaza
-# _funciones_ejemplo por llamar(...) y los flash de "pendiente" por POST / PUT / DELETE /api/admin/funciones.
 def _local_elegido(locales, local_id):
-    """El local con ese id; si no existe (o no vino), el primero, para que la pantalla nunca rompa."""
     for local in locales:
         if local["id"] == local_id:
             return local
-    return locales[0]
+    if locales:
+        return locales[0]
+    return None
 
 
-def _funciones_ejemplo(local_id=None):
-    """Datos de la pantalla; las opciones de sala son solo las del local elegido."""
-    locales = _locales_ejemplo()
-    local = _local_elegido(locales, local_id)
-    return {
-        "peliculas": [
-            {"valor": "", "texto": "Elegí una película"},
-            {"valor": 1, "texto": "La noche del telón"},
-            {"valor": 2, "texto": "Código Medianoche"},
-            {"valor": 3, "texto": "Pequeños gigantes"},
-            {"valor": 4, "texto": "Último tren a Lisboa"},
-        ],
-        "locales": [{"valor": local["id"], "texto": local["nombre"]} for local in locales],
-        "salas": [{"valor": sala["id"], "texto": sala["nombre"]} for sala in local["salas"]],
-        "formulario": {
-            "pelicula_id": "", "local_id": local["id"], "sala_id": local["salas"][0]["id"], "fecha": "2026-10-24", "hora": "19:30", "precio": "5500",
-        },
-        "funciones": [
-            {"id": 1, "pelicula_id": 1, "pelicula": "La noche del telón", "sala_id": 1, "sala": "Sala 1", "local_id": 1,
-             "local": "Paradiso Centro", "fecha_hora": "2026-10-24T19:30:00", "precio": 5500.00, "activa": True,
-             "libres": 98, "capacidad": 132},
-            {"id": 2, "pelicula_id": 1, "pelicula": "La noche del telón", "sala_id": 2, "sala": "Sala 2", "local_id": 1,
-             "local": "Paradiso Centro", "fecha_hora": "2026-10-24T22:15:00", "precio": 5500.00, "activa": True,
-             "libres": 120, "capacidad": 132},
-            {"id": 3, "pelicula_id": 2, "pelicula": "Código Medianoche", "sala_id": 5, "sala": "Sala VIP", "local_id": 3,
-             "local": "Paradiso Palermo", "fecha_hora": "2026-11-28T21:00:00", "precio": 9500.00, "activa": True,
-             "libres": 18, "capacidad": 36},
-            {"id": 4, "pelicula_id": 3, "pelicula": "Pequeños gigantes", "sala_id": 3, "sala": "Sala 1", "local_id": 2,
-             "local": "Paradiso Belgrano", "fecha_hora": "2026-11-29T15:00:00", "precio": 6000.00, "activa": True,
-             "libres": 84, "capacidad": 96},
-            {"id": 5, "pelicula_id": 4, "pelicula": "Último tren a Lisboa", "sala_id": 4, "sala": "Sala 2", "local_id": 2,
-             "local": "Paradiso Belgrano", "fecha_hora": "2026-11-29T20:45:00", "precio": 6000.00, "activa": True,
-             "libres": 70, "capacidad": 96},
-        ],
+def _listar_locales():
+    locales, error = llamar("GET", "/api/admin/locales")
+
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
+
+    return locales
+
+
+def _listar_salas(local_id):
+    salas, error = llamar("GET", "/api/admin/salas", params={"local_id": local_id},)
+
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
+
+    return salas
+
+
+def _listar_funciones(local_id=None, desde=None, hasta=None):
+    params = {
+        "local_id": local_id,
+        "desde": desde,
+        "hasta": hasta,
     }
 
+    funciones, error = llamar("GET", "/api/admin/funciones", params=params)
 
-def _sala_del_local(local_id, sala_id):
-    """True si la sala existe y pertenece a ese local (los ids llegan como int o None)."""
-    return any(local["id"] == local_id and any(sala["id"] == sala_id for sala in local["salas"])
-               for local in _locales_ejemplo())
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
 
-
-def _funciones_pendiente():
-    """Guardar, editar y quitar funciones esperan al backend: avisa y vuelve al listado (PRG)."""
-    flash("Todavía no se pueden guardar cambios en las funciones: falta conectar el backend.", "info")
-    return redirect(url_for("backoffice.funciones"))
+    return [funcion for funcion in funciones if funcion["activa"]]
 
 
-@backoffice_bp.get("/locales")
-@requiere_admin
-def locales():
-    return render_template(
-        "backoffice/locales.html",
-        locales=_locales_ejemplo()
-    )
+def _obtener_funcion(funcion_id):
+    funciones = _listar_funciones()
 
+    for funcion in funciones:
+        if funcion["id"] == funcion_id:
+            return funcion
+
+    return None
+
+
+def _opciones(registros, campo_texto):
+    return [
+        {"valor": registro["id"], "texto": registro[campo_texto]}
+        for registro in registros
+    ]
 
 @backoffice_bp.route("/funciones", methods=["GET", "POST"])
 @requiere_admin
 def funciones():
     if request.method == "POST":
-        if not _sala_del_local(request.form.get("local_id", type=int), request.form.get("sala_id", type=int)):
-            flash("Elegí una sala del local seleccionado.", "error")
-            return redirect(url_for("backoffice.funciones"))
-        return _funciones_pendiente()
-    return render_template("backoffice/funciones.html",
-                           **_funciones_ejemplo(request.args.get("local_id", type=int)))
+        pelicula_id = request.form.get("pelicula_id", type=int)
+        sala_id = request.form.get("sala_id", type=int)
+        fecha_hora = request.form.get("fecha_hora", "")
+        precio = request.form.get("precio", type=float)
+
+        datos = {
+            "pelicula_id": pelicula_id,
+            "sala_id": sala_id,
+            "fecha_hora": fecha_hora + ":00",
+            "precio": precio,
+        }
+
+        funcion, error = llamar("POST", "/api/admin/funciones", json=datos)
+
+        if error is not None:
+            flash(error["mensaje"], "error")
+        else:
+            flash("La función fue creada correctamente.", "exito")
+
+        return redirect(url_for("backoffice.funciones"))
+
+    local_id = request.args.get("local_id", type=int)
+    fecha = request.args.get("fecha", "")
+
+    locales = _listar_locales()
+    local = _local_elegido(locales, local_id)
+
+    if local is not None:
+        local_id = local["id"]
+        salas = _listar_salas(local_id)
+    else:
+        salas = []
+
+    peliculas = _listar_peliculas()
+
+    desde = None
+    hasta = None
+
+    if fecha:
+        desde = fecha + "T00:00:00"
+        hasta = fecha + "T23:59:59"
+
+    funciones = _listar_funciones(local_id=local_id, desde=desde, hasta=hasta)
+
+    formulario = {
+        "pelicula_id": "",
+        "local_id": local_id or "",
+        "sala_id": salas[0]["id"] if salas else "",
+        "fecha_hora": "",
+        "precio": "",
+    }
+
+    return render_template(
+        "backoffice/funciones.html",
+        peliculas=_opciones(peliculas, "titulo"),
+        locales=_opciones(locales, "nombre"),
+        salas=_opciones(salas, "nombre"),
+        formulario=formulario,
+        funciones=funciones,
+        fecha=fecha,
+    )
 
 
-@backoffice_bp.get("/funciones/<int:id>")
+@backoffice_bp.route("/funciones/<int:id>", methods=["GET", "POST"])
 @requiere_admin
 def editar_funcion(id):
-    return _funciones_pendiente()
+    funcion = _obtener_funcion(id)
+
+    if funcion is None:
+        flash("La función no existe.", "error")
+        return redirect(url_for("backoffice.funciones"))
+
+    if request.method == "POST":
+        pelicula_id = request.form.get("pelicula_id", type=int)
+        sala_id = request.form.get("sala_id", type=int)
+        fecha_hora = request.form.get("fecha_hora", "")
+        precio = request.form.get("precio", type=float)
+
+        datos = {
+            "pelicula_id": pelicula_id,
+            "sala_id": sala_id,
+            "fecha_hora": fecha_hora + ":00",
+            "precio": precio,
+        }
+
+        funcion_modificada, error = llamar("PUT", f"/api/admin/funciones/{id}", json=datos)
+
+        if error is not None:
+            flash(error["mensaje"], "error")
+        else:
+            flash("La función fue modificada correctamente.", "exito")
+
+        return redirect(url_for("backoffice.funciones"))
+
+    peliculas = _listar_peliculas()
+    salas = _listar_salas(funcion["local_id"])
+
+    formulario = {
+        "pelicula_id": funcion["pelicula_id"],
+        "sala_id": funcion["sala_id"],
+        "fecha_hora": funcion["fecha_hora"][:16],
+        "precio": funcion["precio"],
+    }
+
+    return render_template(
+        "backoffice/funcion_editar.html",
+        funcion=funcion,
+        peliculas=_opciones(peliculas, "titulo"),
+        salas=_opciones(salas, "nombre"),
+        formulario=formulario,
+    )
 
 
 @backoffice_bp.post("/funciones/<int:id>/baja")
 @requiere_admin
 def baja_funcion(id):
-    return _funciones_pendiente()
+    resultado, error = llamar("DELETE", f"/api/admin/funciones/{id}")
+
+    if error is not None:
+        flash(error["mensaje"], "error")
+    else:
+        flash("La función fue eliminada correctamente.", "exito")
+
+    return redirect(url_for("backoffice.funciones"))
+
+
+# ABM de locales y salas (SCRUM-55) contra /api/admin/locales y /api/admin/salas (ver docs/endpoints.md).
+CAMPOS_LOCAL = ("nombre", "direccion")
+CAMPOS_SALA = ("nombre", "filas", "columnas")
+
+
+def _locales_con_salas():
+    """Locales con sus salas activas en "salas". Si el backend falla, _listar_* ya avisaron y queda vacío."""
+    locales = _listar_locales()
+    salas = _listar_salas(None) if locales else []
+    for local in locales:
+        local["salas"] = [sala for sala in salas if sala["local_id"] == local["id"]]
+    return locales
+
+
+def _buscar_local(id):
+    """El local con ese id, o None (con el aviso ya mostrado) si no existe o el backend falla."""
+    locales, error = llamar("GET", "/api/admin/locales")
+    local = None if error else next((local for local in locales if local["id"] == id), None)
+    if local is None:
+        flash(error["mensaje"] if error else "Ese local no existe.", "error")
+    return local
+
+
+def _guardar(template, campos, validar, enviar, exito, contexto):
+    """Formulario de alta o edición (PRG). En POST valida, llama a enviar(formulario) -> (datos, error) y, si sale
+    bien, avisa y redirige según exito(datos) -> (mensaje, url). Si no, vuelve a mostrar el formulario con los errores y el status del
+    problema (400 de validación, o el 400/404/409 que devolvió la API). contexto trae el registro que se edita
+    (o None) y los datos que necesita el template; en GET el formulario se llena con contexto["registro"]."""
+    registro = contexto.get("registro") or {}
+    if request.method == "GET":
+        formulario = {campo: str(registro.get(campo, "")) for campo in campos}
+        return render_template(template, formulario=formulario, errores={}, **contexto)
+    formulario = leer_formulario(request.form, *campos)
+    errores = validar(formulario)
+    status = 400
+    if not errores:
+        datos, error = enviar(formulario)
+        if error is None:
+            mensaje, destino = exito(datos)
+            flash(mensaje, "exito")
+            return redirect(destino)
+        flash(error["mensaje"], "error")
+        status = error["status"]
+    return render_template(template, formulario=formulario, errores=errores, **contexto), status
+
+
+def _datos_sala(formulario):
+    return {"nombre": formulario["nombre"], "filas": int(formulario["filas"]), "columnas": int(formulario["columnas"])}
+
+
+def _sala_guardada(sala):
+    return f"Guardaste la {sala['nombre']}: {sala['capacidad']} butacas.", url_for("backoffice.sala", id=sala["id"])
+
+
+def _local_guardado(local):
+    return f"Guardaste el local {local['nombre']}.", url_for("backoffice.locales")
+
+
+@backoffice_bp.get("/locales")
+@requiere_admin
+def locales():
+    return render_template("backoffice/locales.html", locales=_locales_con_salas())
+
+
+@backoffice_bp.route("/locales/nuevo", methods=["GET", "POST"])
+@requiere_admin
+def nuevo_local():
+    return _guardar(
+        "backoffice/local.html", CAMPOS_LOCAL, validar_local,
+        lambda formulario: llamar("POST", "/api/admin/locales", json=formulario),
+        _local_guardado, {"registro": None},
+    )
+
+
+@backoffice_bp.route("/locales/<int:id>", methods=["GET", "POST"])
+@requiere_admin
+def editar_local(id):
+    local = _buscar_local(id)
+    if local is None:
+        return redirect(url_for("backoffice.locales"))
+    return _guardar(
+        "backoffice/local.html", CAMPOS_LOCAL, validar_local,
+        lambda formulario: llamar("PUT", f"/api/admin/locales/{id}", json=formulario),
+        _local_guardado, {"registro": local},
+    )
+
+
+@backoffice_bp.post("/locales/<int:id>/baja")
+@requiere_admin
+def baja_local(id):
+    _, error = llamar("DELETE", f"/api/admin/locales/{id}")
+    if error:
+        flash(error["mensaje"], "error")
+    else:
+        flash("Eliminaste el local.", "exito")
+    return redirect(url_for("backoffice.locales"))
+
+
+@backoffice_bp.route("/locales/<int:local_id>/salas/nueva", methods=["GET", "POST"])
+@requiere_admin
+def nueva_sala(local_id):
+    local = _buscar_local(local_id)
+    if local is None:
+        return redirect(url_for("backoffice.locales"))
+    return _guardar(
+        "backoffice/sala.html", CAMPOS_SALA, validar_sala,
+        lambda formulario: llamar("POST", "/api/admin/salas", json={"local_id": local_id, **_datos_sala(formulario)}),
+        _sala_guardada, {"registro": None, "local": local},
+    )
+
+
+@backoffice_bp.route("/salas/<int:id>", methods=["GET", "POST"])
+@requiere_admin
+def sala(id):
+    """Detalle de la sala con su grilla de butacas (solo lectura) y el formulario para modificarla."""
+    detalle, error = llamar("GET", f"/api/admin/salas/{id}")
+    if error:
+        flash(error["mensaje"], "error")
+        return redirect(url_for("backoffice.locales"))
+    local = {"id": detalle["local_id"], "nombre": detalle["local"]}
+    return _guardar(
+        "backoffice/sala.html", CAMPOS_SALA, validar_sala,
+        lambda formulario: llamar("PUT", f"/api/admin/salas/{id}", json=_datos_sala(formulario)),
+        _sala_guardada, {"registro": detalle, "local": local},
+    )
+
+
+@backoffice_bp.post("/salas/<int:id>/baja")
+@requiere_admin
+def baja_sala(id):
+    _, error = llamar("DELETE", f"/api/admin/salas/{id}")
+    if error:
+        flash(error["mensaje"], "error")
+        return redirect(url_for("backoffice.sala", id=id))
+    flash("Quitaste la sala: ya no se pueden programar funciones en ella.", "exito")
+    return redirect(url_for("backoffice.locales"))
 
 
 @backoffice_bp.context_processor
@@ -162,66 +374,104 @@ def inicio():
     return redirect(url_for("backoffice.dashboards"))
 
 
-# Dashboards maquetados (SCRUM-121) con datos de ejemplo que tienen la forma de las respuestas de
-# GET /api/admin/dashboards/{ocupacion,ventas-genero,franjas-horarias,cancelaciones}. SCRUM-77 reemplaza
-# _dashboards_ejemplo por un llamar(...) a cada endpoint con los filtros desde / hasta; el resumen de los KPI sale
-# de esas mismas respuestas (entradas, monto, ocupación y porcentaje de cancelación).
-def _dashboards_ejemplo():
+# Tableros de los dashboards: (variable del template, ruta de GET /api/admin/dashboards/<ruta>).
+TABLEROS = (
+    ("ocupacion", "ocupacion"),
+    ("ventas_genero", "ventas-genero"),
+    ("franjas_horarias", "franjas-horarias"),
+    ("cancelaciones", "cancelaciones"),
+)
+DIAS_POR_DEFECTO = 7  # sin filtros se muestran los últimos 7 días, hoy incluido
+FUNCIONES_EN_TABLA = 10  # la API las devuelve de mayor a menor ocupación
+
+
+def _filtros_dashboards(args):
+    """Lee los filtros del formulario GET; las fechas vacías toman el período por defecto.
+
+    local_id sale de un select, así que un valor que no es un id solo llega editando la URL: se toma como "todos".
+    """
+    filtros = leer_formulario(args, "desde", "hasta", "local_id")
+    hoy = date.today()
+    filtros["desde"] = filtros["desde"] or (hoy - timedelta(days=DIAS_POR_DEFECTO - 1)).isoformat()
+    filtros["hasta"] = filtros["hasta"] or hoy.isoformat()
+    filtros["local_id"] = filtros["local_id"] if filtros["local_id"].isdigit() else ""
+    return filtros
+
+
+def _parametros_dashboards(filtros):
+    """La API espera DATETIME ISO: el período abarca los días desde y hasta completos."""
+    parametros = {"desde": f"{filtros['desde']}T00:00:00", "hasta": f"{filtros['hasta']}T23:59:59"}
+    if filtros["local_id"]:
+        parametros["local_id"] = filtros["local_id"]
+    return parametros
+
+
+def _porcentaje(parte, total):
+    return round(parte / total * 100, 1) if total else 0
+
+
+def _franjas_para_columnas(franjas):
+    """La API ordena las franjas por ventas; el gráfico de columnas las muestra en orden horario."""
+    return [{"franja": f"{fila['hora_desde']} a {fila['hora_hasta']} h", "entradas": fila["entradas"]}
+            for fila in sorted(franjas, key=lambda fila: fila["hora_desde"])]
+
+
+def _resumen_dashboards(ocupacion, ventas_genero, cancelaciones):
+    """KPI del período a partir de las mismas respuestas de los tableros (sin otra llamada a la API)."""
     return {
-        "resumen": {
-            "entradas": 1742, "entradas_variacion": 12, "monto": 4820000.00, "monto_variacion": 8,
-            "ocupacion": 68, "ocupacion_variacion": -3, "cancelaciones": 4.2, "cancelaciones_variacion": 0.6,
-        },
-        "franjas_horarias": [
-            {"franja": "12 a 15 h", "entradas": 180}, {"franja": "15 a 18 h", "entradas": 310},
-            {"franja": "18 a 21 h", "entradas": 742}, {"franja": "21 a 24 h", "entradas": 510},
-        ],
-        "ocupacion": [
-            {"pelicula": "La noche del telón", "vendidas": 412, "capacidad": 560, "ocupacion": 74},
-            {"pelicula": "Código Medianoche", "vendidas": 330, "capacidad": 500, "ocupacion": 66},
-            {"pelicula": "Pequeños gigantes", "vendidas": 245, "capacidad": 400, "ocupacion": 61},
-            {"pelicula": "El jardín de cristal", "vendidas": 120, "capacidad": 240, "ocupacion": 50},
-        ],
-        "ventas_genero": [
-            {"genero": "Drama", "entradas": 620, "monto": 1705000.00},
-            {"genero": "Ciencia ficción", "entradas": 510, "monto": 1402500.00},
-            {"genero": "Animación", "entradas": 380, "monto": 1045000.00},
-            {"genero": "Comedia", "entradas": 232, "monto": 667500.00},
-        ],
-        "cancelaciones": [
-            {"pelicula": "Código Medianoche", "cancelaciones": 18, "porcentaje": 6.1},
-            {"pelicula": "La noche del telón", "cancelaciones": 14, "porcentaje": 3.4},
-            {"pelicula": "Pequeños gigantes", "cancelaciones": 7, "porcentaje": 2.9},
-        ],
+        "entradas": sum(fila["entradas"] for fila in ventas_genero),
+        "monto": sum(fila["monto"] for fila in ventas_genero),
+        "ocupacion": _porcentaje(sum(fila["vendidas"] for fila in ocupacion),
+                                 sum(fila["capacidad"] for fila in ocupacion)),
+        "cancelaciones": _porcentaje(sum(fila["canceladas"] for fila in cancelaciones),
+                                     sum(fila["compras"] for fila in cancelaciones)),
     }
+
+
+def _llamar_dashboards(filtros, errores):
+    """Pide los locales (para el filtro) y, si los filtros son válidos, los cuatro tableros.
+
+    Un tablero que falla queda vacío y su mensaje se muestra una sola vez (si el backend no responde, los cuatro
+    fallan con el mismo mensaje).
+    """
+    locales, error = llamar("GET", "/api/admin/locales")
+    fallas = [error] if error else []
+    respuestas = {}
+    if not errores:
+        parametros = _parametros_dashboards(filtros)
+        for clave, ruta in TABLEROS:
+            respuestas[clave], error = llamar("GET", f"/api/admin/dashboards/{ruta}", params=parametros)
+            fallas += [error] if error else []
+    for mensaje in dict.fromkeys(falla["mensaje"] for falla in fallas):
+        flash(mensaje, "error")
+    return locales or [], respuestas
 
 
 @backoffice_bp.get("/dashboards")
 @requiere_admin
 def dashboards():
-    return render_template("backoffice/dashboards.html", **_dashboards_ejemplo())
-
-
-# Validar ingreso maquetado (SCRUM-122) con datos de ejemplo que tienen la forma de la respuesta de
-# POST /api/admin/ingresos/validar. SCRUM-74 reemplaza _resultado_ejemplo e _historial_ejemplo por llamar(...).
-def _resultado_ejemplo(codigo):
-    if codigo == "CP-1042-D5":
-        return {
-            "valido": True, "compra_id": 1042, "pelicula": "La noche del telón", "funcion": "2026-10-24T19:30:00",
-            "local": "Paradiso Centro", "sala": "Sala 1", "butacas": ["D5"], "titular": "Lucas Berardi",
-        }
-    if codigo == "CP-1038-B3":
-        return {"valido": False, "codigo": "YA_UTILIZADA", "mensaje": "Este QR ya se usó el 24/10 a las 19:10."}
-    return {"valido": False, "codigo": "QR_INVALIDO", "mensaje": "El código no corresponde a ninguna entrada."}
-
-
-def _historial_ejemplo():
-    return [
-        {"hora": "2026-10-24T19:12:00", "pelicula": "La noche del telón", "butacas": "D5", "resultado": "valida"},
-        {"hora": "2026-10-24T19:10:00", "pelicula": "Código Medianoche", "butacas": "B3", "resultado": "ya_utilizada"},
-        {"hora": "2026-10-24T19:04:00", "pelicula": "Pequeños gigantes", "butacas": "F7", "resultado": "valida"},
-        {"hora": "2026-10-24T18:58:00", "pelicula": "La noche del telón", "butacas": "C2", "resultado": "cancelada"},
+    filtros = _filtros_dashboards(request.args)
+    errores = validar_filtros_dashboards(filtros)
+    locales, respuestas = _llamar_dashboards(filtros, errores)
+    ocupacion = respuestas.get("ocupacion") or {}
+    cancelaciones = respuestas.get("cancelaciones") or {}
+    tableros = {
+        "ocupacion": ocupacion.get("por_pelicula", []),
+        "ocupacion_funciones": ocupacion.get("por_funcion", [])[:FUNCIONES_EN_TABLA],
+        "ventas_genero": respuestas.get("ventas_genero") or [],
+        "franjas_horarias": _franjas_para_columnas(respuestas.get("franjas_horarias") or []),
+        "cancelaciones": cancelaciones.get("por_pelicula", []),
+    }
+    opciones_locales = [{"valor": "", "texto": "Todos los locales"}] + [
+        {"valor": local["id"], "texto": local["nombre"]} for local in locales
     ]
+    pagina = render_template(
+        "backoffice/dashboards.html", filtros=filtros, errores=errores, opciones_locales=opciones_locales,
+        resumen=_resumen_dashboards(tableros["ocupacion"], tableros["ventas_genero"], tableros["cancelaciones"]),
+        **tableros,
+    )
+    return pagina, 400 if errores else 200
+
 
 CAMPOS_EDICION_PELICULA = (
     "titulo", "sinopsis", "poster_url", "duracion_min", "clasificacion", "genero", "disponible_desde", "disponible_hasta",
@@ -386,31 +636,86 @@ def baja_pelicula(id):
 
     return redirect(url_for("backoffice.peliculas"))
 
-@backoffice_bp.route("/validar", methods=["GET", "POST"])
+# Validar ingreso (SCRUM-74). El QR del email codifica /admin/ingreso?token=<token_qr>: la cámara del celular abre
+# esta página con el código cargado; sin cámara, se pega en el mismo campo. El GET solo muestra el formulario
+# (abrir o recargar la URL del QR no gasta la entrada): valida el POST del botón. La función que se controla no
+# viene en el QR, así que se elige una vez y queda en la sesión del frontend.
+MOTIVOS_RECHAZO = {
+    "QR_INVALIDO": "QR inválido",
+    "CANCELADA": "Compra cancelada",
+    "YA_UTILIZADA": "Entrada ya utilizada",
+    "OTRA_FUNCION": "Es de otra función",
+    "FUERA_DE_FECHA": "Fuera de fecha",
+}
+
+
+def _funciones_de_hoy():
+    """Opciones {"valor", "texto"} con las funciones de hoy, para elegir la que se controla en la puerta."""
+    hoy = date.today().isoformat()
+    funciones, error = llamar(
+        "GET", "/api/admin/funciones", params={"desde": f"{hoy}T00:00:00", "hasta": f"{hoy}T23:59:59"},
+    )
+    if error is not None:
+        flash(error["mensaje"], "error")
+        funciones = []
+    return [{"valor": "", "texto": "Elegí la función"}] + [
+        {"valor": funcion["id"], "texto": f"{hora(funcion['fecha_hora'])} · {funcion['pelicula']} · "
+                                          f"{funcion['local']}, {funcion['sala']}"}
+        for funcion in funciones
+    ]
+
+
+def _validar_ingreso(formulario):
+    """Valida el QR en la API. Devuelve el resultado para mostrar, o None si el error no es un rechazo del QR
+    (por ejemplo, el backend caído), que ya queda avisado con flash."""
+    entrada, error = llamar(
+        "POST", "/api/admin/ingresos/validar",
+        json={"token_qr": formulario["token"], "funcion_id": int(formulario["funcion_id"])},
+    )
+    if error is None:
+        return {**entrada, "valido": True}
+    if error["codigo"] in MOTIVOS_RECHAZO:
+        return {"valido": False, "motivo": MOTIVOS_RECHAZO[error["codigo"]], "mensaje": error["mensaje"]}
+    flash(error["mensaje"], "error")
+    return None
+
+
+def _historial_ingresos(funcion_id):
+    """Últimos intentos de validación (SCRUM-125), de la función que se controla si ya se eligió una."""
+    params = {"limite": 20}
+    if funcion_id:
+        params["funcion_id"] = funcion_id
+    historial, error = llamar("GET", "/api/admin/ingresos", params=params)
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
+    return historial
+
+
+@backoffice_bp.route("/ingreso", methods=["GET", "POST"])
 @requiere_admin
-def validar():
-    formulario = leer_formulario(request.form, "codigo")
-    errores = validar_codigo_qr(formulario) if request.method == "POST" else {}
-    resultado = _resultado_ejemplo(formulario["codigo"]) if request.method == "POST" and not errores else None
+def ingreso():
+    if request.method == "GET":
+        formulario = {"funcion_id": session.get("funcion_ingreso", ""), "token": request.args.get("token", "").strip()}
+        errores = {}
+        resultado = None
+    else:
+        formulario = leer_formulario(request.form, "funcion_id", "token")
+        errores = validar_ingreso(formulario)
+        if "funcion_id" not in errores:
+            session["funcion_ingreso"] = int(formulario["funcion_id"])
+        resultado = None if errores else _validar_ingreso(formulario)
+        if resultado is not None:
+            formulario["token"] = ""  # el campo queda vacío para el próximo QR
     pagina = render_template(
-        "backoffice/validar.html",
-        formulario=formulario, errores=errores, resultado=resultado, historial=_historial_ejemplo(),
+        "backoffice/ingreso.html",
+        funciones=_funciones_de_hoy(), formulario=formulario, errores=errores, resultado=resultado,
+        historial=_historial_ingresos(session.get("funcion_ingreso")),
     )
     return pagina, 400 if errores else 200
 
 
-@backoffice_bp.post("/validar/confirmar")
-@requiere_admin
-def confirmar_ingreso():
-    if request.form.get("compra_id", "").isdecimal():
-        flash("Ingreso confirmado: el QR quedó marcado como usado.", "exito")
-    else:
-        flash("No se pudo confirmar el ingreso. Volvé a validar el código.", "error")
-    return redirect(url_for("backoffice.validar"))
-
-
-# ABM de servicios maquetado (SCRUM-120) con datos de ejemplo que tienen la forma de la respuesta de
-# GET /api/admin/servicios. SCRUM-72 reemplaza servicios_ejemplo y los flash de "guardado" por llamar(...).
+# ABM de servicios (SCRUM-120 y SCRUM-72) sobre /api/admin/servicios.
 CAMPOS_SERVICIO = ("nombre", "descripcion", "precio")
 
 
@@ -419,23 +724,61 @@ def _precio_para_campo(precio):
     return f"{float(precio):.2f}".rstrip("0").rstrip(".")
 
 
+def _listar_servicios():
+    servicios, error = llamar("GET", "/api/admin/servicios")
+
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return []
+
+    return servicios
+
+
 def _abm_servicios(servicio=None):
-    """Listado + formulario de alta (servicio=None) o de edición. En POST valida y, si está bien, vuelve al listado."""
     if request.method == "POST":
         formulario = leer_formulario(request.form, *CAMPOS_SERVICIO)
         errores = validar_servicio(formulario)
+
         if not errores:
-            flash(f"Guardaste el servicio {formulario['nombre']}.", "exito")
-            return redirect(url_for("backoffice.servicios"))
+            datos = {
+                "nombre": formulario["nombre"],
+                "descripcion": formulario["descripcion"] or None,
+                "precio": float(formulario["precio"].replace(",", ".")),
+            }
+
+            if servicio is None:
+                metodo = "POST"
+                ruta = "/api/admin/servicios"
+            else:
+                metodo = "PUT"
+                ruta = f"/api/admin/servicios/{servicio['id']}"
+
+            resultado, error = llamar(metodo, ruta, json=datos)
+
+            if error is None:
+                flash("El servicio se guardó correctamente.", "exito")
+                return redirect(url_for("backoffice.servicios"))
+
+            flash(error["mensaje"], "error")
     else:
-        formulario = {campo: (servicio or {}).get(campo, "") for campo in CAMPOS_SERVICIO}
+        formulario = {
+            campo: (servicio or {}).get(campo) or ""
+            for campo in CAMPOS_SERVICIO
+        }
+
         if servicio:
             formulario["precio"] = _precio_para_campo(servicio["precio"])
+
         errores = {}
+
     pagina = render_template(
         "backoffice/servicios.html",
-        servicios=servicios_ejemplo(), servicio=servicio, formulario=formulario, errores=errores,
+        servicios=_listar_servicios(),
+        servicio=servicio,
+        formulario=formulario,
+        errores=errores,
     )
+
     return pagina, 400 if errores else 200
 
 
@@ -448,17 +791,43 @@ def servicios():
 @backoffice_bp.route("/servicios/<int:id>", methods=["GET", "POST"])
 @requiere_admin
 def editar_servicio(id):
-    servicio = next((s for s in servicios_ejemplo() if s["id"] == id), None)
+    servicio = next(
+        (s for s in _listar_servicios() if s["id"] == id),
+        None,
+    )
+
     if servicio is None:
         flash("Ese servicio no existe.", "error")
         return redirect(url_for("backoffice.servicios"))
+
     return _abm_servicios(servicio)
 
 
 @backoffice_bp.post("/servicios/<int:id>/baja")
 @requiere_admin
 def baja_servicio(id):
-    flash("Quitaste el servicio: ya no se ofrece en las compras nuevas.", "exito")
+    resultado, error = llamar(
+        "DELETE", f"/api/admin/servicios/{id}"
+    )
+
+    if error is not None:
+        flash(error["mensaje"], "error")
+    else:
+        flash("El servicio quedó inactivo.", "exito")
+
+    return redirect(url_for("backoffice.servicios"))
+
+
+@backoffice_bp.post("/servicios/<int:id>/reactivar")
+@requiere_admin
+def reactivar_servicio(id):
+    resultado, error = llamar(
+        "POST", f"/api/admin/servicios/{id}/reactivar"
+    )
+    if error is not None:
+        flash(error["mensaje"], "error")
+    else:
+        flash("El servicio quedó activo.", "exito")
     return redirect(url_for("backoffice.servicios"))
 
 

@@ -66,6 +66,11 @@ def obtener_sala(sala_id):
     return res
 
 
+def listar_butacas(sala_id):
+    query = "SELECT id, fila, numero FROM butacas WHERE sala_id = %s ORDER BY fila, numero"
+    return db.consultar(query, (sala_id,))
+
+
 def tiene_funciones_futuras(sala_id):
     query = "SELECT id FROM funciones WHERE sala_id = %s AND activa = TRUE AND fecha_hora > NOW()"
     res = db.consultar_uno(query, (sala_id,))

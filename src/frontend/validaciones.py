@@ -17,6 +17,11 @@ MINIMO_PASSWORD = 8
 MAXIMO_CODIGO_QR = 500
 MAXIMO_DESCRIPCION = 255
 MAXIMO_PRECIO = 99_999_999.99  # DECIMAL(10, 2)
+MAXIMO_DIRECCION = 200
+MAXIMO_NOMBRE_SALA = 50
+MAXIMO_FILAS = 26  # una letra por fila (A a Z)
+MAXIMO_COLUMNAS = 30
+MAXIMO_CANTIDAD_SERVICIO = 20  # el mismo tope que valida el backend en PUT /api/compras/<id>/servicios
 
 
 def leer_formulario(formulario, *campos):
@@ -35,11 +40,11 @@ def _error_email(email):
     return None
 
 
-def _error_texto(valor, mensaje_vacio, maximo=MAXIMO_NOMBRE):
+def _error_texto(valor, mensaje_vacio, maximo=MAXIMO_NOMBRE, que="El nombre"):
     if not valor:
         return mensaje_vacio
     if len(valor) > maximo:
-        return f"El nombre puede tener hasta {maximo} caracteres."
+        return f"{que} puede tener hasta {maximo} caracteres."
     return None
 
 
@@ -96,13 +101,22 @@ def validar_pago(datos, hoy=None):
     })
 
 
-def validar_codigo_qr(datos):
-    codigo = datos["codigo"]
-    if not codigo:
-        return {"codigo": "Ingresá o escaneá el código de la entrada."}
-    if len(codigo) > MAXIMO_CODIGO_QR:
-        return {"codigo": "El código es demasiado largo; revisá que sea el de la entrada."}
-    return {}
+def _error_token_qr(token):
+    if not token:
+        return "Escaneá el QR con la cámara o pegá el código de la entrada."
+    if len(token) > MAXIMO_CODIGO_QR:
+        return "El código es demasiado largo; revisá que sea el de la entrada."
+    return None
+
+
+def validar_ingreso(datos):
+    """Formulario de validar ingreso: {"funcion_id", "token"} -> errores por campo (vacío si está bien)."""
+    funcion_id = datos["funcion_id"]
+    return _sin_vacios({
+        "funcion_id": None if funcion_id.isdecimal() and int(funcion_id) > 0
+        else "Elegí la función que estás controlando.",
+        "token": _error_token_qr(datos["token"]),
+    })
 
 
 def _error_precio(texto):
@@ -123,4 +137,59 @@ def validar_servicio(datos):
         "descripcion": None if len(datos["descripcion"]) <= MAXIMO_DESCRIPCION
         else f"La descripción puede tener hasta {MAXIMO_DESCRIPCION} caracteres.",
         "precio": _error_precio(datos["precio"]),
+    })
+
+
+def _fecha_o_none(texto):
+    try:
+        return date.fromisoformat(texto)
+    except ValueError:
+        return None
+
+
+def _error_hasta(desde, hasta):
+    if not hasta:
+        return "Ingresá una fecha válida."
+    if desde and hasta < desde:
+        return "Tiene que ser igual o posterior a la fecha desde."
+    return None
+
+
+def validar_filtros_dashboards(datos):
+    """Fechas desde y hasta de los filtros GET de los dashboards, en YYYY-MM-DD (input date)."""
+    desde, hasta = _fecha_o_none(datos["desde"]), _fecha_o_none(datos["hasta"])
+    return _sin_vacios({
+        "desde": None if desde else "Ingresá una fecha válida.",
+        "hasta": _error_hasta(desde, hasta),
+    })
+
+
+def _error_entero(texto, que, maximo, minimo=1):
+    # El largo se mira antes de int(): con miles de dígitos, int() corta con ValueError y la página daría error 500.
+    if not texto.isdecimal() or len(texto) > len(str(maximo)) or not minimo <= int(texto) <= maximo:
+        return f"{que} tiene que ser un número entero entre {minimo} y {maximo}."
+    return None
+
+
+def validar_local(datos):
+    return _sin_vacios({
+        "nombre": _error_texto(datos["nombre"], "Ingresá el nombre del local."),
+        "direccion": _error_texto(datos["direccion"], "Ingresá la dirección del local.", MAXIMO_DIRECCION,
+                                  "La dirección"),
+    })
+
+
+def validar_sala(datos):
+    return _sin_vacios({
+        "nombre": _error_texto(datos["nombre"], "Ingresá el nombre de la sala.", MAXIMO_NOMBRE_SALA),
+        "filas": _error_entero(datos["filas"], "La cantidad de filas", MAXIMO_FILAS),
+        "columnas": _error_entero(datos["columnas"], "La cantidad de butacas por fila", MAXIMO_COLUMNAS),
+    })
+
+
+def validar_cantidades_servicios(cantidades):
+    """cantidades: {servicio_id: texto del campo}. Un campo vacío ya llega como "0" (no agrega ese servicio)."""
+    return _sin_vacios({
+        servicio_id: _error_entero(texto, "La cantidad", MAXIMO_CANTIDAD_SERVICIO, minimo=0)
+        for servicio_id, texto in cantidades.items()
     })

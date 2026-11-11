@@ -10,7 +10,7 @@
    si la vista pasa local_id / fecha se usan esos (validados) y la fecha se conserva como campo oculto.
    Las secciones sin pantalla todavía se muestran deshabilitadas hasta que exista su ruta (ver header.py).
    Con sesión, el ícono de usuario abre un <details> con el nombre, Backoffice (admin) o Mi perfil, y Salir. #}
-{% from "macros.html" import icono, selectores_cartelera %}
+{% from "macros.html" import boton, icono, selectores_cartelera %}
 
 {% macro enlace(endpoint, texto) %}
   {% if ruta_disponible(endpoint) %}
@@ -64,7 +64,7 @@
               {{ enlace("publico.perfil", "Mi perfil") }}
             {% endif %}
             <form method="post" action="{{ url_for('publico.salir') }}">
-              <button type="submit" class="boton boton-secundario">Salir</button>
+              {{ boton("Salir", "borde") }}
             </form>
           </div>
         </details>

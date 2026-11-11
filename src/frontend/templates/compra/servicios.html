@@ -1,6 +1,8 @@
-
+{# Paso de servicios de la compra (SCRUM-65, Figma D4). servicios: GET /api/servicios (solo activos).
+   cantidades: {servicio_id: texto del campo}, precargadas con lo que la compra ya tiene. errores: {servicio_id:
+   mensaje} de la validación del formulario; error: mensaje del backend. El total del resumen es el del backend. #}
 {% extends "base.html" %}
-{% from "macros.html" import pasos_compra, resumen_compra, cabecera_pagina %}
+{% from "macros.html" import pasos_compra, resumen_compra, cabecera_pagina, boton, campo %}
 
 {% block titulo %}Servicios - Cine Paradiso{% endblock %}
 
@@ -10,50 +12,47 @@
 
   {{ cabecera_pagina("Sumá servicios a tu compra", bajada="Opcionales. Están disponibles para todas las salas y se pagan junto con las entradas.") }}
 
+  {% if error %}<p class="aviso aviso-error" role="alert">{{ error }}</p>{% endif %}
+
   <div class="checkout">
 
-    <section class="servicios-lista" aria-label="Servicios disponibles">
+    {# novalidate: si un campo quedó mal, "Continuar sin servicios" igual tiene que poder enviarse; valida la ruta. #}
+    <form class="servicios-formulario" id="form-servicios" method="post" novalidate
+      action="{{ url_for('publico.servicios_compra', compra_id=compra.id) }}">
 
-      {% for servicio in servicios %}
+      <section class="servicios-lista" aria-label="Servicios disponibles">
+        {% for servicio in servicios %}
+          {% set cantidad = cantidades[servicio.id] %}
+          <article class="servicio-tarjeta{% if cantidad != '0' %} servicio-elegido{% endif %}">
+            {# Sin imágenes en la base: el tono sale del id (como el póster) y la palabra, del nombre. #}
+            <div class="servicio-imagen servicio-imagen-{{ ((servicio.id - 1) % 4) + 1 }}" aria-hidden="true">
+              <span>{{ (servicio.nombre.split() | first) | upper }}</span>
+            </div>
+            <div class="servicio-informacion">
+              <h2>{{ servicio.nombre }}</h2>
+              {% if servicio.descripcion %}<p>{{ servicio.descripcion }}</p>{% endif %}
+              <p class="servicio-precio">{{ servicio.precio | precio }}</p>
+            </div>
+            <div class="servicio-cantidad">
+              {{ campo("cantidad_" ~ servicio.id, "Cantidad", "number", cantidad, requerido=false, minimo=0,
+                       maximo=maximo_cantidad, paso=1, error=errores.get(servicio.id, "")) }}
+            </div>
+          </article>
+        {% else %}
+          <p class="estado-vacio">Por ahora no hay servicios disponibles. Podés seguir sin servicios.</p>
+        {% endfor %}
+      </section>
 
-        <article class="servicio-tarjeta">
-
-          <div class="servicio-imagen servicio-imagen-{{ servicio.id }}">
-            {% if servicio.id == 1 %}
-              <span>COMBO</span>
-            {% elif servicio.id == 2 %}
-              <span>GASEOSA</span>
-            {% elif servicio.id == 3 %}
-              <span>ESTACIONAMIENTO</span>
-            {% else %}
-              <span>ACCESO</span>
-            {% endif %}
-          </div>
-
-          <div class="servicio-informacion">
-            <h2>{{ servicio.nombre }}</h2>
-            <p>{{ servicio.descripcion }}</p>
-            <p class="servicio-precio">{{ servicio.precio | precio }}</p>
-          </div>
-
-          <div class="servicio-cantidad">
-            <button type="button" disabled aria-label="Quitar {{ servicio.nombre }}">−</button>
-
-            <span>{{ 1 if servicio.id == 1 else 0 }}</span>
-
-            <button type="button" disabled aria-label="Agregar {{ servicio.nombre }}">+</button>
-          </div>
-
-        </article>
-
-      {% endfor %}
-
-    </section>
+      {% if servicios %}
+        {# Primer botón del formulario: es el que usa Enter, así recalcular nunca te saca de esta pantalla. #}
+        {{ boton("Actualizar total", "borde", nombre="accion", valor="actualizar", clase="servicios-actualizar") }}
+      {% endif %}
+    </form>
 
     {% call resumen_compra(compra) %}
-      <a class="boton boton-bloque" href="{{ url_for('publico.pago', compra_id=compra.id) }}">
-        Continuar al pago
-      </a>
+      {{ boton("Continuar al pago", formulario="form-servicios", nombre="accion", valor="pago", bloque=true) }}
+      {{ boton("Continuar sin servicios", "borde", formulario="form-servicios", nombre="accion", valor="sin_servicios",
+               bloque=true) }}
     {% endcall %}
 
   </div>
