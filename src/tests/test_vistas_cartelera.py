@@ -73,7 +73,7 @@ def test_cartelera_sin_filtros_llama_solo_a_la_cartelera_y_no_a_salud(cliente_fr
     assert contexto["plantilla"] == "inicio.html"
     assert "estado_api" not in contexto
     assert contexto["peliculas"] == CARTELERA
-    assert contexto["local_id"] == "" and contexto["fecha"] == "" and contexto["pelicula_id"] == ""
+    assert contexto["local_id"] == "" and contexto["fecha"] == ""
     assert contexto["error_cartelera"] is False
 
 
@@ -84,10 +84,16 @@ def test_cartelera_envia_local_y_fecha_a_la_api(cliente_frontend, llamar, contex
     assert contexto["local_id"] == "2" and contexto["fecha"] == "2026-11-10"
 
 
-def test_cartelera_no_envia_la_pelicula_a_la_api(cliente_frontend, llamar, contexto):
-    llamar.return_value = (list(CARTELERA), None)
-    cliente_frontend.get("/?local_id=1&pelicula_id=7")
-    assert llamadas_sin_locales(llamar) == [call("GET", "/api/cartelera", params={"local_id": "1"})]
+def test_cartelera_con_pelicula_elegida_redirige_a_su_detalle_con_local_y_fecha(cliente_frontend, llamar):
+    respuesta = cliente_frontend.get("/?local_id=1&fecha=2026-11-10&pelicula_id=7")
+    assert respuesta.status_code == 302
+    assert respuesta.headers["Location"] == "/peliculas/7?local_id=1&fecha=2026-11-10"
+    llamar.assert_not_called()
+
+
+def test_cartelera_con_pelicula_sin_filtros_redirige_al_detalle_limpio(cliente_frontend, llamar):
+    respuesta = cliente_frontend.get("/?local_id=&pelicula_id=7")
+    assert respuesta.headers["Location"] == "/peliculas/7"
 
 
 def test_cartelera_ofrece_locales_de_la_api_y_peliculas_para_el_header(cliente_frontend, llamar, contexto):
@@ -126,30 +132,11 @@ def test_cartelera_con_locales_caidos_o_inesperados_ofrece_solo_todos(cliente_fr
     assert contexto["peliculas"] == CARTELERA
 
 
-def test_cartelera_header_mantiene_la_seleccion_del_get(cliente_frontend, llamar):
+def test_cartelera_header_mantiene_el_local_del_get(cliente_frontend, llamar):
     llamar.return_value = (list(CARTELERA), None)
-    html = cliente_frontend.get("/?local_id=2&pelicula_id=7").get_data(as_text=True)
+    html = cliente_frontend.get("/?local_id=2").get_data(as_text=True)
     assert '<option value="2" selected>Paradiso Belgrano</option>' in html
-    assert '<option value="7" selected>Cinema Paradiso</option>' in html
-    assert '<option value="3">Volver al futuro</option>' in html
-
-
-def test_cartelera_con_pelicula_elegida_filtra_en_python_y_conserva_el_catalogo(cliente_frontend, llamar, contexto):
-    llamar.return_value = (list(CARTELERA), None)
-    cliente_frontend.get("/?pelicula_id=7")
-    assert [pelicula["id"] for pelicula in contexto["peliculas"]] == [7]
-    assert contexto["pelicula_id"] == "7"
-    assert len(contexto["header_peliculas"]) == 2
-    assert contexto["error_cartelera"] is False
-
-
-def test_cartelera_con_pelicula_fuera_de_los_resultados_queda_vacia_sin_error(cliente_frontend, llamar, contexto):
-    llamar.return_value = (list(CARTELERA), None)
-    cliente_frontend.get("/?pelicula_id=99")
-    assert contexto["peliculas"] == []
-    assert contexto["pelicula_id"] == "99"
-    assert contexto["error_cartelera"] is False
-    assert _flashes(cliente_frontend) == []
+    assert '<option value="7">Cinema Paradiso</option>' in html
 
 
 @pytest.mark.parametrize("pelicula_id", ["abc", "-1", "0", "²", "1.5", " ", "3; DROP"])
@@ -158,7 +145,6 @@ def test_cartelera_con_pelicula_id_invalido_lo_ignora_sin_romper(cliente_fronten
     respuesta = cliente_frontend.get("/", query_string={"pelicula_id": pelicula_id})
     assert respuesta.status_code == 200
     assert contexto["peliculas"] == CARTELERA
-    assert contexto["pelicula_id"] == ""
 
 
 def test_cartelera_con_api_caida_avisa_y_diferencia_el_error_de_la_lista_vacia(cliente_frontend, llamar, contexto):
@@ -223,11 +209,12 @@ def test_cartelera_con_pelicula_sin_titulo_usa_un_texto_en_el_header(cliente_fro
 # --- Detalle de película --------------------------------------------------------------------------------------
 
 
-def test_detalle_llama_una_sola_vez_y_ordena_funciones_por_local_y_fecha(cliente_frontend, llamar, contexto):
+def test_detalle_pide_la_pelicula_y_la_cartelera_y_ordena_funciones_por_local_y_fecha(cliente_frontend, llamar,
+                                                                                       contexto):
     llamar.return_value = (dict(PELICULA), None)
     respuesta = cliente_frontend.get("/peliculas/3")
     assert respuesta.status_code == 200
-    assert llamadas_sin_locales(llamar) == [call("GET", "/api/peliculas/3")]
+    assert llamadas_sin_locales(llamar) == [call("GET", "/api/peliculas/3"), call("GET", "/api/cartelera", params=None)]
     assert contexto["plantilla"] == "pelicula.html"
     assert _ids_funciones(contexto) == [15, 13, 12, 14]
     assert contexto["total_funciones"] == 4
@@ -238,10 +225,41 @@ def test_detalle_llama_una_sola_vez_y_ordena_funciones_por_local_y_fecha(cliente
 
 def test_detalle_ofrece_catalogos_para_el_header(cliente_frontend, llamar, contexto):
     llamar.return_value = (dict(PELICULA), None)
+    llamar.respuestas["/api/cartelera"] = (list(CARTELERA), None)
     cliente_frontend.get("/peliculas/3")
     assert [local["valor"] for local in contexto["header_locales"]] == ["2", "1", "3"]
-    assert contexto["header_peliculas"] == [{"valor": "3", "texto": "Volver al futuro"}]
+    assert contexto["header_peliculas"] == [
+        {"valor": "3", "texto": "Volver al futuro"}, {"valor": "7", "texto": "Cinema Paradiso"},
+    ]
+    assert contexto["pelicula_id"] == "3"
     assert {"valor": "", "texto": "Todos"} in contexto["locales"]
+
+
+def test_detalle_header_ofrece_las_peliculas_del_local_elegido_y_la_que_se_ve(cliente_frontend, llamar, contexto):
+    llamar.return_value = (dict(PELICULA), None)
+    llamar.respuestas["/api/cartelera"] = ([CARTELERA[1]], None)  # en Belgrano solo está Cinema Paradiso
+    cliente_frontend.get("/peliculas/3?local_id=2")
+    assert call("GET", "/api/cartelera", params={"local_id": "2"}) in llamar.call_args_list
+    assert [pelicula["valor"] for pelicula in contexto["header_peliculas"]] == ["3", "7"]
+
+
+def test_detalle_header_marca_la_pelicula_que_se_esta_viendo(cliente_frontend, llamar):
+    llamar.return_value = (dict(PELICULA), None)
+    llamar.respuestas["/api/cartelera"] = (list(CARTELERA), None)
+    html = cliente_frontend.get("/peliculas/3?local_id=1").get_data(as_text=True)
+    header = html[html.index('<header class="marquesina">'):html.index("</header>")]
+    assert '<option value="3" selected>Volver al futuro</option>' in header
+    assert '<option value="1" selected>Paradiso Centro</option>' in header
+    assert '<option value="7">Cinema Paradiso</option>' in header
+
+
+def test_detalle_con_cartelera_caida_igual_ofrece_la_pelicula_en_el_header(cliente_frontend, llamar, contexto):
+    llamar.return_value = (dict(PELICULA), None)
+    llamar.respuestas["/api/cartelera"] = (None, ERROR_BACKEND)
+    respuesta = cliente_frontend.get("/peliculas/3")
+    assert respuesta.status_code == 200
+    assert contexto["header_peliculas"] == [{"valor": "3", "texto": "Volver al futuro"}]
+    assert _flashes(cliente_frontend) == []
 
 
 def test_detalle_filtra_funciones_por_local(cliente_frontend, llamar, contexto):

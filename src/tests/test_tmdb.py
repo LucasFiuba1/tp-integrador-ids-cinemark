@@ -79,10 +79,23 @@ def test_detalle_normaliza_pelicula(get):
     assert get.call_args.kwargs["params"]["append_to_response"] == "release_dates"
 
 
-def test_detalle_usa_clasificacion_de_eeuu_si_no_hay_de_argentina(get):
-    fechas = {"results": [{"iso_3166_1": "US", "release_dates": [{"certification": "PG"}]}]}
+@pytest.mark.parametrize("eeuu, esperada", [
+    ("G", "ATP"), ("PG", "ATP"), ("PG-13", "+13"), ("R", "+16"), ("NC-17", "+18"), ("NR", "NR"),
+])
+def test_detalle_traduce_la_clasificacion_de_eeuu_si_no_hay_de_argentina(get, eeuu, esperada):
+    fechas = {"results": [
+        {"iso_3166_1": "AR", "release_dates": [{"certification": ""}]},
+        {"iso_3166_1": "US", "release_dates": [{"certification": eeuu}]},
+    ]}
     get.return_value = respuesta(json=detalle_tmdb(release_dates=fechas))
-    assert tmdb.detalle(105)["clasificacion"] == "PG"
+    assert tmdb.detalle(105)["clasificacion"] == esperada
+
+
+@pytest.mark.parametrize("argentina, esperada", [("13", "+13"), ("+13", "+13"), ("18", "+18"), (" atp ", "ATP")])
+def test_detalle_unifica_el_formato_de_la_clasificacion_argentina(get, argentina, esperada):
+    fechas = {"results": [{"iso_3166_1": "AR", "release_dates": [{"certification": argentina}]}]}
+    get.return_value = respuesta(json=detalle_tmdb(release_dates=fechas))
+    assert tmdb.detalle(105)["clasificacion"] == esperada
 
 
 def test_detalle_con_datos_faltantes(get):

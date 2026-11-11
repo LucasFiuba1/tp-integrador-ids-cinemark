@@ -697,6 +697,10 @@ h3 { font-size: var(--texto-lg); }
 
 .servicio-cantidad .campo { max-width: 8rem; margin-bottom: 0; }
 
+/* Página pública de servicios */
+
+.servicios-accion { margin-top: var(--espacio-4); }
+
 /* Servicio con cantidad elegida */
 .servicio-elegido { outline: 1px solid var(--color-primario); }
 

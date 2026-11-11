@@ -105,12 +105,16 @@ def backend_ok():
 @pytest.fixture
 def llamar_publico():
     """Simula `llamar` en routes/publico.py: GET /api/locales responde LOCALES_API (o lo que se ponga en
-    `llamar_publico.locales`) y cualquier otra llamada devuelve `llamar_publico.return_value`."""
+    `llamar_publico.locales`), las rutas de `llamar_publico.respuestas` ({ruta: (datos, error)}) responden lo suyo y
+    cualquier otra llamada devuelve `llamar_publico.return_value`."""
     def responder(metodo, ruta, **opciones):
-        return llamar.locales if ruta == "/api/locales" else DEFAULT
+        if ruta == "/api/locales":
+            return llamar.locales
+        return llamar.respuestas.get(ruta, DEFAULT)
 
     with patch("src.frontend.routes.publico.llamar", side_effect=responder) as llamar:
         llamar.locales = ([dict(local) for local in LOCALES_API], None)
+        llamar.respuestas = {}
         yield llamar
 
 
