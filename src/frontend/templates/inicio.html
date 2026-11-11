@@ -3,15 +3,15 @@
 {# Cartelera (SCRUM-59). Figma Home desktop 23:280 y mobile 26:1187: película destacada, título de sección con el
    local elegido, filtros y grilla de tarjetas. La grilla va en una sola columna en el celular (pedido del ticket,
    aunque el mockup muestre dos) y en varias desde tablet.
-   Contexto de la ruta: peliculas, locales, local_id, fecha, pelicula_id, error_cartelera (el aviso ya lo muestra
-   el flash), header_locales, header_peliculas y, si la ruta los manda, errores_filtro por campo.
-   Los dos formularios GET (header: local/película; acá: local/fecha) conservan el filtro que no editan como
-   campo oculto. Las tarjetas llevan local_id y fecha al detalle (pelicula_id no hace falta: ya es esa película). #}
+   Contexto de la ruta: peliculas, locales, local_id, fecha, error_cartelera (el aviso ya lo muestra el flash),
+   header_locales, header_peliculas y, si la ruta los manda, errores_filtro por campo.
+   El header (local/película) conserva la fecha como campo oculto; elegir una película lleva a su detalle.
+   Las tarjetas llevan local_id y fecha al detalle. #}
 {% block contenido %}
-  {% set filtrada = local_id or fecha or pelicula_id %}
+  {% set filtrada = local_id or fecha %}
   {% set local_elegido = (locales | selectattr("valor", "equalto", local_id) | first) if local_id else none %}
 
-  {% if peliculas | length > 1 and not pelicula_id %}
+  {% if peliculas | length > 1 %}
     {% set destacada = peliculas[0] %}
     {% set url_destacada = url_for("publico.detalle_pelicula", id=destacada.id, local_id=local_id or none, fecha=fecha or none) %}
     {% set tiempo = duracion(destacada.duracion_min) %}
@@ -47,8 +47,6 @@
       {% set errores = errores_filtro if errores_filtro is defined and errores_filtro else {} %}
       {{ filtro("local_id", "Local", locales, local_id, error=errores.get("local_id", "")) }}
       {{ campo("fecha", "Fecha", tipo="date", valor=fecha, requerido=false, error=errores.get("fecha", "")) }}
-      {# La película elegida en el header no tiene selector acá: se conserva oculta (un solo name por formulario). #}
-      {% if pelicula_id %}<input type="hidden" name="pelicula_id" value="{{ pelicula_id }}">{% endif %}
       <div class="filtros-acciones">
         {{ boton("Filtrar") }}
         {% if filtrada %}<a class="accion-texto" href="{{ url_for('publico.inicio') }}">Limpiar filtros</a>{% endif %}

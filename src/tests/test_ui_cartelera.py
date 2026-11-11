@@ -176,15 +176,14 @@ def _names(formulario):
     return re.findall(r'name="([^"]+)"', formulario)
 
 
-def test_header_y_filtro_de_la_cartelera_conservan_el_parametro_del_otro(cliente_frontend, llamar):
+def test_header_de_la_cartelera_conserva_la_fecha_del_filtro(cliente_frontend, llamar):
     llamar.return_value = (list(CARTELERA), None)
-    html = _html(cliente_frontend, "/?local_id=2&fecha=2026-11-10&pelicula_id=1")
+    html = _html(cliente_frontend, "/?local_id=2&fecha=2026-11-10")
     header = _formulario(html, "selectores")
     filtros = _formulario(html, "filtros-cartelera")
     assert '<input type="hidden" name="fecha" value="2026-11-10">' in header
-    assert '<input type="hidden" name="pelicula_id" value="1">' in filtros
     assert sorted(_names(header)) == ["fecha", "local_id", "pelicula_id"]
-    assert sorted(_names(filtros)) == ["fecha", "local_id", "pelicula_id"]
+    assert sorted(_names(filtros)) == ["fecha", "local_id"]
     assert 'type="hidden" name="local_id"' not in header + filtros
 
 
@@ -194,11 +193,11 @@ def test_formularios_sin_filtros_no_agregan_ocultos(cliente_frontend, llamar):
     assert 'type="hidden"' not in _formulario(html, "selectores") + _formulario(html, "filtros-cartelera")
 
 
-def test_tarjetas_llevan_local_y_fecha_pero_no_la_pelicula(cliente_frontend, llamar):
+def test_tarjetas_llevan_local_y_fecha_al_detalle(cliente_frontend, llamar):
     llamar.return_value = (list(CARTELERA), None)
-    html = _html(cliente_frontend, "/?local_id=1&fecha=2026-11-10&pelicula_id=2")
+    html = _html(cliente_frontend, "/?local_id=1&fecha=2026-11-10")
     assert '<a href="/peliculas/2?local_id=1&amp;fecha=2026-11-10">El padrino</a>' in html
-    assert "/peliculas/2?pelicula_id" not in html and "&amp;pelicula_id" not in html
+    assert "pelicula_id=" not in html.split('class="grilla-peliculas"')[1]
 
 
 def test_detalle_header_conserva_solo_filtros_validos(cliente_frontend, llamar):

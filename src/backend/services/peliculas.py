@@ -13,6 +13,7 @@ COLUMNAS = (
     "id, tmdb_id, titulo, sinopsis, poster_url, duracion_min, clasificacion, genero, "
     "disponible_desde, disponible_hasta, activa"
 )
+MAXIMO_GENERO = 50  # largo de peliculas.genero en schema.sql
 
 
 def _validar_periodo(desde, hasta):
@@ -27,6 +28,13 @@ def _texto(valor, campo, maximo, obligatorio=False):
     if type(valor) is not str or (obligatorio and valor.strip() == "") or len(valor) > maximo:
         datos_invalidos(f"{campo} debe ser un texto de hasta {maximo} caracteres.")
     return valor
+
+
+def _generos_hasta(genero, maximo):
+    """Los géneros de TMDB ("Animación, Familia, ...") que entran en la columna, sin cortar uno por la mitad."""
+    if len(genero) <= maximo:
+        return genero
+    return genero[:maximo + 1].rsplit(", ", 1)[0][:maximo]
 
 
 def _fecha_o_actual(datos, actual, campo):
@@ -77,7 +85,7 @@ def importar(datos):
             (
                 pelicula["tmdb_id"], pelicula["titulo"][:200], pelicula["sinopsis"],
                 pelicula["poster_url"], pelicula["duracion_min"], clasificacion,
-                pelicula["genero"][:50], desde, hasta,
+                _generos_hasta(pelicula["genero"], MAXIMO_GENERO), desde, hasta,
             ),
         )
     except pymysql.err.IntegrityError:
@@ -91,7 +99,7 @@ def modificar(pelicula_id, datos):
     actual = obtener(pelicula_id)
 
     titulo = _texto(datos.get("titulo", actual["titulo"]), "titulo", 200, obligatorio=True)
-    genero = _texto(datos.get("genero", actual["genero"]), "genero", 50, obligatorio=True)
+    genero = _texto(datos.get("genero", actual["genero"]), "genero", MAXIMO_GENERO, obligatorio=True)
     clasificacion = _texto(datos.get("clasificacion", actual["clasificacion"]), "clasificacion", 10)
     poster_url = _texto(datos.get("poster_url", actual["poster_url"]), "poster_url", 300)
     sinopsis = _texto(datos.get("sinopsis", actual["sinopsis"]), "sinopsis", 65535)

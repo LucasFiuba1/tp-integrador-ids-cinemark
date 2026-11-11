@@ -44,13 +44,27 @@ def buscar(texto):
     ]
 
 
+# La clasificación se guarda en el formato argentino (ATP, +13, +16, +18). TMDB la da como "13" o "+13" para
+# Argentina; si no la tiene, se usa la de EE.UU. traducida a su equivalente más cercano.
+EQUIVALENTES_EEUU = {"G": "ATP", "PG": "ATP", "PG-13": "+13", "R": "+16", "NC-17": "+18"}
+
+
+def _clasificacion_argentina(pais, certificacion):
+    texto = certificacion.strip().upper()
+    if pais == "US":
+        return EQUIVALENTES_EEUU.get(texto, texto)
+    if texto.lstrip("+").isdecimal():
+        return "+" + texto.lstrip("+")
+    return texto
+
+
 def _clasificacion(release_dates):
     for pais in PAISES_CLASIFICACION:
         for resultado in release_dates.get("results", []):
             if resultado["iso_3166_1"] == pais:
                 for estreno in resultado["release_dates"]:
-                    if estreno.get("certification"):
-                        return estreno["certification"]
+                    if (estreno.get("certification") or "").strip():
+                        return _clasificacion_argentina(pais, estreno["certification"])
     return None
 
 

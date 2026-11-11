@@ -314,6 +314,23 @@
   </div>
 {% endmacro %}
 
+{# Tarjeta de un servicio (comida, estacionamiento, VIP...): la usan el paso de servicios de la compra y la página
+   pública de servicios. Sin imágenes en la base: el tono sale del id (como el póster) y la palabra, del nombre.
+   Con call, lo que se pase (por ejemplo, el campo de cantidad) va al pie de la tarjeta. #}
+{% macro tarjeta_servicio(servicio, elegido=false) %}
+  <article class="servicio-tarjeta{% if elegido %} servicio-elegido{% endif %}">
+    <div class="servicio-imagen servicio-imagen-{{ ((servicio.id - 1) % 4) + 1 }}" aria-hidden="true">
+      <span>{{ (servicio.nombre.split() | first) | upper }}</span>
+    </div>
+    <div class="servicio-informacion">
+      <h2>{{ servicio.nombre }}</h2>
+      {% if servicio.descripcion %}<p>{{ servicio.descripcion }}</p>{% endif %}
+      <p class="servicio-precio">{{ servicio.precio | precio }}</p>
+    </div>
+    {% if caller %}<div class="servicio-cantidad">{{ caller() }}</div>{% endif %}
+  </article>
+{% endmacro %}
+
 {# Resumen lateral de la compra (servicios y pago): película, función, detalle de precios, total y vencimiento
    de la reserva. compra tiene la forma de GET /api/compras/<id>; el botón de la pantalla va en el caller(). #}
 {% macro resumen_compra(compra) %}
