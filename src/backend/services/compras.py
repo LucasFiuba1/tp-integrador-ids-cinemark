@@ -198,9 +198,10 @@ def obtener_por_token(token):
 def _cancelar_compra(compra_id, usuario_id=None):
     with transaccion() as cursor:
         cursor.execute(
-            "SELECT c.id, c.usuario_id, c.estado, c.utilizada_en, f.fecha_hora "
+            "SELECT c.id, c.usuario_id, c.estado, c.utilizada_en, f.fecha_hora, u.nombre, u.email "
             "FROM compras c "
             "JOIN funciones f ON f.id = c.funcion_id "
+            "JOIN usuarios u ON u.id = c.usuario_id "
             "WHERE c.id = %s FOR UPDATE",
             (compra_id,),
         )
@@ -224,6 +225,10 @@ def _cancelar_compra(compra_id, usuario_id=None):
             (compra_id,),
         )
         cursor.execute("UPDATE entradas SET activa = NULL WHERE compra_id = %s AND activa = 1", (compra_id,))
+
+    detalle = perfil.obtener_compra(compra_id)
+    if detalle is not None:
+        correo.enviar_cancelacion(detalle,{"nombre": compra["nombre"], "email": compra["email"]},)
 
     return {"id": compra_id, "estado": "cancelada"}
 
