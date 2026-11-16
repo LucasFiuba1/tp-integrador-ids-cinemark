@@ -452,6 +452,21 @@ enviar `desde` posterior a `hasta`, devuelve 400 `DATOS_INVALIDOS`. Un local sin
 compras (o inexistente) devuelve resultados vacíos, no 404. Solo se permite el
 rol admin: sin token devuelve 401 y con otro rol, 403 `SIN_PERMISO`.
 
+**Formato común de las series (SCRUM-109).** Cada fila de cada lista, además de sus
+campos propios, trae `etiqueta` (texto), `valor` (entero) y `porcentaje` (número con
+dos decimales), para que el backoffice dibuje todas las barras con la misma macro:
+
+| Serie | `etiqueta` | `valor` | `porcentaje` |
+|---|---|---|---|
+| Ocupación `por_pelicula` | título | `vendidas` | `vendidas / capacidad` (igual a `ocupacion`) |
+| Ocupación `por_funcion` | `"<película> (<local>, <sala>)"` | `vendidas` | `vendidas / capacidad` (igual a `ocupacion`) |
+| Ventas por género | género | `entradas` | participación sobre el total de entradas de la respuesta |
+| Franjas horarias | `"20 a 22 h"` | `entradas` | participación sobre el total de entradas de la respuesta |
+| Cancelaciones `por_pelicula` / `por_periodo` | título / `periodo` | `canceladas` | `canceladas / compras` |
+
+Los porcentajes se calculan como `100 * parte / total`, redondeados a dos decimales
+(la mitad hacia arriba) y, si el total es 0, valen `0.0` en lugar de fallar.
+
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
 | GET | `/api/admin/dashboards/ocupacion` | 🛠️ | Ocupación por función y por película (vendidas / capacidad). |
@@ -478,11 +493,13 @@ GET /api/admin/dashboards/ocupacion?local_id=2
 200 OK
 {
   "por_pelicula": [
-    { "pelicula_id": 6, "pelicula": "Toy Story", "vendidas": 1, "capacidad": 420, "ocupacion": 0.24 }
+    { "pelicula_id": 6, "pelicula": "Toy Story", "vendidas": 1, "capacidad": 420, "ocupacion": 0.24,
+      "etiqueta": "Toy Story", "valor": 1, "porcentaje": 0.24 }
   ],
   "por_funcion": [
     { "funcion_id": 41, "pelicula": "Toy Story", "local": "Belgrano", "sala": "Sala 1",
-      "fecha_hora": "2026-11-06T17:30:00", "vendidas": 1, "capacidad": 140, "ocupacion": 0.71 }
+      "fecha_hora": "2026-11-06T17:30:00", "vendidas": 1, "capacidad": 140, "ocupacion": 0.71,
+      "etiqueta": "Toy Story (Belgrano, Sala 1)", "valor": 1, "porcentaje": 0.71 }
   ]
 }
 ```
@@ -501,8 +518,8 @@ entradas, sin servicios. Solo aparecen géneros con ventas, ordenados por
 GET /api/admin/dashboards/ventas-genero
 
 200 OK
-[ { "genero": "Animación", "entradas": 3, "monto": 16500.0 },
-  { "genero": "Aventura", "entradas": 2, "monto": 11000.0 } ]
+[ { "genero": "Animación", "entradas": 3, "monto": 16500.0, "etiqueta": "Animación", "valor": 3, "porcentaje": 60.0 },
+  { "genero": "Aventura", "entradas": 2, "monto": 11000.0, "etiqueta": "Aventura", "valor": 2, "porcentaje": 40.0 } ]
 ```
 
 Estos son los valores de `seed.sql` recién cargado. Sin ventas devuelve `[]`.
@@ -520,8 +537,8 @@ excluye el historial por bajas lógicas de películas, salas o funciones.
 GET /api/admin/dashboards/franjas-horarias
 
 200 OK
-[ { "hora_desde": 20, "hora_hasta": 22, "entradas": 4 },
-  { "hora_desde": 16, "hora_hasta": 18, "entradas": 1 } ]
+[ { "hora_desde": 20, "hora_hasta": 22, "entradas": 4, "etiqueta": "20 a 22 h", "valor": 4, "porcentaje": 80.0 },
+  { "hora_desde": 16, "hora_hasta": 18, "entradas": 1, "etiqueta": "16 a 18 h", "valor": 1, "porcentaje": 20.0 } ]
 ```
 
 Estos son los valores de `seed.sql` recién cargado. Sin ventas devuelve `[]`.
@@ -548,13 +565,18 @@ GET /api/admin/dashboards/cancelaciones
 200 OK
 {
   "por_pelicula": [
-    { "pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": 1, "porcentaje": 50.0 },
-    { "pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": 0, "porcentaje": 0.0 },
-    { "pelicula_id": 6, "pelicula": "Toy Story", "compras": 1, "canceladas": 0, "porcentaje": 0.0 }
+    { "pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": 1,
+      "etiqueta": "Jurassic Park", "valor": 1, "porcentaje": 50.0 },
+    { "pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": 0,
+      "etiqueta": "El viaje de Chihiro", "valor": 0, "porcentaje": 0.0 },
+    { "pelicula_id": 6, "pelicula": "Toy Story", "compras": 1, "canceladas": 0,
+      "etiqueta": "Toy Story", "valor": 0, "porcentaje": 0.0 }
   ],
   "por_periodo": [
-    { "periodo": "2026-11-06T00:00:00", "compras": 2, "canceladas": 0, "porcentaje": 0.0 },
-    { "periodo": "2026-11-08T00:00:00", "compras": 2, "canceladas": 1, "porcentaje": 50.0 }
+    { "periodo": "2026-11-06T00:00:00", "compras": 2, "canceladas": 0,
+      "etiqueta": "2026-11-06T00:00:00", "valor": 0, "porcentaje": 0.0 },
+    { "periodo": "2026-11-08T00:00:00", "compras": 2, "canceladas": 1,
+      "etiqueta": "2026-11-08T00:00:00", "valor": 1, "porcentaje": 50.0 }
   ]
 }
 ```

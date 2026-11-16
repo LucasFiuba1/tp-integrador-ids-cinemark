@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 from werkzeug.exceptions import HTTPException
 
-from src.backend.services.filtros_dashboards import construir_filtros
+from src.backend.services.reportes import construir_filtros
 from src.frontend.filtros import numero
 
 # Respuestas de ejemplo de GET /api/admin/dashboards/<tablero> (ver docs/endpoints.md).
@@ -141,28 +141,31 @@ RUTAS = (FRANJAS, CANCELACIONES, OCUPACION, VENTAS_GENERO)
 DESDE = "2026-11-06T17:30:00"
 HASTA = "2026-11-08T23:59:59"
 
-# Filas tal como las devuelve MySQL: SUM/porcentaje llegan como Decimal y DATE() como date.
+# Filas tal como las devuelve MySQL: SUM llega como Decimal y DATE() como date. Los porcentajes no vienen del
+# SQL: los calcula reportes.porcentaje (SCRUM-109).
 FILAS_FRANJAS = [
     {"hora_desde": 20, "hora_hasta": 22, "entradas": 4},
     {"hora_desde": 16, "hora_hasta": 18, "entradas": 1},
 ]
 FILAS_PELICULAS = [
-    {"pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": Decimal("1"),
-     "porcentaje": Decimal("50.00")},
-    {"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": Decimal("0"),
-     "porcentaje": Decimal("0.00")},
+    {"pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": Decimal("1")},
+    {"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": Decimal("0")},
 ]
 FILAS_PERIODOS = [
-    {"periodo": date(2026, 11, 6), "compras": 2, "canceladas": Decimal("0"), "porcentaje": Decimal("0.00")},
-    {"periodo": date(2026, 11, 8), "compras": 2, "canceladas": Decimal("1"), "porcentaje": Decimal("50.00")},
+    {"periodo": date(2026, 11, 6), "compras": 2, "canceladas": Decimal("0")},
+    {"periodo": date(2026, 11, 8), "compras": 2, "canceladas": Decimal("1")},
 ]
 PELICULAS_JSON = [
-    {"pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": 1, "porcentaje": 50.0},
-    {"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": 0, "porcentaje": 0.0},
+    {"pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": 1,
+     "etiqueta": "Jurassic Park", "valor": 1, "porcentaje": 50.0},
+    {"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": 0,
+     "etiqueta": "El viaje de Chihiro", "valor": 0, "porcentaje": 0.0},
 ]
 PERIODOS_JSON = [
-    {"periodo": "2026-11-06T00:00:00", "compras": 2, "canceladas": 0, "porcentaje": 0.0},
-    {"periodo": "2026-11-08T00:00:00", "compras": 2, "canceladas": 1, "porcentaje": 50.0},
+    {"periodo": "2026-11-06T00:00:00", "compras": 2, "canceladas": 0,
+     "etiqueta": "2026-11-06T00:00:00", "valor": 0, "porcentaje": 0.0},
+    {"periodo": "2026-11-08T00:00:00", "compras": 2, "canceladas": 1,
+     "etiqueta": "2026-11-08T00:00:00", "valor": 1, "porcentaje": 50.0},
 ]
 
 
@@ -205,8 +208,8 @@ def test_franjas_horarias_devuelve_200_con_las_franjas(cliente_backend, cabecera
     respuesta = cliente_backend.get(FRANJAS, headers=cabeceras)
     assert respuesta.status_code == 200
     assert respuesta.get_json() == [
-        {"hora_desde": 20, "hora_hasta": 22, "entradas": 4},
-        {"hora_desde": 16, "hora_hasta": 18, "entradas": 1},
+        {"hora_desde": 20, "hora_hasta": 22, "entradas": 4, "etiqueta": "20 a 22 h", "valor": 4, "porcentaje": 80.0},
+        {"hora_desde": 16, "hora_hasta": 18, "entradas": 1, "etiqueta": "16 a 18 h", "valor": 1, "porcentaje": 20.0},
     ]
     assert bd.call_count == 1
 
@@ -452,10 +455,9 @@ def test_desde_igual_a_hasta_es_un_rango_valido(cliente_backend, cabeceras, bd, 
 
 # --- backend: ocupación y ventas por género (SCRUM-75) ---
 FILA_OCUPACION_PELICULA = {"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "vendidas": Decimal("2"),
-                           "capacidad": Decimal("192"), "ocupacion": Decimal("1.04")}
+                           "capacidad": Decimal("192")}
 FILA_OCUPACION_FUNCION = {"funcion_id": 9, "pelicula": "El viaje de Chihiro", "local": "Centro", "sala": "Sala 1",
-                          "fecha_hora": datetime(2026, 11, 7, 21, 0, 0), "vendidas": 2, "capacidad": 96,
-                          "ocupacion": Decimal("2.08")}
+                          "fecha_hora": datetime(2026, 11, 7, 21, 0, 0), "vendidas": 2, "capacidad": 96}
 FILA_VENTAS_GENERO = {"genero": "Animación", "entradas": 3, "monto": Decimal("16500.00")}
 
 
@@ -469,9 +471,10 @@ def test_ocupacion_devuelve_200_con_numeros_y_fecha_iso(cliente_backend, cabecer
     assert respuesta.status_code == 200
     assert respuesta.get_json() == {
         "por_pelicula": [{"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "vendidas": 2, "capacidad": 192,
-                          "ocupacion": 1.04}],
+                          "ocupacion": 1.04, "etiqueta": "El viaje de Chihiro", "valor": 2, "porcentaje": 1.04}],
         "por_funcion": [{"funcion_id": 9, "pelicula": "El viaje de Chihiro", "local": "Centro", "sala": "Sala 1",
-                         "fecha_hora": "2026-11-07T21:00:00", "vendidas": 2, "capacidad": 96, "ocupacion": 2.08}],
+                         "fecha_hora": "2026-11-07T21:00:00", "vendidas": 2, "capacidad": 96, "ocupacion": 2.08,
+                         "etiqueta": "El viaje de Chihiro (Centro, Sala 1)", "valor": 2, "porcentaje": 2.08}],
     }
 
 
@@ -496,7 +499,8 @@ def test_ventas_genero_devuelve_200_con_numeros(cliente_backend, cabeceras, bd):
     respuesta = cliente_backend.get(VENTAS_GENERO, headers=cabeceras)
     datos = respuesta.get_json()
     assert respuesta.status_code == 200
-    assert datos == [{"genero": "Animación", "entradas": 3, "monto": 16500.0}]
+    assert datos == [{"genero": "Animación", "entradas": 3, "monto": 16500.0,
+                      "etiqueta": "Animación", "valor": 3, "porcentaje": 100.0}]
     assert isinstance(datos[0]["monto"], float)
 
 

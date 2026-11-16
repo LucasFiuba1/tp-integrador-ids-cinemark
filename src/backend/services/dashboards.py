@@ -4,7 +4,7 @@ Se incluye el historial de entidades con baja lógica, por eso no se filtra por 
 Las funciones tampoco, salvo en ocupación: una función dada de baja no se ofreció, así que no suma capacidad.
 """
 from src.backend.db import consultar
-from src.backend.services.filtros_dashboards import construir_filtros
+from src.backend.services.reportes import construir_filtros, porcentaje, punto_serie, total_de
 
 HORAS_POR_FRANJA = 2
 FRANJA_SQL = "FLOOR(HOUR(f.fecha_hora) / 2) * 2"
@@ -35,22 +35,28 @@ FROM_OCUPACION = (
 CAPACIDAD_SQL = "s.filas * s.columnas"
 VENDIDAS_PELICULA_SQL = "COALESCE(SUM(v.vendidas), 0)"
 VENDIDAS_FUNCION_SQL = "COALESCE(v.vendidas, 0)"
+# El porcentaje de ocupación se calcula en Python con `reportes.porcentaje` (sin división por cero); el SQL solo
+# ordena por la misma cuenta, redondeada igual para que los empates se desempaten como dice docs/endpoints.md.
 SQL_OCUPACION_PELICULA = (
     "SELECT p.id AS pelicula_id, p.titulo AS pelicula, "
     + VENDIDAS_PELICULA_SQL + " AS vendidas, "
-    "SUM(" + CAPACIDAD_SQL + ") AS capacidad, "
-    "ROUND(100 * " + VENDIDAS_PELICULA_SQL + " / SUM(" + CAPACIDAD_SQL + "), 2) AS ocupacion "
+    "SUM(" + CAPACIDAD_SQL + ") AS capacidad "
     + FROM_OCUPACION
 )
-SQL_OCUPACION_PELICULA_ORDEN = " GROUP BY p.id, p.titulo ORDER BY ocupacion DESC, p.id ASC"
+SQL_OCUPACION_PELICULA_ORDEN = (
+    " GROUP BY p.id, p.titulo "
+    "ORDER BY ROUND(100 * " + VENDIDAS_PELICULA_SQL + " / SUM(" + CAPACIDAD_SQL + "), 2) DESC, p.id ASC"
+)
 SQL_OCUPACION_FUNCION = (
     "SELECT f.id AS funcion_id, p.titulo AS pelicula, l.nombre AS local, s.nombre AS sala, f.fecha_hora, "
     + VENDIDAS_FUNCION_SQL + " AS vendidas, "
-    + CAPACIDAD_SQL + " AS capacidad, "
-    "ROUND(100 * " + VENDIDAS_FUNCION_SQL + " / (" + CAPACIDAD_SQL + "), 2) AS ocupacion "
+    + CAPACIDAD_SQL + " AS capacidad "
     + FROM_OCUPACION
 )
-SQL_OCUPACION_FUNCION_ORDEN = " ORDER BY ocupacion DESC, f.fecha_hora ASC, f.id ASC"
+SQL_OCUPACION_FUNCION_ORDEN = (
+    " ORDER BY ROUND(100 * " + VENDIDAS_FUNCION_SQL + " / (" + CAPACIDAD_SQL + "), 2) DESC, "
+    "f.fecha_hora ASC, f.id ASC"
+)
 
 # `peliculas.genero` guarda varios géneros separados por coma: cada venta se cuenta en el primero (el principal),
 # así la suma de todas las filas coincide con el total vendido.
@@ -69,8 +75,7 @@ SQL_VENTAS_GENERO_ORDEN = " GROUP BY " + GENERO_SQL + " ORDER BY entradas DESC, 
 
 COLUMNAS_CANCELACIONES = (
     "COUNT(*) AS compras, "
-    "SUM(CASE WHEN c.estado = 'cancelada' THEN 1 ELSE 0 END) AS canceladas, "
-    "ROUND(100 * SUM(CASE WHEN c.estado = 'cancelada' THEN 1 ELSE 0 END) / COUNT(*), 2) AS porcentaje "
+    "SUM(CASE WHEN c.estado = 'cancelada' THEN 1 ELSE 0 END) AS canceladas "
 )
 FROM_CANCELACIONES = (
     "FROM compras c "
@@ -87,41 +92,51 @@ SQL_CANCELACIONES_PERIODO = "SELECT DATE(f.fecha_hora) AS periodo, " + COLUMNAS_
 SQL_CANCELACIONES_PERIODO_ORDEN = " GROUP BY DATE(f.fecha_hora) ORDER BY DATE(f.fecha_hora) ASC"
 
 
-def _franja_a_json(fila):
+# Cada fila de una serie lleva, además de sus campos propios, `etiqueta`, `valor` y `porcentaje` (reportes.py).
+def _franja_a_json(fila, total):
     hora_desde = int(fila["hora_desde"])
+    hora_hasta = hora_desde + HORAS_POR_FRANJA
+    entradas = int(fila["entradas"])
     return {
         "hora_desde": hora_desde,
-        "hora_hasta": hora_desde + HORAS_POR_FRANJA,
-        "entradas": int(fila["entradas"]),
+        "hora_hasta": hora_hasta,
+        "entradas": entradas,
+        **punto_serie(f"{hora_desde} a {hora_hasta} h", entradas, total),
     }
 
 
-def _conteos_a_json(fila):
-    return {
-        "compras": int(fila["compras"]),
-        "canceladas": int(fila["canceladas"]),
-        "porcentaje": float(fila["porcentaje"]),
-    }
+def _conteos_a_json(fila, etiqueta):
+    """Cancelaciones: el valor son las canceladas y el porcentaje, sobre las compras de esa misma fila."""
+    compras = int(fila["compras"])
+    canceladas = int(fila["canceladas"])
+    return {"compras": compras, "canceladas": canceladas, **punto_serie(etiqueta, canceladas, compras)}
 
 
 def _por_pelicula_a_json(fila):
-    return {"pelicula_id": fila["pelicula_id"], "pelicula": fila["pelicula"], **_conteos_a_json(fila)}
+    return {"pelicula_id": fila["pelicula_id"], "pelicula": fila["pelicula"],
+            **_conteos_a_json(fila, fila["pelicula"])}
 
 
 def _por_periodo_a_json(fila):
-    return {"periodo": fila["periodo"].isoformat() + "T00:00:00", **_conteos_a_json(fila)}
+    periodo = fila["periodo"].isoformat() + "T00:00:00"
+    return {"periodo": periodo, **_conteos_a_json(fila, periodo)}
 
 
-def _ocupacion_a_json(fila):
+def _ocupacion_a_json(fila, etiqueta):
+    """Ocupación: el valor son las butacas vendidas y el porcentaje, sobre la capacidad de esa misma fila."""
+    vendidas = int(fila["vendidas"])
+    capacidad = int(fila["capacidad"])
     return {
-        "vendidas": int(fila["vendidas"]),
-        "capacidad": int(fila["capacidad"]),
-        "ocupacion": float(fila["ocupacion"]),
+        "vendidas": vendidas,
+        "capacidad": capacidad,
+        "ocupacion": porcentaje(vendidas, capacidad),
+        **punto_serie(etiqueta, vendidas, capacidad),
     }
 
 
 def _ocupacion_pelicula_a_json(fila):
-    return {"pelicula_id": fila["pelicula_id"], "pelicula": fila["pelicula"], **_ocupacion_a_json(fila)}
+    return {"pelicula_id": fila["pelicula_id"], "pelicula": fila["pelicula"],
+            **_ocupacion_a_json(fila, fila["pelicula"])}
 
 
 def _ocupacion_funcion_a_json(fila):
@@ -131,12 +146,19 @@ def _ocupacion_funcion_a_json(fila):
         "local": fila["local"],
         "sala": fila["sala"],
         "fecha_hora": fila["fecha_hora"].isoformat(),
-        **_ocupacion_a_json(fila),
+        **_ocupacion_a_json(fila, f"{fila['pelicula']} ({fila['local']}, {fila['sala']})"),
     }
 
 
-def _venta_genero_a_json(fila):
-    return {"genero": fila["genero"], "entradas": int(fila["entradas"]), "monto": float(fila["monto"])}
+def _venta_genero_a_json(fila, total):
+    """Ventas por género: el porcentaje es la participación del género sobre el total de entradas vendidas."""
+    entradas = int(fila["entradas"])
+    return {
+        "genero": fila["genero"],
+        "entradas": entradas,
+        "monto": float(fila["monto"]),
+        **punto_serie(fila["genero"], entradas, total),
+    }
 
 
 def listar_ocupacion(desde=None, hasta=None, local_id=None):
@@ -152,13 +174,15 @@ def listar_ocupacion(desde=None, hasta=None, local_id=None):
 def listar_ventas_genero(desde=None, hasta=None, local_id=None):
     clausulas, parametros = construir_filtros(desde, hasta, local_id)
     filas = consultar(SQL_VENTAS_GENERO + clausulas + SQL_VENTAS_GENERO_ORDEN, parametros)
-    return [_venta_genero_a_json(fila) for fila in filas]
+    total = total_de(filas, "entradas")
+    return [_venta_genero_a_json(fila, total) for fila in filas]
 
 
 def listar_franjas_horarias(desde=None, hasta=None, local_id=None):
     clausulas, parametros = construir_filtros(desde, hasta, local_id)
     filas = consultar(SQL_FRANJAS + clausulas + SQL_FRANJAS_ORDEN, parametros)
-    return [_franja_a_json(fila) for fila in filas]
+    total = total_de(filas, "entradas")
+    return [_franja_a_json(fila, total) for fila in filas]
 
 
 def listar_cancelaciones(desde=None, hasta=None, local_id=None):
