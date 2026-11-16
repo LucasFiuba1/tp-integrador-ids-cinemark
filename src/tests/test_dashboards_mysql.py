@@ -1,61 +1,39 @@
 """Franjas horarias y cancelaciones (SCRUM-76), ocupación y ventas por género (SCRUM-75) contra MySQL real. Prueba OPT-IN: sin la variable se saltea.
 
 Verifica el SQL de services/dashboards.py contra `seed.sql` recién cargado, con valores fijos esperados.
-No carga schema ni seed ni usa las credenciales del .env para MySQL: la app de pruebas se configura (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD
-y DB_NAME) hacia una base `cine_paradiso` ya provisionada en un MySQL local y aislado (root sin contraseña en
-127.0.0.1) y los endpoints usan `src.backend.db` real.
+Usa la base MySQL de pruebas (SCRUM-78): se configura en `.env.test` y se recrea con schema.sql + seed.sql antes
+de la suite; sin `.env.test` estas pruebas se saltean. Los endpoints usan `src.backend.db` real.
 
-    PRUEBAS_MYSQL_PUERTO=3307 python -m pytest src/tests/test_dashboards_mysql.py -v
+    python -m pytest src/tests/test_dashboards_mysql.py -v
 
 Las fechas del seed son relativas al día de carga: "ayer" y "mañana" se toman de las funciones con compras de
 la propia base. Las pruebas de borde insertan datos temporales (2031) en una transacción
 que siempre termina en rollback (fixture `conexion`), así la base queda como el seed.
 """
-import os
-from unittest.mock import MagicMock, patch
-
 import pytest
 
-PUERTO = os.environ.get("PRUEBAS_MYSQL_PUERTO")
-if not PUERTO:
-    pytest.skip("Definir PRUEBAS_MYSQL_PUERTO para correr las pruebas contra MySQL real.", allow_module_level=True)
+from src.backend import db
+from src.tests.mysql_pruebas import conexion_con_rollback, ejecutar as _ejecutar, filas as _filas
 
-from src.backend import db  # noqa: E402
+
+# --- infraestructura (base de pruebas de SCRUM-78, ver src/tests/mysql_pruebas.py) ---
+@pytest.fixture(autouse=True)
+def mysql_real(app_backend, mysql_pruebas):
+    """Apunta la app de pruebas a la base MySQL de pruebas: `src.backend.db` real, solo cambia la conexión."""
+    app_backend.config.update(mysql_pruebas)
+
+
+@pytest.fixture
+def conexion(mysql_real):
+    """Las consultas del backend usan una única conexión sin commit: lo insertado se ve y al final se deshace."""
+    with conexion_con_rollback() as conexion:
+        yield conexion
+
 
 FRANJAS = "/api/admin/dashboards/franjas-horarias"
 CANCELACIONES = "/api/admin/dashboards/cancelaciones"
 VACIAS = {"por_pelicula": [], "por_periodo": []}
 LOCAL_SIN_SEED = 3  # el local 3 (Palermo) no tiene compras en el seed
-
-
-# --- infraestructura ---
-@pytest.fixture(autouse=True)
-def mysql_real(app_backend):
-    """Apunta la app al MySQL de pruebas: `src.backend.db` real, solo cambia la configuración de conexión."""
-    app_backend.config.update(DB_HOST="127.0.0.1", DB_PORT=int(PUERTO), DB_USER="root", DB_PASSWORD="",
-                              DB_NAME="cine_paradiso")
-
-
-@pytest.fixture
-def conexion():
-    """Para las pruebas que insertan datos: todas las consultas del backend (`db._conectar`) usan una única
-    conexión, así ven lo insertado, y al terminar se hace rollback. Devuelve esa conexión."""
-    conexion = db._conectar()
-    prestada = MagicMock(wraps=conexion)
-    prestada.close = MagicMock()  # db.consultar cierra la conexión al terminar cada consulta
-    try:
-        with patch("src.backend.db._conectar", return_value=prestada):
-            yield conexion
-    finally:
-        conexion.rollback()
-        conexion.close()
-
-
-def _ejecutar(conexion, sql, parametros=()):
-    """INSERT/UPDATE dentro de la transacción de la prueba; devuelve el id insertado."""
-    with conexion.cursor() as cursor:
-        cursor.execute(sql, parametros)
-        return cursor.lastrowid
 
 
 @pytest.fixture

@@ -2,66 +2,35 @@
 
 Recorre lo que pasa cuando un cliente elige dos butacas: quedan bloqueadas las dos para los demás, un pedido que
 pisa una sola de ellas se rechaza sin bloquear las otras, y vencer o cancelar la compra libera las dos juntas.
-Usa la base del seed ya cargada. Todo corre en una única transacción que termina siempre en rollback (fixture
-`conexion`): la función y los clientes se insertan ahí (año 2031) y la base queda como estaba.
+Usa la base MySQL de pruebas (SCRUM-78), recreada con el seed. Todo corre en una única transacción que termina
+siempre en rollback (fixture `conexion`): la función y los clientes se insertan ahí (año 2031) y la base queda como estaba.
 
-    PRUEBAS_MYSQL_PUERTO=3307 python -m pytest src/tests/test_butacas_mysql.py -v
-
-Por defecto se conecta como root sin contraseña a 127.0.0.1 (como test_dashboards_mysql.py). Para otra base o
-usuario: PRUEBAS_MYSQL_USUARIO, PRUEBAS_MYSQL_CLAVE y PRUEBAS_MYSQL_BASE.
+    python -m pytest src/tests/test_butacas_mysql.py -v      # requiere .env.test (ver .env.test.example)
 """
-import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-PUERTO = os.environ.get("PRUEBAS_MYSQL_PUERTO")
-if not PUERTO:
-    pytest.skip("Definir PRUEBAS_MYSQL_PUERTO para correr las pruebas contra MySQL real.", allow_module_level=True)
-
-from src.backend import db  # noqa: E402
-from src.tests.utilidades import cabeceras_de, simular_usuarios  # noqa: E402
-
-SALA = 1  # sala del seed con butacas
-FECHA_FUNCION = "2031-06-10 21:00:00"
+from src.tests.mysql_pruebas import conexion_con_rollback, ejecutar as _ejecutar, filas as _filas
+from src.tests.utilidades import cabeceras_de, simular_usuarios
 
 
-# --- infraestructura ---
+# --- infraestructura (base de pruebas de SCRUM-78, ver src/tests/mysql_pruebas.py) ---
 @pytest.fixture(autouse=True)
-def mysql_real(app_backend):
-    app_backend.config.update(
-        DB_HOST="127.0.0.1", DB_PORT=int(PUERTO), DB_USER=os.environ.get("PRUEBAS_MYSQL_USUARIO", "root"),
-        DB_PASSWORD=os.environ.get("PRUEBAS_MYSQL_CLAVE", ""), DB_NAME=os.environ.get("PRUEBAS_MYSQL_BASE", "cine_paradiso"),
-    )
+def mysql_real(app_backend, mysql_pruebas):
+    """Apunta la app de pruebas a la base MySQL de pruebas: `src.backend.db` real, solo cambia la conexión."""
+    app_backend.config.update(mysql_pruebas)
 
 
 @pytest.fixture
-def conexion():
-    """Todas las consultas del backend usan una única conexión, que nunca hace commit: `transaccion()` llama a
-    commit/rollback sobre el envoltorio (no hacen nada) y al terminar la prueba se deshace todo de verdad."""
-    conexion = db._conectar()
-    prestada = MagicMock(wraps=conexion)
-    prestada.close = MagicMock()
-    prestada.commit = MagicMock()
-    prestada.rollback = MagicMock()
-    try:
-        with patch("src.backend.db._conectar", return_value=prestada):
-            yield conexion
-    finally:
-        conexion.rollback()
-        conexion.close()
+def conexion(mysql_real):
+    """Las consultas del backend usan una única conexión sin commit: lo insertado se ve y al final se deshace."""
+    with conexion_con_rollback() as conexion:
+        yield conexion
 
 
-def _ejecutar(conexion, sql, parametros=()):
-    with conexion.cursor() as cursor:
-        cursor.execute(sql, parametros)
-        return cursor.lastrowid
-
-
-def _filas(conexion, sql, parametros=()):
-    with conexion.cursor() as cursor:
-        cursor.execute(sql, parametros)
-        return cursor.fetchall()
+SALA = 1  # sala del seed con butacas
+FECHA_FUNCION = "2031-06-10 21:00:00"
 
 
 def _cliente(conexion, email):

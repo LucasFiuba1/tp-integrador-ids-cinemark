@@ -14,7 +14,7 @@ bash init.sh --db                                         # crea la base y carga
 source .venv/bin/activate
 flask --app src.backend.app run --port 5000 --debug       # API (JSON)
 flask --app src.frontend.app run --port 5001 --debug      # sitio + backoffice (Jinja)
-python -m pytest src/tests -v                             # pruebas (no requieren MySQL)
+python -m pytest src/tests -v                             # pruebas (las *_mysql.py solo con .env.test)
 python -m pytest src/tests/test_peliculas.py -v           # un solo archivo
 ```
 
