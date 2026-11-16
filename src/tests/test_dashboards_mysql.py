@@ -59,12 +59,20 @@ def _iso(dia, hora="00:00:00"):
     return f"{dia:%Y-%m-%d}T{hora}"
 
 
-def _franja(desde, entradas):
-    return {"hora_desde": desde, "hora_hasta": desde + 2, "entradas": entradas}
+def _serie(etiqueta, valor, porcentaje):
+    """Campos comunes de toda fila de una serie (SCRUM-109): `etiqueta`, `valor` y `porcentaje`."""
+    return {"etiqueta": etiqueta, "valor": valor, "porcentaje": porcentaje}
+
+
+def _franja(desde, entradas, porcentaje=100.0):
+    """`porcentaje` es la participación de la franja sobre todas las entradas vendidas de la respuesta."""
+    return {"hora_desde": desde, "hora_hasta": desde + 2, "entradas": entradas,
+            **_serie(f"{desde} a {desde + 2} h", entradas, porcentaje)}
 
 
 def _fila(compras, canceladas, porcentaje, **identidad):
-    return dict(identidad, compras=compras, canceladas=canceladas, porcentaje=porcentaje)
+    etiqueta = identidad.get("pelicula", identidad.get("periodo"))
+    return dict(identidad, compras=compras, canceladas=canceladas, **_serie(etiqueta, canceladas, porcentaje))
 
 
 CHIHIRO = {"pelicula_id": 5, "pelicula": "El viaje de Chihiro"}
@@ -75,7 +83,7 @@ CINEMA_PARADISO = {"pelicula_id": 4, "pelicula": "Cinema Paradiso"}
 
 # --- seed completo ---
 def test_franjas_horarias_del_seed(pedir):
-    assert pedir(FRANJAS) == [_franja(20, 4), _franja(16, 1)]
+    assert pedir(FRANJAS) == [_franja(20, 4, 80.0), _franja(16, 1, 20.0)]
 
 
 def test_cancelaciones_del_seed_por_pelicula(pedir):
@@ -123,7 +131,7 @@ def test_desde_manana_deja_solo_las_compras_de_manana(pedir, dias):
 
 def test_hasta_ayer_deja_solo_las_compras_de_ayer(pedir, dias):
     hasta = _iso(dias["ayer"], "23:59:59")
-    assert pedir(FRANJAS, hasta=hasta) == [_franja(20, 2), _franja(16, 1)]
+    assert pedir(FRANJAS, hasta=hasta) == [_franja(20, 2, 66.67), _franja(16, 1, 33.33)]
     assert pedir(CANCELACIONES, hasta=hasta) == {
         "por_pelicula": [_fila(1, 0, 0.0, **CHIHIRO), _fila(1, 0, 0.0, **TOY_STORY)],
         "por_periodo": [_fila(2, 0, 0.0, periodo=_iso(dias["ayer"]))]}
@@ -282,7 +290,8 @@ CAPACIDAD_SALA_4 = 70
 
 
 def _ocupacion(vendidas, capacidad, ocupacion, **identidad):
-    return dict(identidad, vendidas=vendidas, capacidad=capacidad, ocupacion=ocupacion)
+    return dict(identidad, vendidas=vendidas, capacidad=capacidad, ocupacion=ocupacion,
+                **_serie(identidad["pelicula"], vendidas, ocupacion))
 
 
 def _resumen_pelicula(fila):
@@ -293,8 +302,9 @@ def _resumen_funcion(fila):
     return fila["pelicula"], fila["sala"], fila["fecha_hora"], fila["vendidas"], fila["capacidad"], fila["ocupacion"]
 
 
-def _genero(genero, entradas, monto):
-    return {"genero": genero, "entradas": entradas, "monto": monto}
+def _genero(genero, entradas, monto, porcentaje=100.0):
+    """`porcentaje` es la participación del género sobre todas las entradas vendidas de la respuesta."""
+    return {"genero": genero, "entradas": entradas, "monto": monto, **_serie(genero, entradas, porcentaje)}
 
 
 def test_ocupacion_del_seed_por_pelicula(pedir):
@@ -338,12 +348,13 @@ def test_ocupacion_de_local_inexistente_devuelve_vacios(pedir):
 
 def test_ventas_genero_del_seed_usa_el_primer_genero_y_cierra_con_el_total(pedir):
     datos = pedir(VENTAS_GENERO)
-    assert datos == [_genero("Animación", 3, 16500.0), _genero("Aventura", 2, 11000.0)]
+    assert datos == [_genero("Animación", 3, 16500.0, 60.0), _genero("Aventura", 2, 11000.0, 40.0)]
     assert sum(fila["entradas"] for fila in datos) == sum(f["entradas"] for f in pedir(FRANJAS))
 
 
 def test_ventas_genero_filtra_por_local(pedir):
-    assert pedir(VENTAS_GENERO, local_id=1) == [_genero("Animación", 2, 11000.0), _genero("Aventura", 2, 11000.0)]
+    assert pedir(VENTAS_GENERO, local_id=1) == [
+        _genero("Animación", 2, 11000.0, 50.0), _genero("Aventura", 2, 11000.0, 50.0)]
     assert pedir(VENTAS_GENERO, local_id=2) == [_genero("Animación", 1, 5500.0)]
     assert pedir(VENTAS_GENERO, local_id=LOCAL_SIN_SEED) == []
 
