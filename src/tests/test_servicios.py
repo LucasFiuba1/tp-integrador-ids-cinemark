@@ -19,7 +19,9 @@ def fila(id=1, nombre="Gaseosa", precio="2500.00", activo=1):
 def db():
     with patch("src.backend.services.servicios.db") as db_simulada:
         db_simulada.ejecutar.return_value = 9
-        yield db_simulada
+        # La baja y la reactivación pasan por los helpers de ABM, que usan la misma base simulada.
+        with patch("src.backend.abm.db", db_simulada):
+            yield db_simulada
 
 
 def duplicado():

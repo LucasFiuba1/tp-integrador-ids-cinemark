@@ -65,6 +65,15 @@ def test_alta_importa_pelicula(cliente_backend, cabeceras, bd, detalle):
     bd.ejecutar.assert_called_once()
 
 
+def test_alta_con_muchos_generos_no_corta_uno_por_la_mitad(cliente_backend, cabeceras, bd, detalle):
+    detalle.return_value = {**PELICULA_TMDB, "genero": "Animación, Aventura, Comedia, Familia, Fantasía, Ciencia ficción"}
+    bd.consultar_uno.side_effect = [None, fila()]
+    cliente_backend.post(RUTA, json={"tmdb_id": 105, **PERIODO}, headers=cabeceras)
+    guardado = bd.ejecutar.call_args.args[1][6]
+    assert guardado == "Animación, Aventura, Comedia, Familia, Fantasía"
+    assert len(guardado) <= 50
+
+
 def test_alta_duplicada_devuelve_409(cliente_backend, cabeceras, bd, detalle):
     bd.consultar_uno.return_value = {"id": 3}
     respuesta = cliente_backend.post(RUTA, json={"tmdb_id": 105, **PERIODO}, headers=cabeceras)

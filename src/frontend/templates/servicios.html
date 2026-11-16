@@ -1,0 +1,27 @@
+{# Servicios disponibles (menú "Servicios" del header). servicios: GET /api/servicios (solo activos); sin_datos si el
+   backend falló (el aviso lo muestra el flash). Son los mismos que se pueden sumar a una compra después de elegir
+   las butacas: acá solo se muestran, sin cantidades. #}
+{% extends "base.html" %}
+{% from "macros.html" import boton, cabecera_pagina, tarjeta_servicio %}
+
+{% block titulo %}Servicios · Cine Paradiso{% endblock %}
+
+{% block contenido %}
+  {{ cabecera_pagina("Servicios", bajada="Disponibles en todas las salas. Los sumás a tu compra después de elegir las butacas.") }}
+
+  {% if servicios %}
+    <section class="servicios-lista" aria-label="Servicios disponibles">
+      {% for servicio in servicios %}
+        {{ tarjeta_servicio(servicio) }}
+      {% endfor %}
+    </section>
+    <p class="servicios-accion">{{ boton("Ver la cartelera", url=url_for("publico.inicio")) }}</p>
+  {% elif sin_datos %}
+    <div class="estado-vacio">
+      <p>No pudimos cargar los servicios.</p>
+      {{ boton("Reintentar", "borde", url=url_for("publico.servicios")) }}
+    </div>
+  {% else %}
+    <p class="estado-vacio">Por ahora no hay servicios disponibles.</p>
+  {% endif %}
+{% endblock %}

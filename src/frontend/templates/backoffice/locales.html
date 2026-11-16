@@ -1,23 +1,21 @@
+{# Locales y salas (Figma B4): una tarjeta por local con sus salas y las acciones de cada una.
+   locales es GET /api/admin/locales con las salas de GET /api/admin/salas agrupadas en "salas". #}
 {% extends "backoffice/base_admin.html" %}
-
-{% block titulo %}Locales y salas - Cine Paradiso{% endblock %}
-
 {% from "macros.html" import cabecera_pagina, local_tarjeta %}
 
+{% block titulo %}Locales y salas · Backoffice · Cine Paradiso{% endblock %}
+
 {% block admin %}
+  {{ cabecera_pagina("Locales y salas", bajada="Sedes, salas y capacidad de butacas",
+                     accion={"texto": "Nuevo local", "url": url_for("backoffice.nuevo_local")}) }}
 
-    {{ cabecera_pagina(
-        "Locales y salas",
-        {"texto": "Nuevo local", "url": "#"},
-        "Sedes, salas y capacidad de butacas"
-    ) }}
-
+  {% if locales %}
     <div class="locales-lista">
-
-        {% for local in locales %}
-            {{ local_tarjeta(local) }}
-        {% endfor %}
-
+      {% for local in locales %}
+        {{ local_tarjeta(local) }}
+      {% endfor %}
     </div>
-
+  {% else %}
+    <p class="estado-vacio">Todavía no hay locales. Cargá el primero con «Nuevo local».</p>
+  {% endif %}
 {% endblock %}

@@ -1,4 +1,4 @@
-"""Pruebas de la cartelera pública, el detalle de películas y el mapa de butacas (SCRUM-20, SCRUM-21) con la base simulada."""
+"""Pruebas de la cartelera pública, los locales, el detalle de películas y el mapa de butacas (SCRUM-20, 21, 126) con la base simulada."""
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import patch
@@ -44,9 +44,29 @@ def test_cartelera_con_filtros_invalidos_devuelve_400(cliente_backend, consultar
     consultar.assert_not_called()
 
 
+# --- locales públicos (SCRUM-126) ---
+def test_locales_es_publico_y_devuelve_id_y_nombre(cliente_backend):
+    locales = [{"id": 2, "nombre": "Paradiso Belgrano"}, {"id": 1, "nombre": "Paradiso Centro"}]
+    with patch("src.backend.services.locales.db.consultar", return_value=locales) as consultar_locales:
+        respuesta = cliente_backend.get("/api/locales")
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == locales
+    sql = consultar_locales.call_args.args[0]
+    assert "direccion" not in sql
+    assert "s.activa = TRUE" in sql
+    assert "ORDER BY l.nombre" in sql
+
+
+def test_locales_sin_locales_con_salas_activas_devuelve_lista_vacia(cliente_backend):
+    with patch("src.backend.services.locales.db.consultar", return_value=[]):
+        respuesta = cliente_backend.get("/api/locales")
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == []
+
+
 def test_detalle_trae_la_pelicula_y_sus_funciones(cliente_backend, consultar):
     consultar.return_value = [{"id": 12, "fecha_hora": datetime(2026, 11, 10, 20, 30), "precio": Decimal("5500.00"),
-                               "nombre_sala": "Sala 1", "nombre_local": "Paradiso Centro"}]
+                               "nombre_sala": "Sala 1", "local_id": 1, "nombre_local": "Paradiso Centro"}]
     with patch("src.backend.services.cartelera.consultar_uno", return_value=dict(PELICULA)):
         respuesta = cliente_backend.get("/api/peliculas/3")
     datos = respuesta.get_json()
@@ -54,7 +74,8 @@ def test_detalle_trae_la_pelicula_y_sus_funciones(cliente_backend, consultar):
     assert datos["disponible_desde"] == "2026-11-01T00:00:00"
     assert datos["activa"] is True
     assert datos["funciones"] == [{"id": 12, "fecha_hora": "2026-11-10T20:30:00", "precio": 5500.0,
-                                   "nombre_sala": "Sala 1", "nombre_local": "Paradiso Centro"}]
+                                   "nombre_sala": "Sala 1", "local_id": 1, "nombre_local": "Paradiso Centro"}]
+    assert "locales.id AS local_id" in consultar.call_args.args[0]
 
 
 def test_detalle_de_pelicula_inexistente_devuelve_404(cliente_backend, consultar):

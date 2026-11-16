@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": ".venv/bin/flask",
+      "runtimeArgs": ["--app", "src.backend.app", "run", "--port", "5050", "--debug"],
+      "port": 5050
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": ".venv/bin/flask",
+      "runtimeArgs": ["--app", "src.frontend.app", "run", "--port", "5001", "--debug"],
+      "port": 5001
+    }
+  ]
+}

@@ -124,18 +124,35 @@ La simulación ofrece mocks de `consultar`, `consultar_uno`, `ejecutar`,
 La autenticación se simula por separado con las fixtures de usuarios:
 no incluir `src.backend.auth` entre los destinos del service.
 
-Para verificar las consultas de dashboards contra el `seed.sql` real (SCRUM-76),
-hay pruebas MySQL opcionales. Requieren una base **descartable y aislada** en
-`127.0.0.1`, con usuario `root`, contraseña vacía y nombre `cine_paradiso`,
-cargada con `schema.sql` y `seed.sql`. No usar una base de trabajo ni producción.
+### Pruebas contra MySQL real (opcionales)
+
+Algunas reglas solo se pueden comprobar con una base de verdad: la doble venta con pedidos simultáneos,
+los bloqueos, los índices únicos y las consultas de dashboards. Esas pruebas (`src/tests/*_mysql.py`) usan
+una **base de pruebas separada** que se borra y se vuelve a crear con `schema.sql` + `seed.sql` en cada corrida
+(SCRUM-78). Sin configurarla se saltean y el resto de la suite corre igual.
 
 ```bash
-PRUEBAS_MYSQL_PUERTO=33976 python -m pytest src/tests/test_dashboards_mysql.py -v
+cp .env.test.example .env.test   # completar host, puerto, usuario y clave de un MySQL local
+```
+```bash
+python -m pytest src/tests -v
 ```
 
-El puerto debe ser el de esa instancia aislada. Sin la variable, estas pruebas
-se omiten y la suite normal sigue sin necesitar MySQL. Los contratos y los
-valores esperados del seed están en [Dashboards](docs/endpoints.md#dashboards).
+El nombre de la base (`PRUEBAS_DB_NAME`, por defecto `cine_paradiso_test`) tiene que terminar en `_test` y
+ser distinto del `DB_NAME` del `.env`: así nunca se borra la base de trabajo. No usar la base de producción.
+También se puede configurar por variables de entorno (`PRUEBAS_DB_PORT=3306 python -m pytest ...`).
+
+Fixtures de `conftest.py` para estas pruebas: `mysql_pruebas` (config de la base ya recreada),
+`app_mysql` y `cliente_http` (app real contra esa base), `token_admin`, `token_cliente` y `token_otro_cliente`
+(login real con los usuarios del seed), `fabrica_funciones` y `funcion_con_butacas` (funciones con commit real
+que se borran al terminar). Los helpers están en `src/tests/mysql_pruebas.py`.
+
+| Archivo | Qué prueba |
+|---|---|
+| `test_base_pruebas_mysql.py` | Ejemplo: salud, login y fixtures |
+| `test_reglas_criticas_mysql.py` | Doble venta con hilos simultáneos, superposición, cancelación en el límite del plazo y QR (SCRUM-79) |
+| `test_butacas_mysql.py` | Bloqueo y liberación de varias butacas |
+| `test_dashboards_mysql.py` | Consultas de dashboards contra el seed ([valores esperados](docs/endpoints.md#dashboards)) |
 
 ## Reglas del proyecto
 
@@ -170,8 +187,5 @@ valores esperados del seed están en [Dashboards](docs/endpoints.md#dashboards).
 | Lucas Cirillo Berardi |
 | Santiago Fernandez Bain |
 | Juan Pablo Bruzone |
-| Francisco Martinez |
-| Víctor Daniel Morinigo |
-| Nicolas Valenzuela |
-| Joaquin Zavala |
-| Martin Simajowich |
+| Joaquín Nicolás Zavala Eguez |
+| Martín Simajowich |

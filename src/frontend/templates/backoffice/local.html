@@ -1,0 +1,24 @@
+{# Alta o edición de un local. registro es el local que se edita (none al dar de alta). #}
+{% extends "backoffice/base_admin.html" %}
+{% from "macros.html" import cabecera_pagina, campo, boton %}
+
+{% set titulo = "Editar " ~ registro.nombre if registro else "Nuevo local" %}
+{% block titulo %}{{ titulo }} · Backoffice · Cine Paradiso{% endblock %}
+
+{% block admin %}
+  {{ cabecera_pagina(titulo, bajada="Nombre y dirección de la sede") }}
+
+  <section class="panel" aria-label="Datos del local">
+    {% set destino = url_for("backoffice.editar_local", id=registro.id) if registro else url_for("backoffice.nuevo_local") %}
+    <form method="post" action="{{ destino }}" class="formulario-linea" novalidate>
+      {{ campo("nombre", "Nombre", valor=formulario.nombre, placeholder="Ej: Paradiso Centro", maximo=100,
+               error=errores.nombre) }}
+      {{ campo("direccion", "Dirección", valor=formulario.direccion, placeholder="Ej: Av. Corrientes 1234, CABA",
+               maximo=200, error=errores.direccion) }}
+      <div class="formulario-linea-acciones">
+        {{ boton("Guardar") }}
+        <a class="accion-texto" href="{{ url_for('backoffice.locales') }}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

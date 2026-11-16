@@ -7,6 +7,7 @@ __pycache__/
 
 # Configuración local (nunca subir secretos)
 .env
+.env.test
 
 # Configuración personal de Claude Code
 .claude/settings.local.json

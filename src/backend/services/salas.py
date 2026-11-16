@@ -1,4 +1,4 @@
-from src.backend import db
+from src.backend import abm, db
 from src.backend.services.validaciones import entero_en_rango, texto_no_vacio
 
 
@@ -66,6 +66,11 @@ def obtener_sala(sala_id):
     return res
 
 
+def listar_butacas(sala_id):
+    query = "SELECT id, fila, numero FROM butacas WHERE sala_id = %s ORDER BY fila, numero"
+    return db.consultar(query, (sala_id,))
+
+
 def tiene_funciones_futuras(sala_id):
     query = "SELECT id FROM funciones WHERE sala_id = %s AND activa = TRUE AND fecha_hora > NOW()"
     res = db.consultar_uno(query, (sala_id,))
@@ -73,8 +78,7 @@ def tiene_funciones_futuras(sala_id):
 
 
 def eliminar_sala(sala_id):
-    query = "UPDATE salas SET activa = FALSE WHERE id = %s"
-    db.ejecutar(query, (sala_id,))
+    abm.dar_de_baja_logica("salas", sala_id)
 
 
 def hay_entradas_en_butacas_eliminadas(sala_id, filas, columnas):

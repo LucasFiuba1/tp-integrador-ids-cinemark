@@ -49,42 +49,43 @@ INSERT INTO servicios (nombre, descripcion, precio) VALUES
 ('Estacionamiento', 'Estacionamiento durante la función', 3000.00),
 ('Acceso VIP', 'Butaca reclinable y servicio en sala', 8000.00);
 
--- Clásicos que vuelven a la sala, con su tmdb_id real (desde el backoffice se pueden importar más con póster).
+-- Clásicos que vuelven a la sala, con su tmdb_id, póster y duración reales de TMDB (desde el backoffice se
+-- pueden importar más).
 -- Las 7 primeras están en cartel durante 60 días alrededor de hoy; Casablanca se estrena en 10 días y todavía
 -- no tiene funciones.
 INSERT INTO peliculas (tmdb_id, titulo, sinopsis, poster_url, duracion_min, clasificacion, genero,
                        disponible_desde, disponible_hasta) VALUES
 (105, 'Volver al futuro',
  'Un adolescente viaja por accidente a 1955 en un auto convertido en máquina del tiempo y tiene que lograr que sus padres se enamoren para poder volver.',
- NULL, 116, 'ATP', 'Aventura, Comedia, Ciencia ficción',
+ 'https://image.tmdb.org/t/p/w500/owk40tn1sFJmC7bhamEpmhdZPKa.jpg', 116, 'ATP', 'Aventura, Comedia, Ciencia ficción',
  TIMESTAMP(CURDATE()) - INTERVAL 30 DAY, TIMESTAMP(CURDATE()) + INTERVAL 30 DAY + INTERVAL '23:59:59' HOUR_SECOND),
 (238, 'El padrino',
  'El patriarca de una familia de la mafia neoyorquina le cede el poder a su hijo menor, que nunca quiso ser parte del negocio.',
- NULL, 175, '+16', 'Drama, Crimen',
+ 'https://image.tmdb.org/t/p/w500/5HlLUsmsv60cZVTzVns9ICZD6zU.jpg', 175, '+16', 'Drama, Crimen',
  TIMESTAMP(CURDATE()) - INTERVAL 30 DAY, TIMESTAMP(CURDATE()) + INTERVAL 30 DAY + INTERVAL '23:59:59' HOUR_SECOND),
 (680, 'Tiempos violentos',
  'Las historias de dos sicarios, un boxeador, un gánster y su esposa se cruzan en Los Ángeles.',
- NULL, 154, '+18', 'Thriller, Crimen',
+ 'https://image.tmdb.org/t/p/w500/hNcQAuquJxTxl2fJFs1R42DrWcf.jpg', 154, '+18', 'Thriller, Crimen',
  TIMESTAMP(CURDATE()) - INTERVAL 30 DAY, TIMESTAMP(CURDATE()) + INTERVAL 30 DAY + INTERVAL '23:59:59' HOUR_SECOND),
 (11216, 'Cinema Paradiso',
  'Un director de cine vuelve a su pueblo siciliano y recuerda su infancia junto al proyeccionista de la sala.',
- NULL, 155, '+13', 'Drama, Romance',
+ 'https://image.tmdb.org/t/p/w500/hHwsr3t5n7VVUbPyU8VZswn0jkL.jpg', 155, '+13', 'Drama, Romance',
  TIMESTAMP(CURDATE()) - INTERVAL 30 DAY, TIMESTAMP(CURDATE()) + INTERVAL 30 DAY + INTERVAL '23:59:59' HOUR_SECOND),
 (129, 'El viaje de Chihiro',
  'Una nena queda atrapada en un mundo de espíritus y tiene que trabajar en una casa de baños para salvar a sus padres.',
- NULL, 125, 'ATP', 'Animación, Familia, Fantasía',
+ 'https://image.tmdb.org/t/p/w500/2RcxjDykOssx4SfqshewyI9vfSl.jpg', 122, 'ATP', 'Animación, Familia, Fantasía',
  TIMESTAMP(CURDATE()) - INTERVAL 30 DAY, TIMESTAMP(CURDATE()) + INTERVAL 30 DAY + INTERVAL '23:59:59' HOUR_SECOND),
 (862, 'Toy Story',
  'Los juguetes de un chico cobran vida cuando nadie los ve, y la llegada de un astronauta pone celoso al vaquero favorito.',
- NULL, 81, 'ATP', 'Animación, Aventura, Familia',
+ 'https://image.tmdb.org/t/p/w500/jvn7wy3RSNEXnFSXLpH2of2LcV6.jpg', 77, 'ATP', 'Animación, Aventura, Familia',
  TIMESTAMP(CURDATE()) - INTERVAL 30 DAY, TIMESTAMP(CURDATE()) + INTERVAL 30 DAY + INTERVAL '23:59:59' HOUR_SECOND),
 (329, 'Jurassic Park',
  'Un parque temático con dinosaurios clonados se sale de control durante la visita de un grupo de expertos.',
- NULL, 127, '+13', 'Aventura, Ciencia ficción',
+ 'https://image.tmdb.org/t/p/w500/1r8TWaAExHbFRzyqT3Vcbq1XZQb.jpg', 120, '+13', 'Aventura, Ciencia ficción',
  TIMESTAMP(CURDATE()) - INTERVAL 30 DAY, TIMESTAMP(CURDATE()) + INTERVAL 30 DAY + INTERVAL '23:59:59' HOUR_SECOND),
 (289, 'Casablanca',
  'En plena guerra, el dueño de un bar en Marruecos reencuentra a la mujer que lo dejó y tiene que decidir si la ayuda a escapar.',
- NULL, 102, 'ATP', 'Drama, Romance',
+ 'https://image.tmdb.org/t/p/w500/a7EjycGNSYw6QqJqDooD9eQGZ4r.jpg', 102, 'ATP', 'Drama, Romance',
  TIMESTAMP(CURDATE()) + INTERVAL 10 DAY, TIMESTAMP(CURDATE()) + INTERVAL 60 DAY + INTERVAL '23:59:59' HOUR_SECOND);
 
 -- Funciones: en cada sala, de anteayer a dentro de 6 días, a las 14:00, 17:30 y 21:00. Entre una y otra hay

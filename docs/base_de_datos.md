@@ -46,6 +46,7 @@ erDiagram
         tinyint filas
         tinyint columnas
         bool activa
+        varchar nombre_activo "nombre si está activa, NULL si se dio de baja"
     }
     butacas {
         int id PK
@@ -145,4 +146,6 @@ erDiagram
 | Películas vistas del cliente | Compras con `utilizada_en` no nulo. |
 | Dashboards | Se calculan con `GROUP BY` sobre `entradas`, `funciones`, `peliculas.genero` y `compras`. |
 | Entrada de la misma función que su compra | `compras` tiene `UNIQUE (id, funcion_id)` y `entradas` una FK compuesta `(compra_id, funcion_id)` hacia ese par: la base rechaza una entrada de otra función. |
+| Nombre de sala único por local, también después de una baja | `salas.nombre_activo` es una columna generada (`IF(activa, nombre, NULL)`) y el índice único es `(local_id, nombre_activo)`: dos salas activas del mismo local no pueden llamarse igual, pero al dar de baja una sala su nombre queda libre (MySQL admite varios `NULL` en un índice único). |
+| Baja de un local | Solo si no tiene salas activas ni funciones registradas (tampoco de salas dadas de baja, que son historial). Al borrarlo se borran sus salas dadas de baja y, en cascada, sus butacas. |
 | Precio histórico | `entradas.precio` y `compra_servicios.precio_unitario` guardan el precio al momento de comprar. |

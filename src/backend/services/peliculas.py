@@ -1,17 +1,18 @@
 """Lógica del ABM de películas importadas desde TMDB (SCRUM-52)."""
 from datetime import datetime
 
-import pymysql
-
+from src.backend.abm import dar_de_baja_logica, requerir_existente, traducir_duplicado
 from src.backend.db import consultar, consultar_uno, ejecutar
 from src.backend.errores import error_api
 from src.backend.services import tmdb
 from src.backend.services.validaciones import datos_invalidos, entero_positivo, fecha_hora_iso
+from src.backend.serializacion import serializar, serializar_lista
 
 COLUMNAS = (
     "id, tmdb_id, titulo, sinopsis, poster_url, duracion_min, clasificacion, genero, "
     "disponible_desde, disponible_hasta, activa"
 )
+MAXIMO_GENERO = 50  # largo de peliculas.genero en schema.sql
 
 
 def _validar_periodo(desde, hasta):
@@ -28,18 +29,17 @@ def _texto(valor, campo, maximo, obligatorio=False):
     return valor
 
 
+def _generos_hasta(genero, maximo):
+    """Los géneros de TMDB ("Animación, Familia, ...") que entran en la columna, sin cortar uno por la mitad."""
+    if len(genero) <= maximo:
+        return genero
+    return genero[:maximo + 1].rsplit(", ", 1)[0][:maximo]
+
+
 def _fecha_o_actual(datos, actual, campo):
     if campo in datos:
         return fecha_hora_iso(datos[campo], campo)
     return datetime.fromisoformat(actual[campo])
-
-
-def a_json(fila):
-    """Convierte las fechas a texto y activa a booleano para devolverlas en JSON."""
-    fila["disponible_desde"] = fila["disponible_desde"].isoformat()
-    fila["disponible_hasta"] = fila["disponible_hasta"].isoformat()
-    fila["activa"] = bool(fila["activa"])
-    return fila
 
 
 def buscar_en_tmdb(texto):
@@ -49,14 +49,12 @@ def buscar_en_tmdb(texto):
 
 
 def listar():
-    return [a_json(fila) for fila in consultar("SELECT " + COLUMNAS + " FROM peliculas ORDER BY titulo")]
-
+    filas = consultar("SELECT " + COLUMNAS + " FROM peliculas ORDER BY titulo")
+    return serializar_lista(filas)
 
 def obtener(pelicula_id):
     fila = consultar_uno("SELECT " + COLUMNAS + " FROM peliculas WHERE id = %s", (pelicula_id,))
-    if fila is None:
-        error_api(404, "NO_ENCONTRADO", "La película no existe.")
-    return a_json(fila)
+    return serializar(requerir_existente(fila, "La película no existe."))
 
 
 def importar(datos):
@@ -76,7 +74,8 @@ def importar(datos):
     if clasificacion is not None:
         clasificacion = clasificacion[:10]
 
-    try:
+    # Otro admin pudo importarla justo antes (tmdb_id es UNIQUE)
+    with traducir_duplicado("Esa película ya fue importada.", "PELICULA_DUPLICADA"):
         nuevo_id = ejecutar(
             "INSERT INTO peliculas (tmdb_id, titulo, sinopsis, poster_url, duracion_min, "
             "clasificacion, genero, disponible_desde, disponible_hasta) "
@@ -84,12 +83,9 @@ def importar(datos):
             (
                 pelicula["tmdb_id"], pelicula["titulo"][:200], pelicula["sinopsis"],
                 pelicula["poster_url"], pelicula["duracion_min"], clasificacion,
-                pelicula["genero"][:50], desde, hasta,
+                _generos_hasta(pelicula["genero"], MAXIMO_GENERO), desde, hasta,
             ),
         )
-    except pymysql.err.IntegrityError:
-        # Otro admin la importó justo antes (tmdb_id es UNIQUE)
-        error_api(409, "PELICULA_DUPLICADA", "Esa película ya fue importada.")
     return obtener(nuevo_id)
 
 
@@ -98,7 +94,7 @@ def modificar(pelicula_id, datos):
     actual = obtener(pelicula_id)
 
     titulo = _texto(datos.get("titulo", actual["titulo"]), "titulo", 200, obligatorio=True)
-    genero = _texto(datos.get("genero", actual["genero"]), "genero", 50, obligatorio=True)
+    genero = _texto(datos.get("genero", actual["genero"]), "genero", MAXIMO_GENERO, obligatorio=True)
     clasificacion = _texto(datos.get("clasificacion", actual["clasificacion"]), "clasificacion", 10)
     poster_url = _texto(datos.get("poster_url", actual["poster_url"]), "poster_url", 300)
     sinopsis = _texto(datos.get("sinopsis", actual["sinopsis"]), "sinopsis", 65535)
@@ -124,7 +120,7 @@ def dar_de_baja(pelicula_id):
         "SELECT EXISTS(SELECT 1 FROM funciones WHERE pelicula_id = %s) AS tiene_funciones", (pelicula_id,)
     )
     if fila["tiene_funciones"]:
-        ejecutar("UPDATE peliculas SET activa = FALSE WHERE id = %s", (pelicula_id,))
+        dar_de_baja_logica("peliculas", pelicula_id)
         return {"id": pelicula_id, "baja": "logica"}
     ejecutar("DELETE FROM peliculas WHERE id = %s", (pelicula_id,))
     return {"id": pelicula_id, "baja": "fisica"}

@@ -1,0 +1,44 @@
+{# Alta de una sala en un local o detalle de una sala existente: formulario de nombre, filas y butacas por fila
+   y, si ya existe, su grilla de butacas en solo lectura (GET /api/admin/salas/<id>).
+   registro es la sala (none al dar de alta) y local es {"id", "nombre"}. #}
+{% extends "backoffice/base_admin.html" %}
+{% from "macros.html" import cabecera_pagina, campo, boton, boton_baja, grilla_butacas %}
+
+{% set titulo = registro.nombre if registro else "Nueva sala" %}
+{% block titulo %}{{ titulo }} · {{ local.nombre }} · Backoffice · Cine Paradiso{% endblock %}
+
+{% block admin %}
+  {{ cabecera_pagina(titulo, bajada=local.nombre) }}
+
+  <section class="panel" aria-labelledby="titulo-formulario-sala">
+    <h2 id="titulo-formulario-sala">{{ "Modificar sala" if registro else "Datos de la sala" }}</h2>
+    <p class="nota">La capacidad es filas × butacas por fila. Una sala con funciones programadas se puede agrandar,
+      pero no achicar.</p>
+    {% set destino = url_for("backoffice.sala", id=registro.id) if registro else url_for("backoffice.nueva_sala", local_id=local.id) %}
+    <form method="post" action="{{ destino }}" class="formulario-linea" novalidate>
+      {{ campo("nombre", "Nombre", valor=formulario.nombre, placeholder="Ej: Sala 3", maximo=50, error=errores.nombre) }}
+      {{ campo("filas", "Filas (A a Z)", tipo="number", valor=formulario.filas, placeholder="8", minimo=1, maximo=26,
+               error=errores.filas) }}
+      {{ campo("columnas", "Butacas por fila", tipo="number", valor=formulario.columnas, placeholder="12", minimo=1,
+               maximo=30, error=errores.columnas) }}
+      <div class="formulario-linea-acciones">
+        {{ boton("Guardar") }}
+        <a class="accion-texto" href="{{ url_for('backoffice.locales') }}">Volver</a>
+      </div>
+    </form>
+  </section>
+
+  {% if registro %}
+    <section class="panel sala-detalle" aria-labelledby="titulo-butacas">
+      <div class="sala-detalle-cabecera">
+        <h2 id="titulo-butacas">Butacas</h2>
+        <p>{{ registro.capacidad }} butacas · {{ registro.filas }} filas × {{ registro.columnas }} por fila</p>
+      </div>
+      {{ grilla_butacas(registro.butacas, habilitada=false, leyenda=false) }}
+      <div class="sala-detalle-baja">
+        {{ boton_baja(url_for("backoffice.baja_sala", id=registro.id), "Quitar sala",
+                      "¿Quitar la " ~ registro.nombre ~ "? No se podrán programar funciones en ella.") }}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

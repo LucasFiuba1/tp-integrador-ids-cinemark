@@ -80,12 +80,23 @@ Errores de `/me`: 401 sin token, token inválido o vencido · 403 si el rol no e
 
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
-| GET | `/api/locales` | 🌐 | Lista de locales. |
+| GET | `/api/locales` | 🌐 | Locales con al menos una sala activa (`id` y `nombre`, ordenados por nombre), para los filtros de la cartelera y el header. |
 | GET | `/api/cartelera?local_id=&fecha=` | 🌐 | Películas con funciones vigentes y su próxima función. `fecha` es `YYYY-MM-DD` y `local_id` un entero positivo (si no, 400 `DATOS_INVALIDOS`). |
-| GET | `/api/peliculas/<id>` | 🌐 | Detalle de la película activa y sus funciones futuras por local (404 `NO_ENCONTRADO` si no existe o está dada de baja). |
+| GET | `/api/peliculas/<id>` | 🌐 | Detalle de la película activa y sus funciones futuras, cada una con `local_id` y `nombre_local` (404 `NO_ENCONTRADO` si no existe o está dada de baja). |
 | GET | `/api/funciones/<id>` | 🌐 | Detalle de una función (película, sala, local, fecha y hora, precio). |
 | GET | `/api/funciones/<id>/butacas` | 🌐 | Mapa de butacas con su estado y capacidad. |
 | GET | `/api/servicios` | 🌐 | Servicios activos para agregar a una compra. |
+
+```http
+GET /api/locales
+
+200 OK
+[
+  { "id": 2, "nombre": "Paradiso Belgrano" },
+  { "id": 1, "nombre": "Paradiso Centro" },
+  { "id": 3, "nombre": "Paradiso Palermo" }
+]
+```
 
 ```http
 GET /api/cartelera?local_id=1
@@ -133,7 +144,7 @@ Solo devuelve los servicios activos (los dados de baja no aparecen), ordenados p
 | POST | `/api/compras` | 👤 | Reserva butacas de una función (compra en estado `pendiente` por 10 minutos). |
 | PUT | `/api/compras/<id>/servicios` | 👤 | Define los servicios de una compra pendiente y recalcula el total. |
 | POST | `/api/compras/<id>/confirmar` | 👤 | Checkout con pago simulado: confirma, genera el QR y envía el email con la factura. |
-| GET | `/api/compras/<id>` | 👤 | Detalle de una compra propia (incluye el QR si está confirmada). |
+| GET | `/api/compras/<id>` | 👤 🛠️ | Detalle de una compra propia (el admin puede ver cualquiera); incluye el QR si está confirmada. |
 | GET | `/api/compras/por-token?token=` | 🌐 | Detalle de la compra identificada por el token firmado del enlace del email (sin requerir sesión). |
 | POST | `/api/compras/<id>/cancelar` | 👤 | Cancela una compra propia dentro del plazo permitido. |
 | POST | `/api/compras/cancelar-por-token` | 🌐 | Cancela desde el enlace del email (el token firmado identifica la compra). |
@@ -160,6 +171,18 @@ PUT /api/compras/88/servicios
 { "id": 88, "total": 23000.00 }
 ```
 
+**Reemplaza** todos los servicios de la compra por los de la lista (SCRUM-64). La lista vacía `[]` es válida:
+quita los servicios ("Continuar sin servicios"). Cada servicio guarda su **precio vigente en ese momento** en
+`compra_servicios.precio_unitario`, así un cambio posterior de precio no altera la compra. `total` es la suma de
+las entradas activas y los servicios, y queda guardado en la compra.
+
+Errores: 400 `DATOS_INVALIDOS` (el cuerpo no es una lista; más de 50 elementos; `servicio_id` que no es un entero
+positivo o repetido; `cantidad` fuera de 1 a 20; servicio inexistente o inactivo) · 404 `NO_ENCONTRADO` ·
+403 `SIN_PERMISO` (compra de otro usuario) · 409 `COMPRA_NO_PENDIENTE` · 409 `RESERVA_VENCIDA` (libera las butacas).
+
+En `GET /api/compras/<id>`, cada servicio trae `servicio_id`, `nombre`, `cantidad`, `precio_unitario` y
+`subtotal`: con `servicio_id` el paso de servicios precarga lo que el cliente ya eligió.
+
 ```http
 POST /api/compras/88/confirmar
 El `total` se recalcula al confirmar (entradas activas + servicios de la compra) y queda guardado en la compra.
@@ -167,6 +190,24 @@ El `total` se recalcula al confirmar (entradas activas + servicios de la compra)
 200 OK
 { "id": 88, "estado": "confirmada", "total": 23000.00, "qr_png_base64": "iVBORw0...", "email_enviado": true }
 ```
+
+`qr_png_base64` es el QR de ingreso: codifica `<FRONTEND_URL>/admin/ingreso?token=<token_qr>` (el mismo `token_qr` que valida `POST /api/admin/ingresos/validar`), así la cámara del celular abre directo la pantalla de validación del backoffice.
+
+```http
+GET /api/compras/88
+
+200 OK
+{
+  "id": 88, "estado": "confirmada", "pelicula": "Volver al futuro", "poster_url": "https://image.tmdb.org/...",
+  "local": "Paradiso Centro", "sala": "Sala 1", "funcion": "2026-11-12T20:30:00", "butacas": ["D5", "D6"],
+  "subtotal_entradas": 10000.00,
+  "servicios": [ { "nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": 6500.00, "subtotal": 13000.00 } ],
+  "total": 23000.00, "email": "ana@email.com", "vence_en": null, "utilizada_en": null, "cancelada_en": null,
+  "cancelable": true, "cancelable_hasta": "2026-11-12T18:30:00", "qr_png_base64": "iVBORw0..."
+}
+```
+
+`estado` es `pendiente`, `confirmada`, `cancelada` o `vencida`; una `pendiente` cuyo `vence_en` ya pasó se informa como `vencida` aunque la base todavía no se haya actualizado. `vence_en` solo tiene valor en las pendientes en plazo y `qr_png_base64` solo en las confirmadas. `cancelable` y `cancelable_hasta` se calculan igual que en el perfil. Errores: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (un cliente pidiendo una compra ajena). `GET /api/compras/por-token` devuelve el mismo detalle.
 
 Errores de confirmación: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `COMPRA_NO_PENDIENTE` · 409 `RESERVA_VENCIDA` (libera las butacas). Si el envío por SMTP falla, la compra queda confirmada igual con `"email_enviado": false`.
 
@@ -253,11 +294,11 @@ PATCH /api/admin/peliculas/3
 | GET | `/api/admin/locales` | 🛠️ | Lista de locales. |
 | POST | `/api/admin/locales` | 🛠️ | Crea un local. |
 | PUT | `/api/admin/locales/<id>` | 🛠️ | Modifica un local. |
-| DELETE | `/api/admin/locales/<id>` | 🛠️ | Elimina un local sin salas. |
+| DELETE | `/api/admin/locales/<id>` | 🛠️ | Elimina un local sin salas activas ni funciones (409 `LOCAL_CON_SALAS` / `LOCAL_CON_HISTORIAL`). |
 | GET | `/api/admin/salas?local_id=` | 🛠️ | Lista de salas. |
 | POST | `/api/admin/salas` | 🛠️ | Crea una sala y genera sus butacas. |
 | GET | `/api/admin/salas/<id>` | 🛠️ | Detalle de la sala con su grilla de butacas. |
-| PUT | `/api/admin/salas/<id>` | 🛠️ | Modifica una sala (no si tiene funciones futuras). |
+| PUT | `/api/admin/salas/<id>` | 🛠️ | Modifica una sala; achicarla no se permite con funciones futuras ni con entradas vendidas en las butacas que se quitan. |
 | DELETE | `/api/admin/salas/<id>` | 🛠️ | Baja lógica (no si tiene funciones futuras). |
 
 ```http
@@ -266,6 +307,14 @@ POST /api/admin/salas
 
 201 Created
 { "id": 6, "nombre": "Sala 3", "capacidad": 96 }
+```
+
+```http
+GET /api/admin/salas/6
+
+200 OK
+{ "id": 6, "local_id": 1, "local": "Paradiso Centro", "nombre": "Sala 3", "filas": 8, "columnas": 12,
+  "capacidad": 96, "butacas": [{ "id": 301, "fila": "A", "numero": 1 }, ...] }
 ```
 
 ### Funciones
@@ -389,7 +438,7 @@ POST /api/admin/ingresos/validar
 { "error": { "codigo": "YA_UTILIZADA", "mensaje": "Este QR ya se usó el 10/11 a las 20:21." } }
 ```
 
-Motivos de rechazo (verificados en este orden): `QR_INVALIDO` · `CANCELADA` · `YA_UTILIZADA` · `OTRA_FUNCION` · `FUERA_DE_FECHA`.
+Motivos de rechazo (verificados en este orden): `QR_INVALIDO` (firma inválida o compra inexistente) · `CANCELADA` (aunque al cancelar se borre el token guardado) · `QR_INVALIDO` (el token no es el vigente de la compra) · `YA_UTILIZADA` · `OTRA_FUNCION` · `FUERA_DE_FECHA`.
 
 ### Dashboards
 
@@ -402,6 +451,21 @@ por el local de la sala. Omitir un filtro lo deja sin restricción; enviarlo vac
 enviar `desde` posterior a `hasta`, devuelve 400 `DATOS_INVALIDOS`. Un local sin
 compras (o inexistente) devuelve resultados vacíos, no 404. Solo se permite el
 rol admin: sin token devuelve 401 y con otro rol, 403 `SIN_PERMISO`.
+
+**Formato común de las series (SCRUM-109).** Cada fila de cada lista, además de sus
+campos propios, trae `etiqueta` (texto), `valor` (entero) y `porcentaje` (número con
+dos decimales), para que el backoffice dibuje todas las barras con la misma macro:
+
+| Serie | `etiqueta` | `valor` | `porcentaje` |
+|---|---|---|---|
+| Ocupación `por_pelicula` | título | `vendidas` | `vendidas / capacidad` (igual a `ocupacion`) |
+| Ocupación `por_funcion` | `"<película> (<local>, <sala>)"` | `vendidas` | `vendidas / capacidad` (igual a `ocupacion`) |
+| Ventas por género | género | `entradas` | participación sobre el total de entradas de la respuesta |
+| Franjas horarias | `"20 a 22 h"` | `entradas` | participación sobre el total de entradas de la respuesta |
+| Cancelaciones `por_pelicula` / `por_periodo` | título / `periodo` | `canceladas` | `canceladas / compras` |
+
+Los porcentajes se calculan como `100 * parte / total`, redondeados a dos decimales
+(la mitad hacia arriba) y, si el total es 0, valen `0.0` en lugar de fallar.
 
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
@@ -468,11 +532,13 @@ GET /api/admin/dashboards/ocupacion?local_id=2
 200 OK
 {
   "por_pelicula": [
-    { "pelicula_id": 6, "pelicula": "Toy Story", "vendidas": 1, "capacidad": 420, "ocupacion": 0.24 }
+    { "pelicula_id": 6, "pelicula": "Toy Story", "vendidas": 1, "capacidad": 420, "ocupacion": 0.24,
+      "etiqueta": "Toy Story", "valor": 1, "porcentaje": 0.24 }
   ],
   "por_funcion": [
     { "funcion_id": 41, "pelicula": "Toy Story", "local": "Belgrano", "sala": "Sala 1",
-      "fecha_hora": "2026-11-06T17:30:00", "vendidas": 1, "capacidad": 140, "ocupacion": 0.71 }
+      "fecha_hora": "2026-11-06T17:30:00", "vendidas": 1, "capacidad": 140, "ocupacion": 0.71,
+      "etiqueta": "Toy Story (Belgrano, Sala 1)", "valor": 1, "porcentaje": 0.71 }
   ]
 }
 ```
@@ -491,8 +557,8 @@ entradas, sin servicios. Solo aparecen géneros con ventas, ordenados por
 GET /api/admin/dashboards/ventas-genero
 
 200 OK
-[ { "genero": "Animación", "entradas": 3, "monto": 16500.0 },
-  { "genero": "Aventura", "entradas": 2, "monto": 11000.0 } ]
+[ { "genero": "Animación", "entradas": 3, "monto": 16500.0, "etiqueta": "Animación", "valor": 3, "porcentaje": 60.0 },
+  { "genero": "Aventura", "entradas": 2, "monto": 11000.0, "etiqueta": "Aventura", "valor": 2, "porcentaje": 40.0 } ]
 ```
 
 Estos son los valores de `seed.sql` recién cargado. Sin ventas devuelve `[]`.
@@ -510,8 +576,8 @@ excluye el historial por bajas lógicas de películas, salas o funciones.
 GET /api/admin/dashboards/franjas-horarias
 
 200 OK
-[ { "hora_desde": 20, "hora_hasta": 22, "entradas": 4 },
-  { "hora_desde": 16, "hora_hasta": 18, "entradas": 1 } ]
+[ { "hora_desde": 20, "hora_hasta": 22, "entradas": 4, "etiqueta": "20 a 22 h", "valor": 4, "porcentaje": 80.0 },
+  { "hora_desde": 16, "hora_hasta": 18, "entradas": 1, "etiqueta": "16 a 18 h", "valor": 1, "porcentaje": 20.0 } ]
 ```
 
 Estos son los valores de `seed.sql` recién cargado. Sin ventas devuelve `[]`.
@@ -538,13 +604,18 @@ GET /api/admin/dashboards/cancelaciones
 200 OK
 {
   "por_pelicula": [
-    { "pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": 1, "porcentaje": 50.0 },
-    { "pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": 0, "porcentaje": 0.0 },
-    { "pelicula_id": 6, "pelicula": "Toy Story", "compras": 1, "canceladas": 0, "porcentaje": 0.0 }
+    { "pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": 1,
+      "etiqueta": "Jurassic Park", "valor": 1, "porcentaje": 50.0 },
+    { "pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": 0,
+      "etiqueta": "El viaje de Chihiro", "valor": 0, "porcentaje": 0.0 },
+    { "pelicula_id": 6, "pelicula": "Toy Story", "compras": 1, "canceladas": 0,
+      "etiqueta": "Toy Story", "valor": 0, "porcentaje": 0.0 }
   ],
   "por_periodo": [
-    { "periodo": "2026-11-06T00:00:00", "compras": 2, "canceladas": 0, "porcentaje": 0.0 },
-    { "periodo": "2026-11-08T00:00:00", "compras": 2, "canceladas": 1, "porcentaje": 50.0 }
+    { "periodo": "2026-11-06T00:00:00", "compras": 2, "canceladas": 0,
+      "etiqueta": "2026-11-06T00:00:00", "valor": 0, "porcentaje": 0.0 },
+    { "periodo": "2026-11-08T00:00:00", "compras": 2, "canceladas": 1,
+      "etiqueta": "2026-11-08T00:00:00", "valor": 1, "porcentaje": 50.0 }
   ]
 }
 ```

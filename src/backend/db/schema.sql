@@ -45,7 +45,10 @@ CREATE TABLE salas (
     filas    TINYINT UNSIGNED NOT NULL,
     columnas TINYINT UNSIGNED NOT NULL,
     activa   BOOLEAN NOT NULL DEFAULT TRUE,
-    UNIQUE KEY uq_sala_local (local_id, nombre),
+    -- Copia del nombre solo mientras la sala está activa (NULL si se dio de baja). El índice único usa esta columna,
+    -- así el nombre de una sala dada de baja queda libre para una sala nueva (MySQL admite varios NULL en un UNIQUE).
+    nombre_activo VARCHAR(50) AS (IF(activa, nombre, NULL)) STORED,
+    UNIQUE KEY uq_sala_local (local_id, nombre_activo),
     FOREIGN KEY (local_id) REFERENCES locales (id)
 );
 

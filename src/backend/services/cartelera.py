@@ -1,9 +1,11 @@
 """Cartelera pública y detalle de películas con sus funciones (SCRUM-20, SCRUM-21)."""
 from datetime import date, datetime, timedelta
 
+from src.backend.abm import requerir_existente
 from src.backend.db import consultar, consultar_uno
 from src.backend.errores import error_api
-from src.backend.services.peliculas import COLUMNAS, a_json
+from src.backend.serializacion import serializar, serializar_lista
+from src.backend.services.peliculas import COLUMNAS
 from src.backend.services.validaciones import entero_positivo_texto
 
 # Funciones que se pueden vender: activas, en salas activas, futuras y dentro del período de la película.
@@ -46,9 +48,7 @@ def listar(local_id=None, fecha=None):
     sql += " GROUP BY peliculas.id ORDER BY proxima_funcion"
 
     filas = consultar(sql, parametros)
-    for fila in filas:
-        fila["proxima_funcion"] = fila["proxima_funcion"].isoformat()
-    return filas
+    return serializar_lista(filas)
 
 
 def obtener_pelicula(pelicula_id):
@@ -56,22 +56,18 @@ def obtener_pelicula(pelicula_id):
     pelicula = consultar_uno(
         "SELECT " + COLUMNAS + " FROM peliculas WHERE id = %s AND activa = TRUE", (pelicula_id,)
     )
-    if pelicula is None:
-        error_api(404, "NO_ENCONTRADO", "La película no existe.")
+    requerir_existente(pelicula, "La película no existe.")
 
     funciones = consultar(
         "SELECT funciones.id, funciones.fecha_hora, funciones.precio, "
-        "salas.nombre AS nombre_sala, locales.nombre AS nombre_local"
+        "salas.nombre AS nombre_sala, locales.id AS local_id, locales.nombre AS nombre_local"
         + FUNCIONES_VIGENTES
         + " AND peliculas.id = %s ORDER BY funciones.fecha_hora",
         (datetime.now(), pelicula_id),
     )
-    for funcion in funciones:
-        funcion["fecha_hora"] = funcion["fecha_hora"].isoformat()
-        funcion["precio"] = float(funcion["precio"])
-
-    resultado = a_json(pelicula)
-    resultado["funciones"] = funciones
+    
+    resultado = serializar(pelicula)
+    resultado["funciones"] = serializar_lista(funciones)
     return resultado
 
 
@@ -84,8 +80,7 @@ def mapa_de_butacas(funcion_id):
         "WHERE funciones.id = %s AND funciones.activa = TRUE AND salas.activa = TRUE",
         (funcion_id,),
     )
-    if funcion is None:
-        error_api(404, "NO_ENCONTRADO", "La función no existe.")
+    requerir_existente(funcion, "La función no existe.")
 
     # Ocupa la butaca una entrada vigente de una compra confirmada o pendiente sin vencer.
     # Las de compras canceladas o vencidas no matchean el LEFT JOIN y la butaca queda libre.

@@ -1,7 +1,7 @@
 """Registro e inicio de sesión de usuarios (SCRUM-45)."""
-import pymysql
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from src.backend.abm import traducir_duplicado
 from src.backend.auth import generar_token
 from src.backend.db import consultar_uno, ejecutar
 from src.backend.errores import error_api
@@ -23,14 +23,12 @@ def registrar(datos):
     nombre = texto_no_vacio(datos.get("nombre"), "nombre", MAXIMO_NOMBRE)
     email = email_valido(datos.get("email"))
     password_hash = generate_password_hash(_password(datos.get("password")), method="pbkdf2:sha256")
-    try:
+    # email es UNIQUE en la tabla usuarios
+    with traducir_duplicado("Ya existe una cuenta con ese email.", "EMAIL_REGISTRADO"):
         nuevo_id = ejecutar(
             "INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (%s, %s, %s, 'cliente')",
             (nombre, email, password_hash),
         )
-    except pymysql.err.IntegrityError:
-        # email es UNIQUE en la tabla usuarios
-        error_api(409, "EMAIL_REGISTRADO", "Ya existe una cuenta con ese email.")
     return {"id": nuevo_id, "nombre": nombre, "email": email, "rol": "cliente"}
 
 
