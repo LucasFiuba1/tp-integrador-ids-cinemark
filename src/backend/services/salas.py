@@ -1,4 +1,4 @@
-from src.backend import db
+from src.backend import abm, db
 from src.backend.services.validaciones import entero_en_rango, texto_no_vacio
 
 
@@ -78,8 +78,7 @@ def tiene_funciones_futuras(sala_id):
 
 
 def eliminar_sala(sala_id):
-    query = "UPDATE salas SET activa = FALSE WHERE id = %s"
-    db.ejecutar(query, (sala_id,))
+    abm.dar_de_baja_logica("salas", sala_id)
 
 
 def hay_entradas_en_butacas_eliminadas(sala_id, filas, columnas):

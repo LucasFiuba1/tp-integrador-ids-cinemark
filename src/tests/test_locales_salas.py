@@ -44,7 +44,9 @@ def db_locales():
 @pytest.fixture
 def db_salas():
     with patch("src.backend.services.salas.db") as db:
-        yield db
+        # La baja lógica de la sala pasa por los helpers de ABM, que usan la misma base simulada.
+        with patch("src.backend.abm.db", db):
+            yield db
 
 
 @pytest.fixture

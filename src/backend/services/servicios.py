@@ -3,7 +3,7 @@
 Los servicios valen para todas las salas. La baja pone activo = FALSE: las filas de compra_servicios ya vendidas
 quedan intactas y el servicio deja de ofrecerse en GET /api/servicios.
 """
-from src.backend import db
+from src.backend import abm, db
 from src.backend.services.validaciones import datos_invalidos, precio_valido, texto_no_vacio
 
 MAXIMO_DESCRIPCION = 255
@@ -63,10 +63,8 @@ def modificar_servicio(servicio_id, nombre, descripcion, precio, activo):
 
 
 def dar_de_baja_servicio(servicio_id):
-    query = "UPDATE servicios SET activo = FALSE WHERE id = %s"
-    db.ejecutar(query, (servicio_id,))
+    abm.dar_de_baja_logica("servicios", servicio_id)
 
 
 def reactivar_servicio(servicio_id):
-    query = "UPDATE servicios SET activo = TRUE WHERE id = %s"
-    db.ejecutar(query, (servicio_id,))
+    abm.reactivar("servicios", servicio_id)
