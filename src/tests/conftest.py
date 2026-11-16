@@ -1,6 +1,8 @@
 """Fixtures compartidas por las pruebas (pytest). Reemplazan los setUp repetidos en cada archivo.
 
-Ninguna prueba necesita MySQL, TMDB ni servidores levantados: la base y requests se simulan con unittest.mock.
+Las pruebas comunes no necesitan MySQL, TMDB ni servidores levantados: la base y requests se simulan con
+unittest.mock. Las de MySQL real (`*_mysql.py`) usan las fixtures de la sección "MySQL de pruebas" y se saltean
+si no hay `.env.test` (SCRUM-78).
 """
 from unittest.mock import DEFAULT, Mock, patch
 
@@ -8,6 +10,7 @@ import pytest
 from flask import render_template_string
 
 from src.frontend.app import create_app as crear_frontend
+from src.tests import mysql_pruebas as base_pruebas
 from src.tests.utilidades import (
     LOCALES_API, cabeceras_de, contexto_app_backend, simular_bd, simular_usuarios, usuario_de_prueba,
 )
@@ -125,3 +128,91 @@ def renderizar(app_frontend):
         with app_frontend.test_request_context():
             return render_template_string(plantilla, **contexto)
     return renderizar_plantilla
+
+
+# --- MySQL de pruebas (SCRUM-78) ---
+# Base real separada de la de desarrollo, recreada con schema.sql + seed.sql una vez por corrida.
+@pytest.fixture(scope="session")
+def mysql_pruebas():
+    """Config de la base de pruebas ya recreada; si no hay `.env.test`, saltea la prueba que la pide."""
+    config = base_pruebas.leer_config()
+    if config is None:
+        pytest.skip("Sin base MySQL de pruebas: copiar .env.test.example a .env.test y completarlo.")
+    base_pruebas.recrear_base(config)
+    return config
+
+
+@pytest.fixture
+def app_mysql(mysql_pruebas):
+    """App del backend conectada a la base de pruebas, con su contexto activo."""
+    with contexto_app_backend(**mysql_pruebas) as app:
+        yield app
+
+
+@pytest.fixture
+def cliente_http(app_mysql):
+    return app_mysql.test_client()
+
+
+def _iniciar_sesion(cliente, credenciales):
+    """Login real contra la base de pruebas; devuelve el token."""
+    respuesta = cliente.post("/api/auth/login", json=credenciales)
+    assert respuesta.status_code == 200, respuesta.get_json()
+    return respuesta.get_json()["token"]
+
+
+@pytest.fixture
+def token_admin(cliente_http):
+    return _iniciar_sesion(cliente_http, base_pruebas.ADMIN_SEED)
+
+
+@pytest.fixture
+def token_cliente(cliente_http):
+    """Token de Ana, cliente del seed."""
+    return _iniciar_sesion(cliente_http, base_pruebas.CLIENTES_SEED[0])
+
+
+@pytest.fixture
+def token_otro_cliente(cliente_http):
+    """Token de Juan, otro cliente del seed (para pedidos que compiten con los de Ana)."""
+    return _iniciar_sesion(cliente_http, base_pruebas.CLIENTES_SEED[1])
+
+
+@pytest.fixture
+def fabrica_funciones(mysql_pruebas):
+    """Crea funciones de una película propia de la prueba, con commit real (las ven otros hilos y conexiones).
+
+    Devuelve {"pelicula_id", "crear"}; `crear(fecha_hora, sala_id=1)` inserta una función y devuelve su id y sus
+    primeras cuatro butacas. Al terminar borra todo lo que cuelga de esa película (también lo creado por la API).
+    """
+    conexion = base_pruebas.conectar(mysql_pruebas)
+    pelicula_id = base_pruebas.ejecutar(
+        conexion,
+        "INSERT INTO peliculas (tmdb_id, titulo, sinopsis, duracion_min, clasificacion, genero, "
+        "disponible_desde, disponible_hasta) "
+        "VALUES (%s, 'Película de prueba', 'Solo para pruebas.', 120, 'ATP', 'Drama', %s, %s)",
+        (base_pruebas.TMDB_ID_PRUEBA, "2020-01-01 00:00:00", "2035-12-31 23:59:59"),
+    )
+
+    def crear(fecha_hora, sala_id=1):
+        funcion_id = base_pruebas.ejecutar(
+            conexion, "INSERT INTO funciones (pelicula_id, sala_id, fecha_hora, precio) VALUES (%s, %s, %s, 5000)",
+            (pelicula_id, sala_id, fecha_hora),
+        )
+        butacas = base_pruebas.filas(
+            conexion, "SELECT id, fila, numero FROM butacas WHERE sala_id = %s ORDER BY fila, numero LIMIT 4",
+            (sala_id,),
+        )
+        return {"id": funcion_id, "butaca_ids": [butaca["id"] for butaca in butacas]}
+
+    try:
+        yield {"pelicula_id": pelicula_id, "crear": crear}
+    finally:
+        base_pruebas.borrar_pelicula_de_prueba(conexion, pelicula_id)
+        conexion.close()
+
+
+@pytest.fixture
+def funcion_con_butacas(fabrica_funciones):
+    """Una función futura (2031) en la sala 1 con sus primeras cuatro butacas libres."""
+    return fabrica_funciones["crear"]("2031-06-10 21:00:00")

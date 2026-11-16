@@ -14,7 +14,8 @@ paths:
     cambiar `usuario["rol"]` para probar 403) y `cabeceras` (token válido).
   - Frontend: `app_frontend`, `cliente_frontend`, `cliente_admin` (sesión con rol admin), `backend_ok`
     (simula `requests.request`) y `renderizar` (templates/macros sueltos).
-- Las pruebas no requieren MySQL, TMDB, SMTP ni servidores levantados:
+- Las pruebas comunes no requieren MySQL, TMDB, SMTP ni servidores levantados (las `*_mysql.py` usan la base de
+  pruebas de `.env.test` con las fixtures `mysql_pruebas`, `cliente_http`, `token_admin`, `funcion_con_butacas`, …):
   - Base: `patch("src.backend.services.<modulo>.consultar_uno")`, `ejecutar`, etc. (parchear donde se **usa**),
     idealmente en una fixture del archivo (ver `bd` en `test_peliculas.py`).
   - Frontend: parchear `requests.request` o `src.frontend.routes.<modulo>.llamar` (devuelve `(datos, error)`).

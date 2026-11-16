@@ -438,7 +438,7 @@ POST /api/admin/ingresos/validar
 { "error": { "codigo": "YA_UTILIZADA", "mensaje": "Este QR ya se usó el 10/11 a las 20:21." } }
 ```
 
-Motivos de rechazo (verificados en este orden): `QR_INVALIDO` · `CANCELADA` · `YA_UTILIZADA` · `OTRA_FUNCION` · `FUERA_DE_FECHA`.
+Motivos de rechazo (verificados en este orden): `QR_INVALIDO` (firma inválida o compra inexistente) · `CANCELADA` (aunque al cancelar se borre el token guardado) · `QR_INVALIDO` (el token no es el vigente de la compra) · `YA_UTILIZADA` · `OTRA_FUNCION` · `FUERA_DE_FECHA`.
 
 ### Dashboards
 

@@ -24,10 +24,14 @@ def _registrar_intento(cursor, compra_id, funcion_id, resultado):
 
 
 def _motivo_rechazo(compra, token_qr, funcion_id):
-    if compra is None or compra["token_qr"] != token_qr:
+    if compra is None:
         return "QR_INVALIDO", "El código QR no corresponde a ninguna entrada.", None
+    # Cancelar borra token_qr de la compra: el estado se mira antes de comparar el token, si no una compra
+    # cancelada respondería QR_INVALIDO. La firma ya garantiza que el token lo emitimos para esta compra.
     if compra["estado"] == "cancelada":
         return "CANCELADA", "La compra fue cancelada y el QR ya no es válido.", compra["id"]
+    if compra["token_qr"] != token_qr:
+        return "QR_INVALIDO", "El código QR no corresponde a ninguna entrada.", None
     if compra["estado"] != "confirmada":
         return "QR_INVALIDO", "El código QR no corresponde a una compra confirmada.", compra["id"]
     if compra["utilizada_en"] is not None:
