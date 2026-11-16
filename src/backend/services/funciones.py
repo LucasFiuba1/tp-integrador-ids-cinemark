@@ -2,6 +2,7 @@
 """Consultas publicas y ABM administrativo de funciones (SCRUM-56)."""
 from datetime import datetime, timedelta
 
+from src.backend.abm import requerir_existente
 from src.backend.db import consultar, consultar_uno, transaccion
 from src.backend.errores import error_api
 from src.backend.services.validaciones import (datos_invalidos, entero_positivo, entero_positivo_texto, fecha_hora_iso, precio_valido, requerir_campos,)
@@ -34,8 +35,7 @@ def obtener(funcion_id):
         "AND f.fecha_hora > NOW()",
         (funcion_id,),
     )
-    if funcion is None:
-        error_api(404, "NO_ENCONTRADO", "La función no existe o ya comenzó.")
+    requerir_existente(funcion, "La función no existe o ya comenzó.")
     funcion["fecha_hora"] = funcion["fecha_hora"].isoformat()
     funcion["precio"] = float(funcion["precio"])
     funcion.pop("sala_id")
@@ -67,8 +67,7 @@ def _validar_datos(datos, actual=None):
 def _validar_pelicula_sala(cursor, pelicula_id, sala_id, fecha_hora):
     # El bloqueo de la sala serializa escrituras de funciones en una misma sala.
     cursor.execute("SELECT id FROM salas WHERE id = %s AND activa = TRUE FOR UPDATE", (sala_id,))
-    if cursor.fetchone() is None:
-        error_api(404, "NO_ENCONTRADO", "La sala no existe o está inactiva.")
+    requerir_existente(cursor.fetchone(), "La sala no existe o está inactiva.")
 
     cursor.execute(
         "SELECT duracion_min, disponible_desde, disponible_hasta "
@@ -76,8 +75,7 @@ def _validar_pelicula_sala(cursor, pelicula_id, sala_id, fecha_hora):
         (pelicula_id,),
     )
     pelicula = cursor.fetchone()
-    if pelicula is None:
-        error_api(404, "NO_ENCONTRADO", "La película no existe o está inactiva.")
+    requerir_existente(pelicula, "La película no existe o está inactiva.")
     if not pelicula["disponible_desde"] <= fecha_hora <= pelicula["disponible_hasta"]:
         datos_invalidos("fecha_hora está fuera de la disponibilidad de la película.")
     return pelicula["duracion_min"]
@@ -113,8 +111,7 @@ def _actual(cursor, funcion_id):
         (funcion_id,),
     )
     actual = cursor.fetchone()
-    if actual is None:
-        error_api(404, "NO_ENCONTRADO", "La función no existe o está inactiva.")
+    requerir_existente(actual, "La función no existe o está inactiva.")
     return actual
 
 

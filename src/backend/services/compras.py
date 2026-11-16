@@ -3,9 +3,9 @@ compras (SCRUM-62, SCRUM-64, SCRUM-66, SCRUM-67, SCRUM-69, SCRUM-70)."""
 import base64
 from datetime import datetime
 
-import pymysql
 from flask import current_app
 
+from src.backend.abm import requerir_existente, traducir_duplicado
 from src.backend.db import consultar, consultar_uno, marcadores, transaccion
 from src.backend.errores import error_api
 from src.backend.services import correo, perfil, qr
@@ -28,7 +28,8 @@ def reservar(usuario_id, datos):
     if len(set(butaca_ids)) != len(butaca_ids):
         error_api(400, "DATOS_INVALIDOS", "No repitas una butaca en la reserva.")
 
-    try:
+    # Si otra compra ganó la carrera por una butaca, el UNIQUE de entradas lo frena y se informa como ocupada.
+    with traducir_duplicado("Una o más butacas ya fueron reservadas.", "BUTACA_OCUPADA"):
         with transaccion() as cursor:
             cursor.execute(
                 "SELECT f.sala_id, f.precio FROM funciones f "
@@ -39,8 +40,7 @@ def reservar(usuario_id, datos):
                 (funcion_id,),
             )
             funcion = cursor.fetchone()
-            if funcion is None:
-                error_api(404, "NO_ENCONTRADO", "La función no existe o ya comenzó.")
+            requerir_existente(funcion, "La función no existe o ya comenzó.")
 
             cursor.execute(
                 "UPDATE compras SET estado = 'vencida' "
@@ -86,10 +86,6 @@ def reservar(usuario_id, datos):
             )
             cursor.execute("SELECT vence_en FROM compras WHERE id = %s", (compra_id,))
             vence_en = cursor.fetchone()["vence_en"]
-    except pymysql.err.IntegrityError as error:
-        if error.args and error.args[0] == 1062:
-            error_api(409, "BUTACA_OCUPADA", "Una o más butacas ya fueron reservadas.")
-        raise
 
     return {
         "id": compra_id,
@@ -136,8 +132,7 @@ def _detalle_compra(compra_id, usuario_id=None):
         "WHERE c.id = %s",
         (compra_id,),
     )
-    if fila is None:
-        error_api(404, "NO_ENCONTRADO", "La compra no existe.")
+    requerir_existente(fila, "La compra no existe.")
     if usuario_id is not None and fila["usuario_id"] != usuario_id:
         error_api(403, "SIN_PERMISO", "No tenés permiso sobre esta compra.")
 
@@ -205,8 +200,7 @@ def _cancelar_compra(compra_id, usuario_id=None):
             (compra_id,),
         )
         compra = cursor.fetchone()
-        if compra is None:
-            error_api(404, "NO_ENCONTRADO", "La compra no existe.")
+        requerir_existente(compra, "La compra no existe.")
         if usuario_id is not None and compra["usuario_id"] != usuario_id:
             error_api(403, "SIN_PERMISO", "No tenés permiso sobre esta compra.")
         if compra["estado"] == "cancelada":
@@ -249,8 +243,7 @@ def _bloquear_compra_pendiente(cursor, compra_id, usuario_id):
         (compra_id,),
     )
     compra = cursor.fetchone()
-    if compra is None:
-        error_api(404, "NO_ENCONTRADO", "La compra no existe.")
+    requerir_existente(compra, "La compra no existe.")
     if compra["usuario_id"] != usuario_id:
         error_api(403, "SIN_PERMISO", "No tenés permiso sobre esta compra.")
     if compra["estado"] != "pendiente":

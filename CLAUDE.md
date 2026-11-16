@@ -29,6 +29,8 @@ Dos apps Flask separadas, ambas con `create_app()`:
   - `services/<funcionalidad>.py`: casos de uso y validaciones. Cortan con `error_api(status, CODIGO, mensaje)` (de `errores.py`).
   - `db.py`: `consultar`, `consultar_uno`, `ejecutar`, `transaccion()`. Única forma de tocar la base.
   - `auth.py`: token firmado (`generar_token`) y decorador `@requiere_rol("admin")` / `@requiere_rol("cliente", "admin")`; deja el usuario en `g.usuario`.
+  - `abm.py`: helpers comunes de los ABM: `requerir_existente` (404), `obtener_activo`, `dar_de_baja_logica`/`reactivar`
+    (tablas de una lista blanca fija) y `traducir_duplicado` (UNIQUE repetido → 409).
   - `errores.py`: formato único `{"error": {"codigo": ..., "mensaje": ...}}` y `error_api(...)`, que corta el request
     con ese JSON (sin clases de excepción propias: la cátedra no quiere POO).
   - `db/schema.sql` y `db/seed.sql`: creación y carga de la base.

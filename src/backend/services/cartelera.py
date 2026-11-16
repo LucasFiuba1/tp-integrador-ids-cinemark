@@ -1,6 +1,7 @@
 """Cartelera pública y detalle de películas con sus funciones (SCRUM-20, SCRUM-21)."""
 from datetime import date, datetime, timedelta
 
+from src.backend.abm import requerir_existente
 from src.backend.db import consultar, consultar_uno
 from src.backend.errores import error_api
 from src.backend.serializacion import serializar, serializar_lista
@@ -55,8 +56,7 @@ def obtener_pelicula(pelicula_id):
     pelicula = consultar_uno(
         "SELECT " + COLUMNAS + " FROM peliculas WHERE id = %s AND activa = TRUE", (pelicula_id,)
     )
-    if pelicula is None:
-        error_api(404, "NO_ENCONTRADO", "La película no existe.")
+    requerir_existente(pelicula, "La película no existe.")
 
     funciones = consultar(
         "SELECT funciones.id, funciones.fecha_hora, funciones.precio, "
@@ -80,8 +80,7 @@ def mapa_de_butacas(funcion_id):
         "WHERE funciones.id = %s AND funciones.activa = TRUE AND salas.activa = TRUE",
         (funcion_id,),
     )
-    if funcion is None:
-        error_api(404, "NO_ENCONTRADO", "La función no existe.")
+    requerir_existente(funcion, "La función no existe.")
 
     # Ocupa la butaca una entrada vigente de una compra confirmada o pendiente sin vencer.
     # Las de compras canceladas o vencidas no matchean el LEFT JOIN y la butaca queda libre.
