@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 from src.backend.db import consultar, transaccion
 from src.backend.errores import error_api
+from src.backend.filtros import construir_condiciones
 from src.backend.services.validaciones import (
     entero_en_rango,
     entero_positivo,
@@ -14,6 +15,7 @@ from src.backend.tokens import leer_qr
 
 LIMITE_POR_DEFECTO = 20
 LIMITE_MAXIMO = 100
+FILTROS_HISTORIAL = {"funcion_id": ("v.funcion_id", "entero")}
 
 
 def _registrar_intento(cursor, compra_id, funcion_id, resultado):
@@ -116,16 +118,18 @@ def validar(datos):
     }
 
 
-def listar(funcion_id=None, limite=None):
-    """Últimos intentos de validación registrados, ordenados del más reciente al más antiguo (SCRUM-125)."""
-    id_funcion = entero_positivo_texto(funcion_id, "funcion_id") if funcion_id is not None else None
+def listar(argumentos):
+    """Últimos intentos de validación registrados, ordenados del más reciente al más antiguo (SCRUM-125).
+
+    argumentos: query params. `funcion_id` es un filtro (helper de SCRUM-106; vacío da 400); `limite` no filtra,
+    acota la cantidad de filas, así que se valida aparte.
+    """
+    clausulas, parametros = construir_condiciones(argumentos, FILTROS_HISTORIAL)
+    limite = argumentos.get("limite")
     if limite is None:
         cantidad = LIMITE_POR_DEFECTO
     else:
         cantidad = entero_en_rango(entero_positivo_texto(limite, "limite"), "limite", 1, LIMITE_MAXIMO)
-
-    condicion = "WHERE v.funcion_id = %s " if id_funcion is not None else ""
-    parametros = (id_funcion, cantidad) if id_funcion is not None else (cantidad,)
 
     filas = consultar(
         "SELECT v.id, v.compra_id, v.funcion_id, v.resultado, v.fecha_hora, p.titulo AS pelicula, "
@@ -136,10 +140,10 @@ def listar(funcion_id=None, limite=None):
         "LEFT JOIN compras c ON c.id = v.compra_id "
         "LEFT JOIN funciones f ON f.id = COALESCE(c.funcion_id, v.funcion_id) "
         "LEFT JOIN peliculas p ON p.id = f.pelicula_id "
-        f"{condicion}"
+        "WHERE 1 = 1" + clausulas + " "
         "ORDER BY v.fecha_hora DESC, v.id DESC "
         "LIMIT %s",
-        parametros,
+        (*parametros, cantidad),
     )
     return [
         {

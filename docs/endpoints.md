@@ -23,6 +23,21 @@ Backend Flask en `http://localhost:5000`. Todas las respuestas son JSON.
 | 409 | Conflicto con una regla de negocio (butaca ocupada, funciones superpuestas, fuera de plazo…) |
 | 500 | Error inesperado |
 
+### Filtros de los listados
+
+Los query params de los listados (`local_id`, `fecha`, `desde`, `hasta`, `funcion_id`) se validan con un helper
+común (`src/backend/filtros.py`, SCRUM-106). Cada listado acepta solo sus filtros: un parámetro desconocido se
+ignora y un valor inválido devuelve 400 `DATOS_INVALIDOS`. Los ids son enteros positivos de hasta 18 dígitos,
+`fecha` es `YYYY-MM-DD` (el día completo) y `desde`/`hasta` son `YYYY-MM-DDTHH:MM:SS` con ambos extremos
+incluidos (`desde` posterior a `hasta` → 400).
+
+Un parámetro **vacío** (`?local_id=`) se trata según el listado:
+
+| Listado | Vacío |
+|---|---|
+| `GET /api/cartelera`, dashboards, `GET /api/admin/ingresos` | 400 `DATOS_INVALIDOS` |
+| `GET /api/admin/funciones`, `GET /api/admin/salas` | Se ignora (sin filtro): es lo que mandan los formularios al elegir "Todos" |
+
 ---
 
 ## Salud
@@ -295,7 +310,7 @@ PATCH /api/admin/peliculas/3
 | POST | `/api/admin/locales` | 🛠️ | Crea un local. |
 | PUT | `/api/admin/locales/<id>` | 🛠️ | Modifica un local. |
 | DELETE | `/api/admin/locales/<id>` | 🛠️ | Elimina un local sin salas activas ni funciones (409 `LOCAL_CON_SALAS` / `LOCAL_CON_HISTORIAL`). |
-| GET | `/api/admin/salas?local_id=` | 🛠️ | Lista de salas. |
+| GET | `/api/admin/salas?local_id=` | 🛠️ | Lista de salas activas, opcionalmente de un local (`local_id` inválido → 400). |
 | POST | `/api/admin/salas` | 🛠️ | Crea una sala y genera sus butacas. |
 | GET | `/api/admin/salas/<id>` | 🛠️ | Detalle de la sala con su grilla de butacas. |
 | PUT | `/api/admin/salas/<id>` | 🛠️ | Modifica una sala; achicarla no se permite con funciones futuras ni con entradas vendidas en las butacas que se quitan. |

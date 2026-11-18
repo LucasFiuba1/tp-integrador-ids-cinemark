@@ -16,7 +16,7 @@ def listar_locales():
 
 @cartelera_bp.get("/cartelera")
 def obtener_cartelera():
-    return jsonify(cartelera.listar(request.args.get("local_id"), request.args.get("fecha")))
+    return jsonify(cartelera.listar(request.args))
 
 
 @cartelera_bp.get("/peliculas/<int:pelicula_id>")
