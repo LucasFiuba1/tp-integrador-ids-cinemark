@@ -18,6 +18,7 @@ def _fila_detalle(**cambios):
     fila = {
         "id": COMPRA_ID,
         "usuario_id": ID_CLIENTE,
+        "funcion_id": 12,
         "estado": "confirmada",
         "total": Decimal("23000.00"),
         "vence_en": datetime(2026, 11, 5, 18, 40),
@@ -60,7 +61,8 @@ def bd():
     with simular_bd(destinos=("src.backend.services.compras",)) as simulacion:
         simulacion.consultar_uno.return_value = _fila_detalle()
         simulacion.consultar.side_effect = [
-            [{"fila": "D", "numero": 5, "precio": Decimal("5000.00")}, {"fila": "D", "numero": 6, "precio": Decimal("5000.00")}],
+            [{"id": 41, "fila": "D", "numero": 5, "precio": Decimal("5000.00")},
+             {"id": 42, "fila": "D", "numero": 6, "precio": Decimal("5000.00")}],
             [{"servicio_id": 1, "nombre": "Combo pochoclos grande", "cantidad": 2,
               "precio_unitario": Decimal("6500.00")}],
         ]
@@ -110,6 +112,7 @@ def test_obtener_compra_ok_devuelve_detalle_completo(cliente_backend, cabeceras_
     assert datos["id"] == COMPRA_ID
     assert datos["pelicula"] == "Volver al futuro"
     assert datos["butacas"] == ["D5", "D6"]
+    assert datos["butaca_ids"] == [41, 42] and datos["funcion_id"] == 12  # para volver a elegir butacas
     assert datos["subtotal_entradas"] == 10000.0
     assert datos["servicios"] == [
         {"servicio_id": 1, "nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": 6500.0,

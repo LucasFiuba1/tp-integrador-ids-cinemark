@@ -161,6 +161,12 @@ POST /api/compras
 ```
 
 La función debe estar activa y no haber comenzado; las butacas deben ser únicas y pertenecer a su sala.
+
+**Volver a elegir butacas:** si el cliente ya tiene una compra `pendiente` de esa misma función (volvió atrás desde
+servicios), la reserva nueva la **reemplaza**: la anterior pasa a `vencida` (no `cancelada`, así no cuenta como
+cancelación en los dashboards) y libera sus butacas, que el cliente puede volver a elegir. La nueva **hereda el
+`vence_en` de la anterior**, para que cambiar de butacas no extienda la reserva. Las reservas de otros clientes y
+las del mismo cliente para otras funciones no se tocan.
 Los errores de entrada devuelven 400 `DATOS_INVALIDOS`; una función inexistente o ya comenzada devuelve 404.
 
 ```http
@@ -199,7 +205,8 @@ GET /api/compras/88
 200 OK
 {
   "id": 88, "estado": "confirmada", "pelicula": "Volver al futuro", "poster_url": "https://image.tmdb.org/...",
-  "local": "Paradiso Centro", "sala": "Sala 1", "funcion": "2026-11-12T20:30:00", "butacas": ["D5", "D6"],
+  "local": "Paradiso Centro", "sala": "Sala 1", "funcion_id": 12, "funcion": "2026-11-12T20:30:00",
+  "butacas": ["D5", "D6"], "butaca_ids": [41, 42],
   "subtotal_entradas": 10000.00,
   "servicios": [ { "nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": 6500.00, "subtotal": 13000.00 } ],
   "total": 23000.00, "email": "ana@email.com", "vence_en": null, "utilizada_en": null, "cancelada_en": null,
