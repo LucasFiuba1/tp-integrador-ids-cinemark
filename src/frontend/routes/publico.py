@@ -26,23 +26,55 @@ from src.frontend.validaciones import (
 
 publico_bp = Blueprint("publico", __name__)
 
+
 OPCION_TODOS_LOS_LOCALES = {"valor": "", "texto": "Todos"}
 
 
-def _opciones_locales():
-    """Locales de GET /api/locales como opciones {"valor", "texto"} para el header y los filtros (SCRUM-126).
+def _opciones_api(ruta, convertir):
+    datos, error = llamar("GET", ruta)
 
-    Si el backend falla o responde algo inesperado, la lista queda vacía: el filtro solo ofrece "Todos" y la página
-    se muestra igual.
-    """
-    datos, error = llamar("GET", "/api/locales")
     if error or not isinstance(datos, list):
         return []
-    return [
-        {"valor": str(local["id"]), "texto": str(local.get("nombre") or f"Local {local['id']}")}
-        for local in datos
-        if isinstance(local, dict) and local.get("id") is not None
-    ]
+
+    opciones = []
+
+    for dato in datos:
+        opcion = convertir(dato)
+
+        if opcion is not None:
+            opciones.append(opcion)
+
+    return opciones
+
+
+def _opcion_local(local):
+    if not isinstance(local, dict) or local.get("id") is None:
+        return None
+
+    return {
+        "valor": str(local["id"]),
+        "texto": str(local.get("nombre") or f"Local {local['id']}"),
+    }
+
+
+def _opcion_texto(valor):
+    if type(valor) is not str or valor.strip() == "":
+        return None
+
+    texto = valor.strip()
+
+    return {
+        "valor": texto,
+        "texto": texto,
+    }
+
+
+def _opciones_locales():
+    return _opciones_api("/api/locales", _opcion_local)
+
+
+def _opciones_catalogo(nombre):
+    return _opciones_api(f"/api/catalogos/{nombre}", _opcion_texto)
 
 
 def _header_peliculas(peliculas):
