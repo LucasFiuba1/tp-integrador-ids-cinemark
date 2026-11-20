@@ -1,0 +1,11 @@
+# Fuera de la imagen: entorno local, secretos y archivos que no hacen falta para correr las apps.
+.git
+.venv
+venv
+.env
+.claude
+.pytest_cache
+**/__pycache__
+**/*.pyc
+docs
+.DS_Store
