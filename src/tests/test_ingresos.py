@@ -385,7 +385,7 @@ def test_historial_sin_filtros_usa_limite_20_y_ordena_por_fecha_descendente(clie
         },
     ]
     sql, parametros = bd.consultar.call_args.args
-    assert "WHERE v.funcion_id = %s" not in sql
+    assert "v.funcion_id = %s" not in sql
     assert "ORDER BY v.fecha_hora DESC, v.id DESC LIMIT %s" in sql
     assert parametros == (20,)
 
@@ -398,7 +398,7 @@ def test_historial_con_funcion_id_y_limite_filtra_por_ambos(cliente_backend, cab
     assert respuesta.status_code == 200
     assert respuesta.get_json() == []
     sql, parametros = bd.consultar.call_args.args
-    assert "WHERE v.funcion_id = %s" in sql
+    assert "AND v.funcion_id = %s" in sql
     assert parametros == (12, 5)
 
 

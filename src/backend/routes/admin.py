@@ -66,8 +66,7 @@ def eliminar_local(local_id):
 @admin_bp.get("/salas")
 @requiere_rol("admin")
 def listar_salas():
-    local_id = request.args.get("local_id", type=int)
-    return jsonify(salas.listar_salas(local_id))
+    return jsonify(salas.listar_salas(request.args))
 
 
 @admin_bp.post("/salas")
@@ -201,13 +200,7 @@ def eliminar_pelicula(pelicula_id):
 @admin_bp.get("/funciones")
 @requiere_rol("admin")
 def listar_funciones():
-    return jsonify(
-        funciones.listar(
-            request.args.get("local_id"),
-            request.args.get("desde"),
-            request.args.get("hasta"),
-        )
-    )
+    return jsonify(funciones.listar(request.args))
 
 
 @admin_bp.post("/funciones")
@@ -265,7 +258,7 @@ def dashboard_cancelaciones():
 @admin_bp.get("/ingresos")
 @requiere_rol("admin")
 def listar_ingresos():
-    return jsonify(ingresos.listar(request.args.get("funcion_id"), request.args.get("limite")))
+    return jsonify(ingresos.listar(request.args))
 
 
 @admin_bp.post("/ingresos/validar")

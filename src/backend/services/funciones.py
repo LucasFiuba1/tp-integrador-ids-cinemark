@@ -5,7 +5,8 @@ from datetime import datetime, timedelta
 from src.backend.abm import requerir_existente
 from src.backend.db import consultar, consultar_uno, transaccion
 from src.backend.errores import error_api
-from src.backend.services.validaciones import (datos_invalidos, entero_positivo, entero_positivo_texto, fecha_hora_iso, precio_valido, requerir_campos,)
+from src.backend.filtros import VACIO_SE_IGNORA, construir_condiciones
+from src.backend.services.validaciones import (datos_invalidos, entero_positivo, fecha_hora_iso, precio_valido, requerir_campos,)
 
 MARGEN_MINUTOS = 15
 
@@ -20,6 +21,11 @@ JOINS_ADMIN = (
     "JOIN salas s ON s.id = f.sala_id "
     "JOIN locales l ON l.id = s.local_id "
 )
+FILTROS_ADMIN = {
+    "local_id": ("s.local_id", "entero"),
+    "desde": ("f.fecha_hora", "desde"),
+    "hasta": ("f.fecha_hora", "hasta"),
+}
 
 
 def obtener(funcion_id):
@@ -120,26 +126,11 @@ def _detalle_admin(cursor, funcion_id):
     return _a_json(cursor.fetchone())
 
 
-def listar(local_id=None, desde=None, hasta=None):
-    sql = "SELECT " + COLUMNAS_ADMIN + JOINS_ADMIN + " WHERE 1 = 1"
-    parametros = []
-
-    if local_id not in (None, ""):
-        sql += " AND s.local_id = %s"
-        parametros.append(entero_positivo_texto(local_id, "local_id"))
-
-    fecha_desde = fecha_hora_iso(desde, "desde") if desde not in (None, "") else None
-    fecha_hasta = fecha_hora_iso(hasta, "hasta") if hasta not in (None, "") else None
-    if fecha_desde and fecha_hasta and fecha_desde > fecha_hasta:
-        datos_invalidos("desde no puede ser posterior a hasta.")
-    if fecha_desde is not None:
-        sql += " AND f.fecha_hora >= %s"
-        parametros.append(fecha_desde)
-    if fecha_hasta is not None:
-        sql += " AND f.fecha_hora <= %s"
-        parametros.append(fecha_hasta)
-
-    filas = consultar(sql + " ORDER BY f.fecha_hora", tuple(parametros))
+def listar(argumentos):
+    """Funciones del backoffice filtradas por `local_id`, `desde` y `hasta`; un filtro vacío se ignora."""
+    clausulas, parametros = construir_condiciones(argumentos, FILTROS_ADMIN, vacio=VACIO_SE_IGNORA)
+    filas = consultar("SELECT " + COLUMNAS_ADMIN + JOINS_ADMIN + " WHERE 1 = 1" + clausulas + " ORDER BY f.fecha_hora",
+                      parametros)
     return [_a_json(fila) for fila in filas]
 
 
