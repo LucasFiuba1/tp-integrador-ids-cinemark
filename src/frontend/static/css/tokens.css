@@ -79,6 +79,8 @@
   --espacio-header-icono: .375rem;      /* 6 px: entre el pin y "Elegí local" en mobile */
   --ancho-selector: 10rem;              /* 160 px: tope de cada selector desde 1440 px y mínimo del menú de usuario */
   --ancho-selector-compacto: 7.5rem;    /* 120 px: tope de cada selector hasta 1439 px, para que todo entre en una fila */
+  --ancho-butaca-minimo: 1.75rem;       /* 28 px: butaca más chica en el celular (SCRUM-82) */
+  --alto-tactil: 2.75rem;               /* 44 px: área mínima para tocar un control con el dedo (SCRUM-82) */
   --ancho-nombre-header: 10rem;         /* 160 px: nombre del usuario junto al ícono (se corta con …) */
 
   /* Cartelera y detalle de película (SCRUM-59, Figma Home 23:280 / 26:1187 y Detalle 23:542 / 26:1382) */

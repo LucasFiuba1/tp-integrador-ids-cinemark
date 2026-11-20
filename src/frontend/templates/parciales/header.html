@@ -4,8 +4,10 @@
    El checkbox #cabecera-menu-abierto despliega el menú sin JS.
    Desktop: marca y menú a la izquierda; pin, selectores y usuario a la derecha, dentro del ancho de contenido.
 
-   Contexto opcional que puede pasar la vista (el header no llama al backend):
-     header_locales, header_peliculas: listas de {"valor", "texto"} para los selectores. Sin ellas, deshabilitados.
+   Contexto opcional que puede pasar la vista:
+     header_locales, header_peliculas: listas de {"valor", "texto"} para los selectores. Si la vista no los manda y
+     es del sitio del cliente, el header los pide con contexto_header() (context processor de routes/publico.py);
+     si tampoco hay datos, los selectores quedan deshabilitados.
    La selección actual sale de request.args (local_id, pelicula_id) y el formulario va por GET a publico.inicio,
    que con una película elegida redirige a su detalle; si la vista pasa local_id / fecha / pelicula_id se usan esos
    (validados) y la fecha se conserva como campo oculto.
@@ -47,6 +49,11 @@
       {% set header_local = local_id if local_id is defined else request.args.get("local_id", "") %}
       {% set header_fecha = fecha if fecha is defined else request.args.get("fecha", "") %}
       {% set header_pelicula = pelicula_id if pelicula_id is defined else request.args.get("pelicula_id", "") %}
+      {% if header_locales is not defined and contexto_header is defined %}
+        {% set datos_header = contexto_header(header_local) %}
+        {% set header_locales = datos_header.header_locales %}
+        {% set header_peliculas = datos_header.header_peliculas %}
+      {% endif %}
       {{ selectores_cartelera(url_for("publico.inicio"), header_locales, header_peliculas,
                               header_local, header_pelicula, "cabecera",
                               ocultos={"fecha": header_fecha}) }}

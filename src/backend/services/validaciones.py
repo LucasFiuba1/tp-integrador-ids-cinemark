@@ -78,7 +78,7 @@ def fecha_hora_iso(valor, campo):
 def precio_valido(valor):
     """Precio de DECIMAL(10, 2): número positivo con hasta dos decimales. type() deja afuera a True y False."""
     if type(valor) not in (int, float, Decimal):
-        datos_invalidos("precio debe ser un número positivo.")
+        datos_invalidos("El precio tiene que ser un número mayor a $0.")
     precio = Decimal(str(valor))
     if (
         not precio.is_finite()
@@ -86,5 +86,5 @@ def precio_valido(valor):
         or precio > Decimal("99999999.99")
         or precio != precio.quantize(Decimal("0.01"))
     ):
-        datos_invalidos("precio debe ser positivo y tener como máximo dos decimales.")
+        datos_invalidos("El precio tiene que ser mayor a $0, menor a $100.000.000 y con hasta dos decimales.")
     return precio
