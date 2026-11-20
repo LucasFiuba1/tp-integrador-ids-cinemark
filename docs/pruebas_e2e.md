@@ -25,6 +25,56 @@ puerta (A11–A13). Datos de prueba que quedaron en la base publicada: local, sa
 
 ### Hallazgos de esta corrida
 
+**Actualización del correo (20/11/2026):** esta rama reemplaza SMTP por la API
+HTTPS de Brevo y conecta el aviso de cancelación en su primera versión, con el QR
+solo adjunto. **Después se cambió a Mailjet HTTPS** para mostrar el QR dentro de
+la tarjeta por Content-ID, conservando el adjunto como respaldo. Mailjet ya se
+configuró y probó localmente; falta repetir A10 y el flujo B en el sitio publicado siguiendo
+[Correo](entorno.md#correo-mailjet-por-https).
+Los resultados de la corrida del 10/11 que siguen abajo son históricos: no se
+convierten en aprobados por tener pruebas locales con el proveedor simulado.
+
+**Prueba del proveedor (20/11/2026, local):** con la clave y el remitente de Brevo
+configurados en el `.env` privado, se ejecutó
+`src/tests/test_correo.py::test_envio_real_a_casilla_configurada`: **1 passed**.
+Brevo aceptó la factura de ejemplo #88 con el PNG adjunto (HTTP 201 y `messageId`).
+No creó una compra real ni comprobó el enlace de cancelación o el sitio publicado.
+Después se adaptaron las plantillas al mockup **D10 Email de confirmación** de
+Figma (nodo `26:950`): tarjeta blanca, cabecera oscura y botón rojo. Se revisaron
+las previews de factura y cancelación en escritorio y móvil; el QR sigue adjunto,
+con un aviso en lugar de la imagen embebida. La suite local dio **2309 passed,
+3 skipped**, y el reenvío real de la factura con el diseño actualizado también
+dio **1 passed**. La recepción y apariencia en el cliente de correo real no se
+confirmaron expresamente; quedan pendientes, al igual que el aviso de cancelación
+y el flujo completo en el sitio publicado. Estos resultados corresponden a Brevo:
+no verifican la integración posterior de Mailjet ni la visualización real del QR
+embebido. No trasladar la aprobación de un proveedor al otro.
+
+**Verificación local de Mailjet:** las pruebas de correo dieron **66 passed,
+1 skipped** y la suite completa **2328 passed, 3 skipped**. Se comprobó que el
+HTML referencia el mismo `ContentID` de `InlinedAttachments`, que ambos PNG
+(embebido y adjunto) contienen los bytes originales y que una cancelación no
+incluye QR. La preview del QR se revisó en escritorio y en un viewport móvil
+real de 390 px, sin desborde horizontal. Para esa preview solamente se resolvió
+el CID con los bytes del adjunto; no prueba cómo lo transforma Mailjet ni cómo
+lo presenta el cliente de correo.
+
+**Prueba real de Mailjet (20/11/2026, local):** se reemplazó la clave de Brevo por
+`MAILJET_API_KEY` y `MAILJET_SECRET_KEY` en el archivo privado enlazado por `.env`.
+La API autenticó la consulta de remitentes (HTTP 200) y confirmó que `MAIL_FROM`
+está **Active**. El modo sandbox validó el payload con QR embebido y adjunto
+simultáneos (HTTP 200, `Status: success`), sin entregar mensajes. Después, la
+prueba optativa de factura dio **1 passed**: Mailjet aceptó el envío real a la
+casilla del equipo (HTTP 200, `Status: success` y `MessageID`). El ejemplo no crea
+una compra real y firma el enlace con una clave de prueba distinta de la del
+backend, para que no pueda cancelar una compra existente por coincidencia de ID.
+El usuario confirmó la recepción y la visualización del QR, pero indicó que se
+mostraba dos veces: la imagen dentro de la tarjeta y la copia adjunta al pie.
+Se quitó el adjunto de respaldo para dejar solo el QR embebido. Las pruebas de
+correo, incluido un reenvío real con esa corrección, dieron **67 passed**; falta
+confirmar visualmente que el cliente ya no muestre el duplicado. Esta prueba no
+acredita el aviso real de cancelación ni el despliegue en Render.
+
 | # | Hallazgo | Estado |
 |---|---|---|
 | E1 | Al confirmar la compra no llega el email con la factura y el QR: la pantalla muestra "No pudimos enviar el email a …". El plan gratuito de Render bloquea la salida SMTP (puertos 25/465/587, ver [deploy](deploy.md)). Sin email tampoco se puede probar la cancelación desde el enlace del correo. | ⏸️ Fuera de alcance por ahora (decisión del grupo, 10/11): para resolverlo hay que mandar el correo por una API HTTP o publicar en un hosting que permita SMTP. |

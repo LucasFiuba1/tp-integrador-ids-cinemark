@@ -87,8 +87,11 @@ carga: para tener funciones futuras de nuevo, volver a correr `bash init.sh --db
 Esto reinicia **todos los datos**; solo corresponde a una base local descartable.
 Para publicar, seguir [Deploy gratuito](docs/deploy.md): servidor WSGI, HTTPS,
 credenciales privadas y carga de la base sin usar el servidor de desarrollo.
-SMTP está configurado en la plantilla, pero el envío de correo todavía no está
-implementado en esta versión.
+Los emails de compra y cancelación se envían por la API HTTPS de Mailjet. La factura
+incluye un único QR dentro del mensaje y el enlace de cancelación, sin copia adjunta.
+Para habilitarlos, configurar `MAILJET_API_KEY`, `MAILJET_SECRET_KEY` y un
+`MAIL_FROM` verificado siguiendo [Correo](docs/entorno.md#correo-mailjet-por-https).
+Las pruebas locales simulan el proveedor; no certifican la entrega real.
 
 ## Pruebas
 

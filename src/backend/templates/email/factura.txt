@@ -5,7 +5,9 @@
 {% endfor -%}
 Cine Paradiso — ¡Compra confirmada!
 
-Hola {{ cliente.nombre }}, acá tenés el detalle de tu compra y adjuntamos el código QR de ingreso.
+Hola{% if cliente.nombre %} {{ cliente.nombre }}{% endif %}, estos son los datos de tu compra #{{ compra.id }}. No tiene validez fiscal.
+
+El código QR de ingreso está en la versión HTML de este correo. Presentalo en el ingreso a la sala. Es válido una sola vez.
 
 Película: {{ funcion.pelicula }}
 Local: {{ funcion.local }}
@@ -16,5 +18,6 @@ Servicios: {{ textos_servicios.items | join(", ") or "Sin servicios" }}
 Total: {{ compra.total | precio }}
 N.º de compra: #{{ compra.id }}
 
-Podés cancelar hasta las {{ compra.cancelable_hasta | fecha_hora }} desde este enlace:
+Podés cancelar hasta {{ config.HORAS_LIMITE_CANCELACION }} horas antes de la función (hasta las {{ compra.cancelable_hasta | fecha_hora }}) desde este enlace:
 {{ enlace_cancelacion }}
+Al cancelar se liberan las butacas y el QR deja de ser válido.
