@@ -32,7 +32,29 @@ docs/
   base_de_datos.md  diagrama entidad-relación y reglas del negocio en la base
 init.sh             instala dependencias y prepara la configuración
 .env.example        variables de configuración (copiar a .env)
+Dockerfile          imagen única de Python para la API y el sitio
+docker-compose.yml  MySQL + API + sitio con un solo comando
 ```
+
+## Opción rápida: Docker Compose
+
+Solo requiere [Docker](https://docs.docker.com/get-docker/) (Docker Desktop en macOS y Windows); no hace falta
+instalar Python ni MySQL.
+
+```bash
+cp .env.example .env        # opcional: claves propias, TMDB_API_KEY y SMTP_*
+docker compose up --build   # sitio en http://localhost:5001, API en http://localhost:5000/api/salud
+```
+
+- La primera vez crea la base en un contenedor MySQL 8.4 y carga `schema.sql` y `seed.sql`. Los datos
+  quedan en un volumen: `docker compose down` los conserva y `docker compose down -v` los borra
+  (al volver a levantar se recarga el seed, por ejemplo para tener funciones futuras de nuevo).
+- Los datos de conexión a la base los fija `docker-compose.yml` y pisan los del `.env`. Desde la
+  máquina, la base queda en `localhost:3307` (usuario `cine` / `cine`).
+- Para escanear el QR con el celular, poner en `.env` `FRONTEND_URL=http://<IP-de-la-compu>:5001`.
+- Los cambios en el código requieren `docker compose up --build` (no hay recarga automática).
+
+Sin Docker, seguir los pasos de abajo.
 
 ## Requisitos
 

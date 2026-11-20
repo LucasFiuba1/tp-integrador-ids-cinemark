@@ -1,0 +1,69 @@
+# Cine Paradiso con Docker Compose: MySQL + API + sitio, con un solo comando.
+#   docker compose up --build      -> http://localhost:5001 (sitio) y http://localhost:5000/api/salud (API)
+#   docker compose down            -> apaga todo (los datos quedan en el volumen)
+#   docker compose down -v         -> apaga y BORRA la base (la próxima vez se vuelve a cargar el seed)
+#
+# Las claves (SECRET_KEY, FRONTEND_SECRET_KEY, TMDB_API_KEY, SMTP_*) se leen del .env si existe.
+# Los datos de conexión a la base se fijan acá y pisan los del .env, así siempre usa el MySQL del contenedor.
+
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: cine_paradiso
+      MYSQL_USER: cine
+      MYSQL_PASSWORD: cine
+      TZ: America/Argentina/Buenos_Aires
+    volumes:
+      - datos_mysql:/var/lib/mysql
+      # Solo se ejecutan la primera vez, con el volumen vacío, en orden alfabético.
+      - ./src/backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./src/backend/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    ports:
+      - "3307:3306"   # 3307 afuera para no chocar con un MySQL instalado en la máquina
+    healthcheck:
+      # Por TCP (127.0.0.1): mientras carga los scripts iniciales MySQL no escucha en red,
+      # así la API no arranca antes de que la base esté lista.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  api:
+    build: .
+    command: gunicorn "src.backend.app:create_app()" --bind 0.0.0.0:5000 --workers 1 --threads 4 --timeout 120 --access-logfile -
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: cine
+      DB_PASSWORD: cine
+      DB_NAME: cine_paradiso
+      DB_SSL: "false"
+      # FRONTEND_URL (QR y enlace de cancelación) se toma del .env: la abre el navegador o el celular,
+      # no los contenedores, así que sigue siendo http://localhost:5001 o la IP de la compu.
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+
+  web:
+    build: .
+    command: gunicorn "src.frontend.app:create_app()" --bind 0.0.0.0:5001 --workers 1 --threads 4 --timeout 120 --access-logfile -
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Dentro de la red de Compose la API se llama "api", no localhost.
+      BACKEND_URL: http://api:5000
+    depends_on:
+      - api
+    ports:
+      - "5001:5001"
+
+volumes:
+  datos_mysql:
