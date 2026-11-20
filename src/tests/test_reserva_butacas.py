@@ -28,7 +28,8 @@ def bd():
     """Cursor simulado de db.transaccion(): una función futura, butacas de su sala y ninguna ocupada."""
     cursor = Mock()
     cursor.lastrowid = 5
-    cursor.fetchone.side_effect = [FUNCION, {"vence_en": VENCE_EN}]
+    # Función, vencimiento de una reserva anterior del cliente (ninguna) y vencimiento de la compra creada.
+    cursor.fetchone.side_effect = [FUNCION, {"vence_en": None}, {"vence_en": VENCE_EN}]
     cursor.fetchall.side_effect = [[{"id": 28}, {"id": 63}], []]
     with patch("src.backend.services.compras.transaccion", return_value=nullcontext(cursor)) as transaccion:
         yield SimpleNamespace(cursor=cursor, transaccion=transaccion)

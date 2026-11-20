@@ -281,12 +281,36 @@ def mis_compras():
     return redirect(url_for("publico.perfil") + "#titulo-compras")
 
 
+def _reserva_propia(funcion_id):
+    """Reserva pendiente y vigente de esta función guardada en la sesión, o None.
+
+    Sirve para que al volver a elegir butacas el cliente vea las suyas como propias y no como ocupadas.
+    """
+    compra_id = session.get("compra_id")
+    if not compra_id or not session.get("token"):
+        return None
+    compra, error = llamar("GET", f"/api/compras/{compra_id}")
+    if error is not None or compra.get("funcion_id") != funcion_id or not _reserva_vigente(compra):
+        return None
+    return compra
+
+
+def _con_butacas_propias(mapa, reserva):
+    """El mapa es público y marca ocupada toda butaca reservada; las de la reserva propia se muestran libres."""
+    propias = set(reserva["butaca_ids"]) if reserva else set()
+    butacas = [dict(butaca, estado="libre") if butaca["id"] in propias else butaca for butaca in mapa["butacas"]]
+    return dict(mapa, butacas=butacas, libres=sum(1 for butaca in butacas if butaca["estado"] == "libre"))
+
+
 # Ver el mapa de butacas es público (GET); reservar (POST) pide sesión. Por eso el chequeo va acá y no con
 # @requiere_sesion, que protegería los dos métodos. Las butacas elegidas viajan en la URL para que, al volver del
 # login, sigan marcadas (la grilla solo marca las que continúan libres).
 @publico_bp.route("/funciones/<int:funcion_id>/butacas", methods=["GET", "POST"])
 def butacas(funcion_id):
+    reserva = _reserva_propia(funcion_id)
     seleccionadas = _ids_butacas(request.args.getlist("butaca_ids"))
+    if not seleccionadas and reserva:  # volvió desde servicios: sus butacas siguen elegidas
+        seleccionadas = list(reserva["butaca_ids"])
     error_formulario = ""
     estado = 200
     hay_conflicto = False
@@ -299,7 +323,11 @@ def butacas(funcion_id):
         if not valores or len(seleccionadas) != len(valores):
             error_formulario = "Elegí al menos una butaca libre."
             estado = 400
+        elif reserva and set(seleccionadas) == set(reserva["butaca_ids"]):
+            # Mismas butacas: se sigue con la misma compra (conserva servicios y plazo), sin reservar de nuevo.
+            return redirect(url_for("publico.servicios_compra", compra_id=reserva["id"]))
         else:
+            # Con butacas distintas, el backend reemplaza la reserva anterior y libera sus butacas.
             compra, error = llamar("POST", "/api/compras", json={"funcion_id": funcion_id, "butaca_ids": seleccionadas})
             if error is None:
                 session["compra_id"] = compra["id"]
@@ -313,10 +341,12 @@ def butacas(funcion_id):
     if error_mapa:
         flash(error_mapa["mensaje"], "error")
         return redirect(url_for("publico.inicio"))
+    mapa = _con_butacas_propias(mapa, reserva)
     if hay_conflicto:
         error_formulario = _mensaje_conflicto(seleccionadas, mapa["butacas"], error_formulario)
     return render_template(
         "compra/butacas.html", funcion=funcion, mapa=mapa, seleccionadas=seleccionadas, error=error_formulario,
+        reserva=reserva,
     ), estado
 
 

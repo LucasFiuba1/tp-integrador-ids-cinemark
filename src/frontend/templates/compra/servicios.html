@@ -10,7 +10,11 @@
 
   {{ pasos_compra(3) }}
 
-  {{ cabecera_pagina("Sumá servicios a tu compra", bajada="Opcionales. Están disponibles para todas las salas y se pagan junto con las entradas.") }}
+  {# "Cambiar butacas" vuelve al paso anterior con estas butacas marcadas como propias (no como ocupadas). #}
+  {{ cabecera_pagina("Sumá servicios a tu compra",
+                     accion={"texto": "Cambiar butacas", "url": url_for('publico.butacas', funcion_id=compra.funcion_id)}
+                            if compra.funcion_id else none,
+                     bajada="Opcionales. Están disponibles para todas las salas y se pagan junto con las entradas.") }}
 
   {% if error %}<p class="aviso aviso-error" role="alert">{{ error }}</p>{% endif %}
 
