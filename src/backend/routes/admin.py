@@ -3,9 +3,9 @@
 Los endpoints de este módulo están listados en docs/endpoints.md.
 """
 
-import pymysql
 from flask import Blueprint, jsonify, request
 
+from src.backend.abm import requerir_existente, traducir_duplicado
 from src.backend.auth import requiere_rol
 from src.backend.errores import respuesta_error
 from src.backend.routes.comun import cuerpo_json
@@ -14,7 +14,12 @@ from src.backend.services.validaciones import entero_positivo
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
+MENSAJE_LOCAL_DUPLICADO = "Ya existe un local con ese nombre o dirección."
+MENSAJE_SALA_DUPLICADA = "Ya existe una sala con ese nombre en el local."
 MENSAJE_SERVICIO_DUPLICADO = "Ya existe un servicio con ese nombre."
+MENSAJE_LOCAL_INEXISTENTE = "El local no existe."
+MENSAJE_SALA_INEXISTENTE = "La sala no existe."
+MENSAJE_SERVICIO_INEXISTENTE = "El servicio no existe."
 
 
 @admin_bp.get("/locales")
@@ -28,32 +33,26 @@ def listar_locales():
 def crear_local():
     datos = cuerpo_json()
     nombre, direccion = locales.validar_local(datos.get("nombre"), datos.get("direccion"))
-    try:
+    with traducir_duplicado(MENSAJE_LOCAL_DUPLICADO, "LOCAL_DUPLICADO"):
         local = locales.crear_local(nombre, direccion)
-    except pymysql.err.IntegrityError:
-        return respuesta_error(409, "LOCAL_DUPLICADO", "Ya existe un local con ese nombre o dirección.")
     return jsonify(local), 201
 
 
 @admin_bp.put("/locales/<int:local_id>")
 @requiere_rol("admin")
 def modificar_local(local_id):
-    if locales.obtener_local(local_id) is None:
-        return respuesta_error(404, "NO_ENCONTRADO", "El local no existe.")
+    requerir_existente(locales.obtener_local(local_id), MENSAJE_LOCAL_INEXISTENTE)
     datos = cuerpo_json()
     nombre, direccion = locales.validar_local(datos.get("nombre"), datos.get("direccion"))
-    try:
+    with traducir_duplicado(MENSAJE_LOCAL_DUPLICADO, "LOCAL_DUPLICADO"):
         local = locales.modificar_local(local_id, nombre, direccion)
-    except pymysql.err.IntegrityError:
-        return respuesta_error(409, "LOCAL_DUPLICADO", "Ya existe un local con ese nombre o dirección.")
     return jsonify(local)
 
 
 @admin_bp.delete("/locales/<int:local_id>")
 @requiere_rol("admin")
 def eliminar_local(local_id):
-    if locales.obtener_local(local_id) is None:
-        return respuesta_error(404, "NO_ENCONTRADO", "El local no existe.")
+    requerir_existente(locales.obtener_local(local_id), MENSAJE_LOCAL_INEXISTENTE)
     if locales.local_tiene_salas_activas(local_id):
         return respuesta_error(409, "LOCAL_CON_SALAS", "No se puede eliminar un local que tiene salas activas.")
     if locales.local_tiene_funciones(local_id):
@@ -67,8 +66,7 @@ def eliminar_local(local_id):
 @admin_bp.get("/salas")
 @requiere_rol("admin")
 def listar_salas():
-    local_id = request.args.get("local_id", type=int)
-    return jsonify(salas.listar_salas(local_id))
+    return jsonify(salas.listar_salas(request.args))
 
 
 @admin_bp.post("/salas")
@@ -77,30 +75,23 @@ def crear_sala():
     datos = cuerpo_json()
     local_id = entero_positivo(datos.get("local_id"), "local_id")
     nombre, filas, columnas = salas.validar_salas(datos.get("nombre"), datos.get("filas"), datos.get("columnas"))
-    if locales.obtener_local(local_id) is None:
-        return respuesta_error(404, "NO_ENCONTRADO", "El local no existe.")
-    try:
+    requerir_existente(locales.obtener_local(local_id), MENSAJE_LOCAL_INEXISTENTE)
+    with traducir_duplicado(MENSAJE_SALA_DUPLICADA, "SALA_DUPLICADA"):
         sala = salas.crear_sala(local_id, nombre, filas, columnas)
-    except pymysql.err.IntegrityError:
-        return respuesta_error(409, "SALA_DUPLICADA", "Ya existe una sala con ese nombre en el local.")
     return jsonify(sala), 201
 
 
 @admin_bp.get("/salas/<int:sala_id>")
 @requiere_rol("admin")
 def detalle_sala(sala_id):
-    sala = salas.obtener_sala(sala_id)
-    if sala is None:
-        return respuesta_error(404, "NO_ENCONTRADO", "La sala no existe.")
+    sala = requerir_existente(salas.obtener_sala(sala_id), MENSAJE_SALA_INEXISTENTE)
     return jsonify({**sala, "butacas": salas.listar_butacas(sala_id)})
 
 
 @admin_bp.put("/salas/<int:sala_id>")
 @requiere_rol("admin")
 def modificar_sala(sala_id):
-    sala = salas.obtener_sala(sala_id)
-    if sala is None:
-        return respuesta_error(404, "NO_ENCONTRADO", "La sala no existe.")
+    sala = requerir_existente(salas.obtener_sala(sala_id), MENSAJE_SALA_INEXISTENTE)
     datos = cuerpo_json()
     nombre, filas, columnas = salas.validar_salas(datos.get("nombre"), datos.get("filas"), datos.get("columnas"))
     se_achica_la_sala = filas < sala["filas"] or columnas < sala["columnas"]
@@ -108,18 +99,15 @@ def modificar_sala(sala_id):
         return respuesta_error(409, "SALA_CON_FUNCIONES", "No se puede reducir una sala con funciones futuras.")
     if se_achica_la_sala and salas.hay_entradas_en_butacas_eliminadas(sala_id, filas, columnas):
         return respuesta_error(409, "BUTACAS_CON_ENTRADAS", "Hay entradas vendidas en las butacas que se quitarían.")
-    try:
+    with traducir_duplicado(MENSAJE_SALA_DUPLICADA, "SALA_DUPLICADA"):
         res = salas.modificar_sala(sala_id, nombre, filas, columnas, sala)
-    except pymysql.err.IntegrityError:
-        return respuesta_error(409, "SALA_DUPLICADA", "Ya existe una sala con ese nombre en el local.")
     return jsonify(res)
 
 
 @admin_bp.delete("/salas/<int:sala_id>")
 @requiere_rol("admin")
 def eliminar_sala(sala_id):
-    if salas.obtener_sala(sala_id) is None:
-        return respuesta_error(404, "NO_ENCONTRADO", "La sala no existe.")
+    requerir_existente(salas.obtener_sala(sala_id), MENSAJE_SALA_INEXISTENTE)
     if salas.tiene_funciones_futuras(sala_id):
         return respuesta_error(409, "SALA_CON_FUNCIONES", "No se puede dar de baja una sala con funciones futuras.")
     salas.eliminar_sala(sala_id)
@@ -139,35 +127,28 @@ def crear_servicio():
     nombre, descripcion, precio = servicios.validar_servicio(
         datos.get("nombre"), datos.get("descripcion"), datos.get("precio")
     )
-    try:
+    with traducir_duplicado(MENSAJE_SERVICIO_DUPLICADO, "SERVICIO_DUPLICADO"):
         servicio = servicios.crear_servicio(nombre, descripcion, precio)
-    except pymysql.err.IntegrityError:
-        return respuesta_error(409, "SERVICIO_DUPLICADO", MENSAJE_SERVICIO_DUPLICADO)
     return jsonify(servicio), 201
 
 
 @admin_bp.put("/servicios/<int:servicio_id>")
 @requiere_rol("admin")
 def modificar_servicio(servicio_id):
-    servicio = servicios.obtener_servicio(servicio_id)
-    if servicio is None:
-        return respuesta_error(404, "NO_ENCONTRADO", "El servicio no existe.")
+    servicio = requerir_existente(servicios.obtener_servicio(servicio_id), MENSAJE_SERVICIO_INEXISTENTE)
     datos = cuerpo_json()
     nombre, descripcion, precio = servicios.validar_servicio(
         datos.get("nombre"), datos.get("descripcion"), datos.get("precio")
     )
-    try:
+    with traducir_duplicado(MENSAJE_SERVICIO_DUPLICADO, "SERVICIO_DUPLICADO"):
         res = servicios.modificar_servicio(servicio_id, nombre, descripcion, precio, servicio["activo"])
-    except pymysql.err.IntegrityError:
-        return respuesta_error(409, "SERVICIO_DUPLICADO", MENSAJE_SERVICIO_DUPLICADO)
     return jsonify(res)
 
 
 @admin_bp.delete("/servicios/<int:servicio_id>")
 @requiere_rol("admin")
 def eliminar_servicio(servicio_id):
-    if servicios.obtener_servicio(servicio_id) is None:
-        return respuesta_error(404, "NO_ENCONTRADO", "El servicio no existe.")
+    requerir_existente(servicios.obtener_servicio(servicio_id), MENSAJE_SERVICIO_INEXISTENTE)
     servicios.dar_de_baja_servicio(servicio_id)
     return "", 204
 
@@ -175,11 +156,7 @@ def eliminar_servicio(servicio_id):
 @admin_bp.post("/servicios/<int:servicio_id>/reactivar")
 @requiere_rol("admin")
 def reactivar_servicio(servicio_id):
-    servicio = servicios.obtener_servicio(servicio_id)
-    if servicio is None:
-        return respuesta_error(
-            404, "NO_ENCONTRADO", "El servicio no existe."
-        )
+    requerir_existente(servicios.obtener_servicio(servicio_id), MENSAJE_SERVICIO_INEXISTENTE)
     servicios.reactivar_servicio(servicio_id)
     return "", 204
 
@@ -223,13 +200,7 @@ def eliminar_pelicula(pelicula_id):
 @admin_bp.get("/funciones")
 @requiere_rol("admin")
 def listar_funciones():
-    return jsonify(
-        funciones.listar(
-            request.args.get("local_id"),
-            request.args.get("desde"),
-            request.args.get("hasta"),
-        )
-    )
+    return jsonify(funciones.listar(request.args))
 
 
 @admin_bp.post("/funciones")
@@ -252,6 +223,12 @@ def eliminar_funcion(funcion_id):
 
 def _filtros_dashboard():
     return request.args.get("desde"), request.args.get("hasta"), request.args.get("local_id")
+
+
+@admin_bp.get("/dashboards/resumen")
+@requiere_rol("admin")
+def dashboard_resumen():
+    return jsonify(dashboards.resumen_dashboard(*_filtros_dashboard()))
 
 
 @admin_bp.get("/dashboards/ocupacion")
@@ -281,7 +258,7 @@ def dashboard_cancelaciones():
 @admin_bp.get("/ingresos")
 @requiere_rol("admin")
 def listar_ingresos():
-    return jsonify(ingresos.listar(request.args.get("funcion_id"), request.args.get("limite")))
+    return jsonify(ingresos.listar(request.args))
 
 
 @admin_bp.post("/ingresos/validar")

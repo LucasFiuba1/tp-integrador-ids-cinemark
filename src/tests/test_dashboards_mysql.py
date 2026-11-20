@@ -1,61 +1,41 @@
-"""Franjas horarias y cancelaciones (SCRUM-76), ocupación y ventas por género (SCRUM-75) contra MySQL real. Prueba OPT-IN: sin la variable se saltea.
+"""Franjas horarias y cancelaciones (SCRUM-76), ocupación y ventas por género (SCRUM-75) y resumen (SCRUM-124) contra MySQL real. Prueba OPT-IN: sin la variable se saltea.
 
 Verifica el SQL de services/dashboards.py contra `seed.sql` recién cargado, con valores fijos esperados.
-No carga schema ni seed ni usa las credenciales del .env para MySQL: la app de pruebas se configura (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD
-y DB_NAME) hacia una base `cine_paradiso` ya provisionada en un MySQL local y aislado (root sin contraseña en
-127.0.0.1) y los endpoints usan `src.backend.db` real.
+Usa la base MySQL de pruebas (SCRUM-78): se configura en `.env.test` y se recrea con schema.sql + seed.sql antes
+de la suite; sin `.env.test` estas pruebas se saltean. Los endpoints usan `src.backend.db` real.
 
-    PRUEBAS_MYSQL_PUERTO=3307 python -m pytest src/tests/test_dashboards_mysql.py -v
+    python -m pytest src/tests/test_dashboards_mysql.py -v
 
 Las fechas del seed son relativas al día de carga: "ayer" y "mañana" se toman de las funciones con compras de
 la propia base. Las pruebas de borde insertan datos temporales (2031) en una transacción
 que siempre termina en rollback (fixture `conexion`), así la base queda como el seed.
 """
-import os
-from unittest.mock import MagicMock, patch
+from datetime import timedelta
 
 import pytest
 
-PUERTO = os.environ.get("PRUEBAS_MYSQL_PUERTO")
-if not PUERTO:
-    pytest.skip("Definir PRUEBAS_MYSQL_PUERTO para correr las pruebas contra MySQL real.", allow_module_level=True)
+from src.backend import db
+from src.tests.mysql_pruebas import conexion_con_rollback, ejecutar as _ejecutar, filas as _filas
 
-from src.backend import db  # noqa: E402
+
+# --- infraestructura (base de pruebas de SCRUM-78, ver src/tests/mysql_pruebas.py) ---
+@pytest.fixture(autouse=True)
+def mysql_real(app_backend, mysql_pruebas):
+    """Apunta la app de pruebas a la base MySQL de pruebas: `src.backend.db` real, solo cambia la conexión."""
+    app_backend.config.update(mysql_pruebas)
+
+
+@pytest.fixture
+def conexion(mysql_real):
+    """Las consultas del backend usan una única conexión sin commit: lo insertado se ve y al final se deshace."""
+    with conexion_con_rollback() as conexion:
+        yield conexion
+
 
 FRANJAS = "/api/admin/dashboards/franjas-horarias"
 CANCELACIONES = "/api/admin/dashboards/cancelaciones"
 VACIAS = {"por_pelicula": [], "por_periodo": []}
 LOCAL_SIN_SEED = 3  # el local 3 (Palermo) no tiene compras en el seed
-
-
-# --- infraestructura ---
-@pytest.fixture(autouse=True)
-def mysql_real(app_backend):
-    """Apunta la app al MySQL de pruebas: `src.backend.db` real, solo cambia la configuración de conexión."""
-    app_backend.config.update(DB_HOST="127.0.0.1", DB_PORT=int(PUERTO), DB_USER="root", DB_PASSWORD="",
-                              DB_NAME="cine_paradiso")
-
-
-@pytest.fixture
-def conexion():
-    """Para las pruebas que insertan datos: todas las consultas del backend (`db._conectar`) usan una única
-    conexión, así ven lo insertado, y al terminar se hace rollback. Devuelve esa conexión."""
-    conexion = db._conectar()
-    prestada = MagicMock(wraps=conexion)
-    prestada.close = MagicMock()  # db.consultar cierra la conexión al terminar cada consulta
-    try:
-        with patch("src.backend.db._conectar", return_value=prestada):
-            yield conexion
-    finally:
-        conexion.rollback()
-        conexion.close()
-
-
-def _ejecutar(conexion, sql, parametros=()):
-    """INSERT/UPDATE dentro de la transacción de la prueba; devuelve el id insertado."""
-    with conexion.cursor() as cursor:
-        cursor.execute(sql, parametros)
-        return cursor.lastrowid
 
 
 @pytest.fixture
@@ -81,12 +61,20 @@ def _iso(dia, hora="00:00:00"):
     return f"{dia:%Y-%m-%d}T{hora}"
 
 
-def _franja(desde, entradas):
-    return {"hora_desde": desde, "hora_hasta": desde + 2, "entradas": entradas}
+def _serie(etiqueta, valor, porcentaje):
+    """Campos comunes de toda fila de una serie (SCRUM-109): `etiqueta`, `valor` y `porcentaje`."""
+    return {"etiqueta": etiqueta, "valor": valor, "porcentaje": porcentaje}
+
+
+def _franja(desde, entradas, porcentaje=100.0):
+    """`porcentaje` es la participación de la franja sobre todas las entradas vendidas de la respuesta."""
+    return {"hora_desde": desde, "hora_hasta": desde + 2, "entradas": entradas,
+            **_serie(f"{desde} a {desde + 2} h", entradas, porcentaje)}
 
 
 def _fila(compras, canceladas, porcentaje, **identidad):
-    return dict(identidad, compras=compras, canceladas=canceladas, porcentaje=porcentaje)
+    etiqueta = identidad.get("pelicula", identidad.get("periodo"))
+    return dict(identidad, compras=compras, canceladas=canceladas, **_serie(etiqueta, canceladas, porcentaje))
 
 
 CHIHIRO = {"pelicula_id": 5, "pelicula": "El viaje de Chihiro"}
@@ -97,7 +85,7 @@ CINEMA_PARADISO = {"pelicula_id": 4, "pelicula": "Cinema Paradiso"}
 
 # --- seed completo ---
 def test_franjas_horarias_del_seed(pedir):
-    assert pedir(FRANJAS) == [_franja(20, 4), _franja(16, 1)]
+    assert pedir(FRANJAS) == [_franja(20, 4, 80.0), _franja(16, 1, 20.0)]
 
 
 def test_cancelaciones_del_seed_por_pelicula(pedir):
@@ -145,7 +133,7 @@ def test_desde_manana_deja_solo_las_compras_de_manana(pedir, dias):
 
 def test_hasta_ayer_deja_solo_las_compras_de_ayer(pedir, dias):
     hasta = _iso(dias["ayer"], "23:59:59")
-    assert pedir(FRANJAS, hasta=hasta) == [_franja(20, 2), _franja(16, 1)]
+    assert pedir(FRANJAS, hasta=hasta) == [_franja(20, 2, 66.67), _franja(16, 1, 33.33)]
     assert pedir(CANCELACIONES, hasta=hasta) == {
         "por_pelicula": [_fila(1, 0, 0.0, **CHIHIRO), _fila(1, 0, 0.0, **TOY_STORY)],
         "por_periodo": [_fila(2, 0, 0.0, periodo=_iso(dias["ayer"]))]}
@@ -304,7 +292,8 @@ CAPACIDAD_SALA_4 = 70
 
 
 def _ocupacion(vendidas, capacidad, ocupacion, **identidad):
-    return dict(identidad, vendidas=vendidas, capacidad=capacidad, ocupacion=ocupacion)
+    return dict(identidad, vendidas=vendidas, capacidad=capacidad, ocupacion=ocupacion,
+                **_serie(identidad["pelicula"], vendidas, ocupacion))
 
 
 def _resumen_pelicula(fila):
@@ -315,8 +304,9 @@ def _resumen_funcion(fila):
     return fila["pelicula"], fila["sala"], fila["fecha_hora"], fila["vendidas"], fila["capacidad"], fila["ocupacion"]
 
 
-def _genero(genero, entradas, monto):
-    return {"genero": genero, "entradas": entradas, "monto": monto}
+def _genero(genero, entradas, monto, porcentaje=100.0):
+    """`porcentaje` es la participación del género sobre todas las entradas vendidas de la respuesta."""
+    return {"genero": genero, "entradas": entradas, "monto": monto, **_serie(genero, entradas, porcentaje)}
 
 
 def test_ocupacion_del_seed_por_pelicula(pedir):
@@ -360,12 +350,13 @@ def test_ocupacion_de_local_inexistente_devuelve_vacios(pedir):
 
 def test_ventas_genero_del_seed_usa_el_primer_genero_y_cierra_con_el_total(pedir):
     datos = pedir(VENTAS_GENERO)
-    assert datos == [_genero("Animación", 3, 16500.0), _genero("Aventura", 2, 11000.0)]
+    assert datos == [_genero("Animación", 3, 16500.0, 60.0), _genero("Aventura", 2, 11000.0, 40.0)]
     assert sum(fila["entradas"] for fila in datos) == sum(f["entradas"] for f in pedir(FRANJAS))
 
 
 def test_ventas_genero_filtra_por_local(pedir):
-    assert pedir(VENTAS_GENERO, local_id=1) == [_genero("Animación", 2, 11000.0), _genero("Aventura", 2, 11000.0)]
+    assert pedir(VENTAS_GENERO, local_id=1) == [
+        _genero("Animación", 2, 11000.0, 50.0), _genero("Aventura", 2, 11000.0, 50.0)]
     assert pedir(VENTAS_GENERO, local_id=2) == [_genero("Animación", 1, 5500.0)]
     assert pedir(VENTAS_GENERO, local_id=LOCAL_SIN_SEED) == []
 
@@ -435,3 +426,69 @@ def test_ventas_genero_no_cuenta_compras_no_confirmadas_ni_entradas_inactivas(pe
         _compra(conexion, funcion, estado)
     _compra(conexion, funcion, "confirmada", activa=None)
     assert pedir(VENTAS_GENERO, **FILTRO_BORDE) == [_genero("Drama", 2, 11000.0)]
+
+
+# --- resumen de indicadores (SCRUM-124) ---
+RESUMEN = "/api/admin/dashboards/resumen"
+SIN_COMPARAR = {"anterior": None, "variacion": None}
+
+
+def _periodo(desde, hasta):
+    return {"desde": _iso(desde), "hasta": _iso(hasta, "23:59:59")}
+
+
+def test_resumen_del_seed_sin_filtros(pedir):
+    # 5 entradas confirmadas; 17.500 + 10.500 + 11.000 con servicios; 5 / 10.746 butacas; 1 cancelada de 4 compras.
+    assert pedir(RESUMEN) == {
+        "entradas": {"valor": 5, **SIN_COMPARAR},
+        "ingresos": {"valor": 39000.0, **SIN_COMPARAR},
+        "ocupacion": {"valor": 0.05, **SIN_COMPARAR},
+        "cancelaciones": {"valor": 25.0, **SIN_COMPARAR},
+    }
+
+
+def test_resumen_del_seed_compara_con_los_dos_dias_anteriores(pedir, dias):
+    # Hoy y mañana contra anteayer y ayer. Dos días son 2 x 3 funciones x 398 butacas = 2.388 de capacidad.
+    hoy = dias["ayer"] + timedelta(days=1)
+    assert pedir(RESUMEN, **_periodo(hoy, dias["manana"])) == {
+        "entradas": {"valor": 2, "anterior": 3, "variacion": -33.33},  # (2 - 3) / 3
+        "ingresos": {"valor": 11000.0, "anterior": 28000.0, "variacion": -60.71},  # (11.000 - 28.000) / 28.000
+        "ocupacion": {"valor": 0.08, "anterior": 0.13, "variacion": -0.05},  # 2 / 2.388 y 3 / 2.388
+        "cancelaciones": {"valor": 50.0, "anterior": 0.0, "variacion": 50.0},  # 1 de 2 contra 0 de 2
+    }
+
+
+def test_resumen_del_seed_filtra_por_local(pedir):
+    # Belgrano: 1 entrada con 2 gaseosas = 10.500; 27 funciones x 140 butacas = 3.780; 0 canceladas de 1 compra.
+    assert pedir(RESUMEN, local_id=2) == {
+        "entradas": {"valor": 1, **SIN_COMPARAR},
+        "ingresos": {"valor": 10500.0, **SIN_COMPARAR},
+        "ocupacion": {"valor": 0.03, **SIN_COMPARAR},
+        "cancelaciones": {"valor": 0.0, **SIN_COMPARAR},
+    }
+
+
+def test_resumen_de_local_sin_compras_y_de_local_inexistente(pedir):
+    sin_compras = pedir(RESUMEN, local_id=LOCAL_SIN_SEED)
+    assert sin_compras["entradas"]["valor"] == 0 and sin_compras["ingresos"]["valor"] == 0.0
+    assert sin_compras["ocupacion"]["valor"] == 0.0 and sin_compras["cancelaciones"]["valor"] is None
+    inexistente = pedir(RESUMEN, local_id=9999)
+    assert inexistente["ocupacion"]["valor"] is None and inexistente["cancelaciones"]["valor"] is None
+
+
+def test_resumen_no_multiplica_el_total_por_las_entradas_ni_los_servicios(pedir, conexion):
+    _compra(conexion, _funcion(conexion, "14:00:00"), "confirmada", entradas=3, servicios=4)
+    datos = pedir(RESUMEN, **FILTRO_BORDE)
+    assert datos["entradas"]["valor"] == 3 and datos["ingresos"]["valor"] == 5500.0
+    assert datos["ocupacion"]["valor"] == 4.29  # 3 / 70
+    assert datos["cancelaciones"]["valor"] == 0.0
+
+
+def test_resumen_no_cuenta_compras_pendientes_vencidas_ni_canceladas_como_ventas(pedir, conexion):
+    funcion = _funcion(conexion, "14:00:00")
+    _compra(conexion, funcion, "confirmada", entradas=2)
+    for estado in ("pendiente", "vencida", "cancelada"):
+        _compra(conexion, funcion, estado)
+    datos = pedir(RESUMEN, **FILTRO_BORDE)
+    assert datos["entradas"]["valor"] == 2 and datos["ingresos"]["valor"] == 5500.0
+    assert datos["cancelaciones"]["valor"] == 50.0  # 1 cancelada de 2; pendiente y vencida no cuentan

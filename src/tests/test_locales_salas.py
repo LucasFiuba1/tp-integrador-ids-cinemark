@@ -44,7 +44,9 @@ def db_locales():
 @pytest.fixture
 def db_salas():
     with patch("src.backend.services.salas.db") as db:
-        yield db
+        # La baja lógica de la sala pasa por los helpers de ABM, que usan la misma base simulada.
+        with patch("src.backend.abm.db", db):
+            yield db
 
 
 @pytest.fixture
@@ -245,14 +247,16 @@ def test_listar_salas_sin_filtro_devuelve_200(pedir, db_salas, sala):
     respuesta = pedir("GET", "/api/admin/salas")
     assert respuesta.status_code == 200
     assert respuesta.get_json() == [sala]
-    assert db_salas.consultar.call_args.args[1] == (None, None)
+    sql, parametros = db_salas.consultar.call_args.args
+    assert "local_id = %s" not in sql and parametros == ()
 
 
 def test_listar_salas_de_un_local_filtra_por_local_id(pedir, db_salas):
     db_salas.consultar.return_value = []
     respuesta = pedir("GET", "/api/admin/salas?local_id=1")
     assert respuesta.status_code == 200
-    assert db_salas.consultar.call_args.args[1] == (1, 1)
+    sql, parametros = db_salas.consultar.call_args.args
+    assert "AND s.local_id = %s" in sql and parametros == (1,)
 
 
 # --- salas: alta ---

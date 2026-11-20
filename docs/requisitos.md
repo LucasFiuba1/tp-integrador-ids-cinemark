@@ -29,6 +29,9 @@ antes de cada entrega. Alcance e hipótesis acordadas: [Confluence](https://tp-i
 
 Reseñas solo para quienes asistieron · PDF de ventas · Docker · hosting gratuito (app y base) · Swagger.
 
+- [x] Docker: `Dockerfile` y `docker-compose.yml` (MySQL + API + sitio) para correr todo en local.
+- [x] Hosting gratuito: apps en Render (`render.yaml`) y base en TiDB Cloud (`docs/despliegue.md`).
+
 ## Requisitos técnicos obligatorios
 
 - [ ] GitHub compartido con el corrector; **todos** los integrantes con commits útiles.

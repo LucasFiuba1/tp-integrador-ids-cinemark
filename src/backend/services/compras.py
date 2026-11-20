@@ -3,9 +3,9 @@ compras (SCRUM-62, SCRUM-64, SCRUM-66, SCRUM-67, SCRUM-69, SCRUM-70)."""
 import base64
 from datetime import datetime
 
-import pymysql
 from flask import current_app
 
+from src.backend.abm import requerir_existente, traducir_duplicado
 from src.backend.db import consultar, consultar_uno, marcadores, transaccion
 from src.backend.errores import error_api
 from src.backend.services import correo, perfil, qr
@@ -28,7 +28,8 @@ def reservar(usuario_id, datos):
     if len(set(butaca_ids)) != len(butaca_ids):
         error_api(400, "DATOS_INVALIDOS", "No repitas una butaca en la reserva.")
 
-    try:
+    # Si otra compra ganó la carrera por una butaca, el UNIQUE de entradas lo frena y se informa como ocupada.
+    with traducir_duplicado("Una o más butacas ya fueron reservadas.", "BUTACA_OCUPADA"):
         with transaccion() as cursor:
             cursor.execute(
                 "SELECT f.sala_id, f.precio FROM funciones f "
@@ -39,13 +40,27 @@ def reservar(usuario_id, datos):
                 (funcion_id,),
             )
             funcion = cursor.fetchone()
-            if funcion is None:
-                error_api(404, "NO_ENCONTRADO", "La función no existe o ya comenzó.")
+            requerir_existente(funcion, "La función no existe o ya comenzó.")
 
             cursor.execute(
                 "UPDATE compras SET estado = 'vencida' "
                 "WHERE funcion_id = %s AND estado = 'pendiente' AND vence_en <= NOW()",
                 (funcion_id,),
+            )
+            # Si el cliente vuelve a elegir butacas para esta función, su reserva pendiente se reemplaza: queda
+            # vencida (no cancelada, que contaría como cancelación en los dashboards) y libera sus butacas, así puede
+            # volver a elegirlas. La nueva hereda el vencimiento de la anterior para que cambiar de butacas no
+            # extienda la reserva sin límite.
+            cursor.execute(
+                "SELECT MIN(vence_en) AS vence_en FROM compras "
+                "WHERE usuario_id = %s AND funcion_id = %s AND estado = 'pendiente' FOR UPDATE",
+                (usuario_id, funcion_id),
+            )
+            vence_heredado = cursor.fetchone()["vence_en"]
+            cursor.execute(
+                "UPDATE compras SET estado = 'vencida' "
+                "WHERE usuario_id = %s AND funcion_id = %s AND estado = 'pendiente'",
+                (usuario_id, funcion_id),
             )
             cursor.execute(
                 "UPDATE entradas e JOIN compras c ON c.id = e.compra_id "
@@ -75,8 +90,8 @@ def reservar(usuario_id, datos):
             total = precio * len(butaca_ids)
             cursor.execute(
                 "INSERT INTO compras (usuario_id, funcion_id, estado, total, vence_en) "
-                "VALUES (%s, %s, 'pendiente', %s, DATE_ADD(NOW(), INTERVAL %s MINUTE))",
-                (usuario_id, funcion_id, total, current_app.config["MINUTOS_RESERVA"]),
+                "VALUES (%s, %s, 'pendiente', %s, COALESCE(%s, DATE_ADD(NOW(), INTERVAL %s MINUTE)))",
+                (usuario_id, funcion_id, total, vence_heredado, current_app.config["MINUTOS_RESERVA"]),
             )
             compra_id = cursor.lastrowid
             cursor.executemany(
@@ -86,10 +101,6 @@ def reservar(usuario_id, datos):
             )
             cursor.execute("SELECT vence_en FROM compras WHERE id = %s", (compra_id,))
             vence_en = cursor.fetchone()["vence_en"]
-    except pymysql.err.IntegrityError as error:
-        if error.args and error.args[0] == 1062:
-            error_api(409, "BUTACA_OCUPADA", "Una o más butacas ya fueron reservadas.")
-        raise
 
     return {
         "id": compra_id,
@@ -124,7 +135,8 @@ def _qr_base64(estado, token_qr):
 def _detalle_compra(compra_id, usuario_id=None):
     """Detalle de una compra. Con usuario_id exige que sea suya (403 si no); sin él, no filtra por dueño."""
     fila = consultar_uno(
-        "SELECT c.id, c.usuario_id, c.estado, c.total, c.vence_en, c.cancelada_en, c.utilizada_en, c.token_qr, "
+        "SELECT c.id, c.usuario_id, c.funcion_id, c.estado, c.total, c.vence_en, c.cancelada_en, c.utilizada_en, "
+        "c.token_qr, "
         "(c.vence_en <= NOW()) AS vencida, "
         "f.fecha_hora, p.titulo, p.poster_url, s.nombre AS sala, l.nombre AS local, u.email "
         "FROM compras c "
@@ -136,13 +148,12 @@ def _detalle_compra(compra_id, usuario_id=None):
         "WHERE c.id = %s",
         (compra_id,),
     )
-    if fila is None:
-        error_api(404, "NO_ENCONTRADO", "La compra no existe.")
+    requerir_existente(fila, "La compra no existe.")
     if usuario_id is not None and fila["usuario_id"] != usuario_id:
         error_api(403, "SIN_PERMISO", "No tenés permiso sobre esta compra.")
 
     entradas = consultar(
-        "SELECT b.fila, b.numero, e.precio FROM entradas e "
+        "SELECT b.id, b.fila, b.numero, e.precio FROM entradas e "
         "JOIN butacas b ON b.id = e.butaca_id "
         "WHERE e.compra_id = %s ORDER BY b.fila, b.numero",
         (compra_id,),
@@ -162,8 +173,10 @@ def _detalle_compra(compra_id, usuario_id=None):
         "poster_url": fila["poster_url"],
         "local": fila["local"],
         "sala": fila["sala"],
+        "funcion_id": fila["funcion_id"],
         "funcion": _iso(fila["fecha_hora"]),
         "butacas": [f"{entrada['fila']}{entrada['numero']}" for entrada in entradas],
+        "butaca_ids": [entrada["id"] for entrada in entradas],
         "subtotal_entradas": subtotal_entradas,
         "servicios": [
             {
@@ -206,8 +219,7 @@ def _cancelar_compra(compra_id, usuario_id=None):
             (compra_id,),
         )
         compra = cursor.fetchone()
-        if compra is None:
-            error_api(404, "NO_ENCONTRADO", "La compra no existe.")
+        requerir_existente(compra, "La compra no existe.")
         if usuario_id is not None and compra["usuario_id"] != usuario_id:
             error_api(403, "SIN_PERMISO", "No tenés permiso sobre esta compra.")
         if compra["estado"] == "cancelada":
@@ -254,8 +266,7 @@ def _bloquear_compra_pendiente(cursor, compra_id, usuario_id):
         (compra_id,),
     )
     compra = cursor.fetchone()
-    if compra is None:
-        error_api(404, "NO_ENCONTRADO", "La compra no existe.")
+    requerir_existente(compra, "La compra no existe.")
     if compra["usuario_id"] != usuario_id:
         error_api(403, "SIN_PERMISO", "No tenés permiso sobre esta compra.")
     if compra["estado"] != "pendiente":

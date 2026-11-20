@@ -10,6 +10,10 @@
   {{ cabecera_pagina("Elegí tus butacas", bajada=funcion.local ~ " · " ~ funcion.sala ~ " · " ~ (funcion.fecha_hora | fecha_hora) ~ " · " ~ (funcion.precio | precio) ~ " por entrada") }}
 
   {% if error %}<p class="aviso aviso-error" role="alert">{{ error }}</p>{% endif %}
+  {% if reserva %}
+    <p class="aviso aviso-exito">Tenés reservadas {{ reserva.butacas | join(", ") }}
+      hasta las {{ reserva.vence_en | hora }}. Podés seguir con las mismas o cambiarlas: si las cambiás, la reserva anterior se libera.</p>
+  {% endif %}
   {% if not mapa.vendible %}
     <p class="aviso aviso-error" role="alert">Esta función ya comenzó: no se pueden comprar entradas.</p>
   {% endif %}

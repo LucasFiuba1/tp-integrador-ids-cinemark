@@ -1579,3 +1579,38 @@ span.butaca { cursor: not-allowed; }
   .grilla-vistas { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--espacio-5); }
   .grilla-vistas .tarjeta-pelicula .poster-titulo { font-size: var(--texto-xl); }
 }
+
+
+
+/* Buscador de películas en el backoffice */
+.buscador-tmdb-formulario {
+  display: grid;
+  grid-template-columns: minmax(0, 400px) auto;
+  gap: var(--espacio-3);
+  align-items: end;
+  justify-content: start;
+}
+
+.buscador-tmdb-formulario .campo {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.buscador-tmdb-formulario .campo input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.buscador-tmdb-formulario .boton {
+  width: auto;
+  height: 70%;
+  align-self: end;
+  white-space: nowrap;
+}
+
+/* Mantener el buscador adaptable en celulares */
+@media (max-width: 600px) {
+  .buscador-tmdb-formulario {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

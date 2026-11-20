@@ -23,6 +23,21 @@ Backend Flask en `http://localhost:5000`. Todas las respuestas son JSON.
 | 409 | Conflicto con una regla de negocio (butaca ocupada, funciones superpuestas, fuera de plazo…) |
 | 500 | Error inesperado |
 
+### Filtros de los listados
+
+Los query params de los listados (`local_id`, `fecha`, `desde`, `hasta`, `funcion_id`) se validan con un helper
+común (`src/backend/filtros.py`, SCRUM-106). Cada listado acepta solo sus filtros: un parámetro desconocido se
+ignora y un valor inválido devuelve 400 `DATOS_INVALIDOS`. Los ids son enteros positivos de hasta 18 dígitos,
+`fecha` es `YYYY-MM-DD` (el día completo) y `desde`/`hasta` son `YYYY-MM-DDTHH:MM:SS` con ambos extremos
+incluidos (`desde` posterior a `hasta` → 400).
+
+Un parámetro **vacío** (`?local_id=`) se trata según el listado:
+
+| Listado | Vacío |
+|---|---|
+| `GET /api/cartelera`, dashboards, `GET /api/admin/ingresos` | 400 `DATOS_INVALIDOS` |
+| `GET /api/admin/funciones`, `GET /api/admin/salas` | Se ignora (sin filtro): es lo que mandan los formularios al elegir "Todos" |
+
 ---
 
 ## Salud
@@ -81,6 +96,8 @@ Errores de `/me`: 401 sin token, token inválido o vencido · 403 si el rol no e
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
 | GET | `/api/locales` | 🌐 | Locales con al menos una sala activa (`id` y `nombre`, ordenados por nombre), para los filtros de la cartelera y el header. |
+| GET | `/api/catalogos/generos` | 🌐 | Géneros usados por películas con funciones vigentes, sin repetidos y ordenados alfabéticamente. |
+| GET | `/api/catalogos/clasificaciones` | 🌐 | Clasificaciones usadas por películas con funciones vigentes, sin repetidos y ordenadas alfabéticamente. |
 | GET | `/api/cartelera?local_id=&fecha=` | 🌐 | Películas con funciones vigentes y su próxima función. `fecha` es `YYYY-MM-DD` y `local_id` un entero positivo (si no, 400 `DATOS_INVALIDOS`). |
 | GET | `/api/peliculas/<id>` | 🌐 | Detalle de la película activa y sus funciones futuras, cada una con `local_id` y `nombre_local` (404 `NO_ENCONTRADO` si no existe o está dada de baja). |
 | GET | `/api/funciones/<id>` | 🌐 | Detalle de una función (película, sala, local, fecha y hora, precio). |
@@ -161,6 +178,12 @@ POST /api/compras
 ```
 
 La función debe estar activa y no haber comenzado; las butacas deben ser únicas y pertenecer a su sala.
+
+**Volver a elegir butacas:** si el cliente ya tiene una compra `pendiente` de esa misma función (volvió atrás desde
+servicios), la reserva nueva la **reemplaza**: la anterior pasa a `vencida` (no `cancelada`, así no cuenta como
+cancelación en los dashboards) y libera sus butacas, que el cliente puede volver a elegir. La nueva **hereda el
+`vence_en` de la anterior**, para que cambiar de butacas no extienda la reserva. Las reservas de otros clientes y
+las del mismo cliente para otras funciones no se tocan.
 Los errores de entrada devuelven 400 `DATOS_INVALIDOS`; una función inexistente o ya comenzada devuelve 404.
 
 ```http
@@ -199,7 +222,8 @@ GET /api/compras/88
 200 OK
 {
   "id": 88, "estado": "confirmada", "pelicula": "Volver al futuro", "poster_url": "https://image.tmdb.org/...",
-  "local": "Paradiso Centro", "sala": "Sala 1", "funcion": "2026-11-12T20:30:00", "butacas": ["D5", "D6"],
+  "local": "Paradiso Centro", "sala": "Sala 1", "funcion_id": 12, "funcion": "2026-11-12T20:30:00",
+  "butacas": ["D5", "D6"], "butaca_ids": [41, 42],
   "subtotal_entradas": 10000.00,
   "servicios": [ { "nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": 6500.00, "subtotal": 13000.00 } ],
   "total": 23000.00, "email": "ana@email.com", "vence_en": null, "utilizada_en": null, "cancelada_en": null,
@@ -295,7 +319,7 @@ PATCH /api/admin/peliculas/3
 | POST | `/api/admin/locales` | 🛠️ | Crea un local. |
 | PUT | `/api/admin/locales/<id>` | 🛠️ | Modifica un local. |
 | DELETE | `/api/admin/locales/<id>` | 🛠️ | Elimina un local sin salas activas ni funciones (409 `LOCAL_CON_SALAS` / `LOCAL_CON_HISTORIAL`). |
-| GET | `/api/admin/salas?local_id=` | 🛠️ | Lista de salas. |
+| GET | `/api/admin/salas?local_id=` | 🛠️ | Lista de salas activas, opcionalmente de un local (`local_id` inválido → 400). |
 | POST | `/api/admin/salas` | 🛠️ | Crea una sala y genera sus butacas. |
 | GET | `/api/admin/salas/<id>` | 🛠️ | Detalle de la sala con su grilla de butacas. |
 | PUT | `/api/admin/salas/<id>` | 🛠️ | Modifica una sala; achicarla no se permite con funciones futuras ni con entradas vendidas en las butacas que se quitan. |
@@ -438,7 +462,7 @@ POST /api/admin/ingresos/validar
 { "error": { "codigo": "YA_UTILIZADA", "mensaje": "Este QR ya se usó el 10/11 a las 20:21." } }
 ```
 
-Motivos de rechazo (verificados en este orden): `QR_INVALIDO` · `CANCELADA` · `YA_UTILIZADA` · `OTRA_FUNCION` · `FUERA_DE_FECHA`.
+Motivos de rechazo (verificados en este orden): `QR_INVALIDO` (firma inválida o compra inexistente) · `CANCELADA` (aunque al cancelar se borre el token guardado) · `QR_INVALIDO` (el token no es el vigente de la compra) · `YA_UTILIZADA` · `OTRA_FUNCION` · `FUERA_DE_FECHA`.
 
 ### Dashboards
 
@@ -452,12 +476,66 @@ enviar `desde` posterior a `hasta`, devuelve 400 `DATOS_INVALIDOS`. Un local sin
 compras (o inexistente) devuelve resultados vacíos, no 404. Solo se permite el
 rol admin: sin token devuelve 401 y con otro rol, 403 `SIN_PERMISO`.
 
+**Formato común de las series (SCRUM-109).** Cada fila de cada lista, además de sus
+campos propios, trae `etiqueta` (texto), `valor` (entero) y `porcentaje` (número con
+dos decimales), para que el backoffice dibuje todas las barras con la misma macro:
+
+| Serie | `etiqueta` | `valor` | `porcentaje` |
+|---|---|---|---|
+| Ocupación `por_pelicula` | título | `vendidas` | `vendidas / capacidad` (igual a `ocupacion`) |
+| Ocupación `por_funcion` | `"<película> (<local>, <sala>)"` | `vendidas` | `vendidas / capacidad` (igual a `ocupacion`) |
+| Ventas por género | género | `entradas` | participación sobre el total de entradas de la respuesta |
+| Franjas horarias | `"20 a 22 h"` | `entradas` | participación sobre el total de entradas de la respuesta |
+| Cancelaciones `por_pelicula` / `por_periodo` | título / `periodo` | `canceladas` | `canceladas / compras` |
+
+Los porcentajes se calculan como `100 * parte / total`, redondeados a dos decimales
+(la mitad hacia arriba) y, si el total es 0, valen `0.0` en lugar de fallar.
+
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
+| GET | `/api/admin/dashboards/resumen` | 🛠️ | Indicadores del período y variación contra el período anterior. |
 | GET | `/api/admin/dashboards/ocupacion` | 🛠️ | Ocupación por función y por película (vendidas / capacidad). |
 | GET | `/api/admin/dashboards/ventas-genero` | 🛠️ | Entradas y monto vendido por género. |
 | GET | `/api/admin/dashboards/franjas-horarias` | 🛠️ | Entradas vendidas por franja horaria. |
 | GET | `/api/admin/dashboards/cancelaciones` | 🛠️ | Cantidad y porcentaje de cancelaciones por película y período. |
+
+#### Resumen de indicadores (SCRUM-124)
+
+Devuelve los cuatro indicadores de las tarjetas. Cada uno trae `valor` (período
+elegido), `anterior` (período anterior) y `variacion`.
+
+| Indicador | `valor` | `variacion` |
+|---|---|---|
+| `entradas` | Entradas activas de compras confirmadas | % |
+| `ingresos` | Suma de `compras.total` de compras confirmadas (entradas y servicios) | % |
+| `ocupacion` | `100 * vendidas / capacidad` de todas las funciones activas del período | Puntos |
+| `cancelaciones` | `100 * canceladas / (confirmadas + canceladas)` | Puntos |
+
+El **período anterior** dura lo mismo que el elegido y termina un segundo antes
+de `desde`: `desde=2026-11-03T00:00:00` y `hasta=2026-11-09T23:59:59` se comparan
+con 2026-10-27T00:00:00 a 2026-11-02T23:59:59. Los filtros se aplican igual en
+los dos períodos, también `local_id`.
+
+`ingresos` incluye servicios, por eso puede superar la suma de `monto` de
+`ventas-genero`, que cuenta solo entradas.
+
+Sin ventas, `entradas` e `ingresos` valen 0. Sin funciones, `ocupacion` es `null`;
+sin compras confirmadas ni canceladas, `cancelaciones` es `null`. `variacion` es
+`null` si no hay con qué comparar: falta `desde` o `hasta`, el indicador es `null`
+en alguno de los dos períodos, o el período anterior vale 0 en una variación
+porcentual. Si falta `desde` o `hasta`, `anterior` también es `null`.
+
+```http
+GET /api/admin/dashboards/resumen?desde=2026-11-03T00:00:00&hasta=2026-11-09T23:59:59
+
+200 OK
+{
+  "entradas": { "valor": 5, "anterior": 3, "variacion": 66.67 },
+  "ingresos": { "valor": 39000.0, "anterior": 16500.0, "variacion": 136.36 },
+  "ocupacion": { "valor": 0.42, "anterior": 0.3, "variacion": 0.12 },
+  "cancelaciones": { "valor": 25.0, "anterior": 50.0, "variacion": -25.0 }
+}
+```
 
 #### Ocupación (SCRUM-75)
 
@@ -478,11 +556,13 @@ GET /api/admin/dashboards/ocupacion?local_id=2
 200 OK
 {
   "por_pelicula": [
-    { "pelicula_id": 6, "pelicula": "Toy Story", "vendidas": 1, "capacidad": 420, "ocupacion": 0.24 }
+    { "pelicula_id": 6, "pelicula": "Toy Story", "vendidas": 1, "capacidad": 420, "ocupacion": 0.24,
+      "etiqueta": "Toy Story", "valor": 1, "porcentaje": 0.24 }
   ],
   "por_funcion": [
     { "funcion_id": 41, "pelicula": "Toy Story", "local": "Belgrano", "sala": "Sala 1",
-      "fecha_hora": "2026-11-06T17:30:00", "vendidas": 1, "capacidad": 140, "ocupacion": 0.71 }
+      "fecha_hora": "2026-11-06T17:30:00", "vendidas": 1, "capacidad": 140, "ocupacion": 0.71,
+      "etiqueta": "Toy Story (Belgrano, Sala 1)", "valor": 1, "porcentaje": 0.71 }
   ]
 }
 ```
@@ -501,8 +581,8 @@ entradas, sin servicios. Solo aparecen géneros con ventas, ordenados por
 GET /api/admin/dashboards/ventas-genero
 
 200 OK
-[ { "genero": "Animación", "entradas": 3, "monto": 16500.0 },
-  { "genero": "Aventura", "entradas": 2, "monto": 11000.0 } ]
+[ { "genero": "Animación", "entradas": 3, "monto": 16500.0, "etiqueta": "Animación", "valor": 3, "porcentaje": 60.0 },
+  { "genero": "Aventura", "entradas": 2, "monto": 11000.0, "etiqueta": "Aventura", "valor": 2, "porcentaje": 40.0 } ]
 ```
 
 Estos son los valores de `seed.sql` recién cargado. Sin ventas devuelve `[]`.
@@ -520,8 +600,8 @@ excluye el historial por bajas lógicas de películas, salas o funciones.
 GET /api/admin/dashboards/franjas-horarias
 
 200 OK
-[ { "hora_desde": 20, "hora_hasta": 22, "entradas": 4 },
-  { "hora_desde": 16, "hora_hasta": 18, "entradas": 1 } ]
+[ { "hora_desde": 20, "hora_hasta": 22, "entradas": 4, "etiqueta": "20 a 22 h", "valor": 4, "porcentaje": 80.0 },
+  { "hora_desde": 16, "hora_hasta": 18, "entradas": 1, "etiqueta": "16 a 18 h", "valor": 1, "porcentaje": 20.0 } ]
 ```
 
 Estos son los valores de `seed.sql` recién cargado. Sin ventas devuelve `[]`.
@@ -548,13 +628,18 @@ GET /api/admin/dashboards/cancelaciones
 200 OK
 {
   "por_pelicula": [
-    { "pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": 1, "porcentaje": 50.0 },
-    { "pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": 0, "porcentaje": 0.0 },
-    { "pelicula_id": 6, "pelicula": "Toy Story", "compras": 1, "canceladas": 0, "porcentaje": 0.0 }
+    { "pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": 1,
+      "etiqueta": "Jurassic Park", "valor": 1, "porcentaje": 50.0 },
+    { "pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": 0,
+      "etiqueta": "El viaje de Chihiro", "valor": 0, "porcentaje": 0.0 },
+    { "pelicula_id": 6, "pelicula": "Toy Story", "compras": 1, "canceladas": 0,
+      "etiqueta": "Toy Story", "valor": 0, "porcentaje": 0.0 }
   ],
   "por_periodo": [
-    { "periodo": "2026-11-06T00:00:00", "compras": 2, "canceladas": 0, "porcentaje": 0.0 },
-    { "periodo": "2026-11-08T00:00:00", "compras": 2, "canceladas": 1, "porcentaje": 50.0 }
+    { "periodo": "2026-11-06T00:00:00", "compras": 2, "canceladas": 0,
+      "etiqueta": "2026-11-06T00:00:00", "valor": 0, "porcentaje": 0.0 },
+    { "periodo": "2026-11-08T00:00:00", "compras": 2, "canceladas": 1,
+      "etiqueta": "2026-11-08T00:00:00", "valor": 1, "porcentaje": 50.0 }
   ]
 }
 ```

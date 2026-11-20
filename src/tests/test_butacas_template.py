@@ -100,7 +100,8 @@ MAPA_CON_CONFLICTO = dict(MAPA, butacas=[
     {"id": 2, "fila": "A", "numero": 2, "estado": "ocupada"},
     {"id": 3, "fila": "B", "numero": 1, "estado": "libre"},
 ])
-COMPRA = {"id": 88, "estado": "pendiente", "vence_en": "2099-11-10T20:10:00", "pelicula": "Volver al futuro",
+COMPRA = {"id": 88, "funcion_id": 12, "butaca_ids": [1, 3], "estado": "pendiente",
+          "vence_en": "2099-11-10T20:10:00", "pelicula": "Volver al futuro",
           "poster_url": None, "local": "Paradiso Centro", "sala": "Sala 1", "funcion": "2099-11-10T20:30:00",
           "butacas": ["A1", "B1"], "subtotal_entradas": 10000.0, "servicios": [], "total": 10000.0}
 

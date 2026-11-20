@@ -1,8 +1,7 @@
 """Lógica del ABM de películas importadas desde TMDB (SCRUM-52)."""
 from datetime import datetime
 
-import pymysql
-
+from src.backend.abm import dar_de_baja_logica, requerir_existente, traducir_duplicado
 from src.backend.db import consultar, consultar_uno, ejecutar
 from src.backend.errores import error_api
 from src.backend.services import tmdb
@@ -55,9 +54,7 @@ def listar():
 
 def obtener(pelicula_id):
     fila = consultar_uno("SELECT " + COLUMNAS + " FROM peliculas WHERE id = %s", (pelicula_id,))
-    if fila is None:
-        error_api(404, "NO_ENCONTRADO", "La película no existe.")
-    return serializar(fila)
+    return serializar(requerir_existente(fila, "La película no existe."))
 
 
 def importar(datos):
@@ -77,7 +74,8 @@ def importar(datos):
     if clasificacion is not None:
         clasificacion = clasificacion[:10]
 
-    try:
+    # Otro admin pudo importarla justo antes (tmdb_id es UNIQUE)
+    with traducir_duplicado("Esa película ya fue importada.", "PELICULA_DUPLICADA"):
         nuevo_id = ejecutar(
             "INSERT INTO peliculas (tmdb_id, titulo, sinopsis, poster_url, duracion_min, "
             "clasificacion, genero, disponible_desde, disponible_hasta) "
@@ -88,9 +86,6 @@ def importar(datos):
                 _generos_hasta(pelicula["genero"], MAXIMO_GENERO), desde, hasta,
             ),
         )
-    except pymysql.err.IntegrityError:
-        # Otro admin la importó justo antes (tmdb_id es UNIQUE)
-        error_api(409, "PELICULA_DUPLICADA", "Esa película ya fue importada.")
     return obtener(nuevo_id)
 
 
@@ -125,7 +120,7 @@ def dar_de_baja(pelicula_id):
         "SELECT EXISTS(SELECT 1 FROM funciones WHERE pelicula_id = %s) AS tiene_funciones", (pelicula_id,)
     )
     if fila["tiene_funciones"]:
-        ejecutar("UPDATE peliculas SET activa = FALSE WHERE id = %s", (pelicula_id,))
+        dar_de_baja_logica("peliculas", pelicula_id)
         return {"id": pelicula_id, "baja": "logica"}
     ejecutar("DELETE FROM peliculas WHERE id = %s", (pelicula_id,))
     return {"id": pelicula_id, "baja": "fisica"}

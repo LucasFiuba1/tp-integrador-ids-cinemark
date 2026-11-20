@@ -1,7 +1,7 @@
 {# Dashboards (Figma B1 desktop y M1 mobile): filtros del período y local, KPI y los cuatro tableros del enunciado.
    franjas_horarias, ventas_genero y cancelaciones son las respuestas de GET /api/admin/dashboards/<tablero>;
-   ocupacion y ocupacion_funciones son por_pelicula y por_funcion de /ocupacion. resumen trae los totales del
-   período, calculados en la ruta a partir de esas respuestas. #}
+   ocupacion y ocupacion_funciones son por_pelicula y por_funcion de /ocupacion. resumen es la respuesta de
+   GET /api/admin/dashboards/resumen (SCRUM-124). #}
 {% extends "backoffice/base_admin.html" %}
 {% from "macros.html" import cabecera_pagina, campo, filtro, boton, tabla, tarjeta_kpi, barra, columnas %}
 
@@ -21,6 +21,20 @@
   {% endfor %}
 {% endmacro %}
 
+{# Tarjeta del resumen. valor llega ya formateado (none si no hay datos) y la variación se compara contra el período
+   anterior. subir_es_bueno define el color: en las cancelaciones, subir es malo. #}
+{% macro kpi(titulo, indicador, valor, sufijo='', unidad=' %', subir_es_bueno=true) %}
+  {% set variacion = indicador.variacion %}
+  {% if variacion is none %}
+    {% set detalle, tono = "Sin comparación con el período anterior", "" %}
+  {% else %}
+    {% set signo = "+" if variacion > 0 else "" %}
+    {% set detalle = signo ~ (variacion | numero) ~ unidad ~ " vs. período anterior" %}
+    {% set tono = "" if variacion == 0 else ("positivo" if (variacion > 0) == subir_es_bueno else "negativo") %}
+  {% endif %}
+  {{ tarjeta_kpi(titulo, "Sin datos" if valor is none else valor ~ sufijo, detalle, tono) }}
+{% endmacro %}
+
 {% block admin %}
   {{ cabecera_pagina("Dashboards", bajada="Ventas y ocupación del período elegido") }}
 
@@ -34,10 +48,11 @@
   </form>
 
   <div class="kpis">
-    {{ tarjeta_kpi("Entradas vendidas", resumen.entradas | numero) }}
-    {{ tarjeta_kpi("Ingresos por entradas", resumen.monto | precio) }}
-    {{ tarjeta_kpi("Ocupación promedio", resumen.ocupacion | numero ~ "%") }}
-    {{ tarjeta_kpi("Compras canceladas", resumen.cancelaciones | numero ~ "%") }}
+    {{ kpi("Entradas vendidas", resumen.entradas, resumen.entradas.valor | numero) }}
+    {{ kpi("Ingresos", resumen.ingresos, resumen.ingresos.valor | precio) }}
+    {{ kpi("Ocupación promedio", resumen.ocupacion, resumen.ocupacion.valor | numero, sufijo="%", unidad=" pts") }}
+    {{ kpi("Compras canceladas", resumen.cancelaciones, resumen.cancelaciones.valor | numero, sufijo="%", unidad=" pts",
+           subir_es_bueno=false) }}
   </div>
 
   <div class="dashboards">
@@ -62,7 +77,7 @@
     <section class="panel" aria-labelledby="titulo-cancelaciones">
       <h2 id="titulo-cancelaciones">Cancelaciones por película</h2>
       {{ lista_barras(cancelaciones, "pelicula", "porcentaje", sufijo="%") }}
-      <p class="panel-nota">Porcentaje de compras canceladas sobre las vendidas.</p>
+      <p class="panel-nota">Porcentaje de compras canceladas sobre las confirmadas y canceladas.</p>
     </section>
   </div>
 

@@ -322,7 +322,7 @@ Mantener activa la cuenta: alwaysdata puede suspender Free por no entrar al pane
 - El alcance declarado incluye QR, pago y cancelaciones, pero no todos los flujos están implementados en esta rama. Verificar el código y las pruebas del commit que se publique.
 - Revisar protección CSRF, manejo de proxies, revocación de sesiones, permisos de base y política de backups antes de una publicación productiva. El wrapper no implementa esas funciones.
 - No exponer MySQL públicamente más de lo requerido; no usar `root` como usuario de aplicación ni compartir credenciales entre ambientes.
-- No hay Dockerfile, Compose ni configuración de despliegue automática en el repositorio. No hay un servicio desplegado o URL de producción verificados por esta documentación.
+- El `Dockerfile` y el `docker-compose.yml` del repositorio son para correr todo en local (ver el README); esta guía no los usa. No hay un servicio desplegado o URL de producción verificados por esta documentación.
 
 ## Fuentes oficiales
 
