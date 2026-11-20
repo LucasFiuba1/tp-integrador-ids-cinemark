@@ -235,3 +235,19 @@ def test_tabla_formatea_horas_y_usa_la_leyenda_del_estado(renderizar):
     assert "19:12" in html
     assert 'class="badge badge-valida">Válida</span>' in html
     assert 'class="badge badge-cancelada">Cancelada</span>' in html
+
+
+# --- SCRUM-81: el lector del celular pega la URL entera del QR ---
+@pytest.mark.parametrize("pegado", [
+    "https://cine-paradiso-web.onrender.com/admin/ingreso?token=abc.def-123",
+    "http://localhost:5001/admin/ingreso?token=abc.def-123",
+    "  abc.def-123  ",
+])
+def test_post_con_la_url_del_qr_valida_solo_el_token(cliente_admin, llamar, pegado):
+    cliente_admin.post("/admin/ingreso", data={"funcion_id": "12", "token": pegado})
+    assert llamadas_a_validar(llamar)[0].kwargs["json"] == {"token_qr": "abc.def-123", "funcion_id": 12}
+
+
+def test_post_con_una_url_sin_token_la_manda_tal_cual_y_el_backend_la_rechaza(cliente_admin, llamar):
+    cliente_admin.post("/admin/ingreso", data={"funcion_id": "12", "token": "https://otro.sitio/promo"})
+    assert llamadas_a_validar(llamar)[0].kwargs["json"]["token_qr"] == "https://otro.sitio/promo"

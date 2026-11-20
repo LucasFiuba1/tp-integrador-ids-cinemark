@@ -173,6 +173,21 @@ h3 { font-size: var(--texto-lg); }
 }
 .selectores-enviar:hover { background: var(--color-primario); }
 
+/* Pantallas táctiles (SCRUM-82): los selectores y "Ver" se ven igual que en Figma pero se pueden tocar en 44 px de
+   alto. Los select usan 16 px para que Safari en iOS no haga zoom al tocarlos; el padding de la fila se reparte
+   en el alto del control para que la fila no crezca. */
+@media (pointer: coarse) {
+  .selectores { padding-top: 0; padding-bottom: 0; }
+  .selector select { min-height: var(--alto-tactil); font-size: 1rem; }
+  .selector::after { font-size: 1rem; }
+  .selectores-enviar { position: relative; }
+  .selectores-enviar::before {
+    content: "";
+    position: absolute;
+    inset: calc((var(--alto-tactil) - 100%) / -2) calc(var(--espacio-2) * -1);
+  }
+}
+
 /* Usuario: ícono siempre visible. Sin sesión lleva a Ingresar; con sesión abre un <details> con nombre y Salir */
 .cabecera-usuario, .cabecera-derecha > .cabecera-usuario-boton {
   grid-area: usuario;
@@ -819,7 +834,7 @@ h3 { font-size: var(--texto-lg); }
   background: var(--color-texto-secundario);
 }
 .butacas-filas { display: grid; gap: var(--espacio-2); overflow-x: auto; padding-bottom: var(--espacio-1); }
-.butacas-fila { display: flex; gap: var(--espacio-1); align-items: center; justify-content: center; }
+.butacas-fila { display: flex; gap: var(--espacio-1); align-items: center; justify-content: safe center; }
 .butacas-fila-letra {
   flex-shrink: 0;
   width: var(--espacio-4);
@@ -827,7 +842,9 @@ h3 { font-size: var(--texto-lg); }
   font: var(--texto-xs) var(--fuente-titulos);
   text-align: center;
 }
-.butaca { position: relative; display: flex; flex: 1 1 0; min-width: var(--espacio-4); max-width: var(--espacio-6); cursor: pointer; }
+/* 28 px como mínimo (SCRUM-82): a 20 px era fácil tocar la butaca de al lado. Si la sala no entra, la grilla se
+   desplaza de costado dentro de su panel (la página no). */
+.butaca { position: relative; display: flex; flex: 1 0 0; min-width: var(--ancho-butaca-minimo); max-width: var(--espacio-6); cursor: pointer; }
 .butaca-pasillo { margin-right: var(--espacio-3); }
 .butaca-marca {
   display: inline-grid;

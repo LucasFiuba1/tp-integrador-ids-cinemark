@@ -4,7 +4,8 @@ Cada función recibe el formulario ya leído (dict de strings) y devuelve un dic
 Si el dict está vacío, el formulario es válido. Los límites siguen a docs/base_de_datos.md (VARCHAR del schema).
 """
 import re
-from datetime import date
+from datetime import date, datetime
+from urllib.parse import parse_qs, urlsplit
 
 PATRON_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 PATRON_VENCIMIENTO = re.compile(r"^(0[1-9]|1[0-2])/(\d{2})$")
@@ -109,6 +110,15 @@ def _error_token_qr(token):
     return None
 
 
+def token_del_qr(texto):
+    """El QR de la entrada es la URL /admin/ingreso?token=... Si el lector (o el admin) pega la URL entera, se usa
+    solo el token; cualquier otro texto se devuelve tal cual para que lo valide el backend (SCRUM-81)."""
+    partes = urlsplit(texto)
+    if partes.scheme in ("http", "https"):
+        return parse_qs(partes.query).get("token", [texto])[0].strip()
+    return texto
+
+
 def validar_ingreso(datos):
     """Formulario de validar ingreso: {"funcion_id", "token"} -> errores por campo (vacío si está bien)."""
     funcion_id = datos["funcion_id"]
@@ -129,6 +139,39 @@ def _error_precio(texto):
     if not 0 < precio <= MAXIMO_PRECIO:
         return "El precio tiene que ser mayor a $0 y menor a $100.000.000."
     return None
+
+
+def _error_opcion(texto, mensaje):
+    return None if texto.isdecimal() and int(texto) > 0 else mensaje
+
+
+def _error_fecha_hora(texto):
+    """Valor de un input datetime-local: YYYY-MM-DDTHH:MM."""
+    try:
+        datetime.strptime(texto, "%Y-%m-%dT%H:%M")
+    except ValueError:
+        return "Ingresá la fecha y la hora de la función."
+    return None
+
+
+def validar_funcion(datos):
+    """Alta y edición de funciones: película, sala, fecha y hora, y precio (SCRUM-81)."""
+    return _sin_vacios({
+        "pelicula_id": _error_opcion(datos["pelicula_id"], "Elegí la película."),
+        "sala_id": _error_opcion(datos["sala_id"], "Elegí la sala."),
+        "fecha_hora": _error_fecha_hora(datos["fecha_hora"]),
+        "precio": _error_precio(datos["precio"]),
+    })
+
+
+def datos_funcion(datos):
+    """Cuerpo JSON de POST/PUT /api/admin/funciones a partir del formulario ya validado."""
+    return {
+        "pelicula_id": int(datos["pelicula_id"]),
+        "sala_id": int(datos["sala_id"]),
+        "fecha_hora": datos["fecha_hora"] + ":00",
+        "precio": float(datos["precio"].replace(",", ".")),
+    }
 
 
 def validar_servicio(datos):
