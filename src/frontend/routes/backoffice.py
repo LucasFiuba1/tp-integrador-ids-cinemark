@@ -98,6 +98,13 @@ def _opciones(registros, campo_texto):
         for registro in registros
     ]
 
+def _opciones_salas(salas):
+    """Salas de todos los locales como opciones {"valor", "texto"}; el texto lleva el local para distinguirlas."""
+    return [
+        {"valor": sala["id"], "texto": f"{sala['local']} · {sala['nombre']}"}
+        for sala in salas
+    ]
+
 CAMPOS_FUNCION = ("pelicula_id", "local_id", "sala_id", "fecha_hora", "precio")
 
 
@@ -132,9 +139,11 @@ def _pantalla_funciones(local_id, fecha, enviado=None, errores=None):
 
     if local is not None:
         local_id = local["id"]
-        salas = _listar_salas(local_id)
-    else:
-        salas = []
+
+    # El formulario ofrece las salas de todos los locales: así se puede programar una función en cualquiera
+    # sin tener que filtrar primero por ese local.
+    salas = _listar_salas(None)
+    salas_del_local = [sala for sala in salas if sala["local_id"] == local_id]
 
     peliculas = _listar_peliculas()
 
@@ -150,7 +159,7 @@ def _pantalla_funciones(local_id, fecha, enviado=None, errores=None):
     formulario = {
         "pelicula_id": "",
         "local_id": local_id or "",
-        "sala_id": salas[0]["id"] if salas else "",
+        "sala_id": salas_del_local[0]["id"] if salas_del_local else "",
         "fecha_hora": "",
         "precio": "",
     }
@@ -161,7 +170,7 @@ def _pantalla_funciones(local_id, fecha, enviado=None, errores=None):
         "backoffice/funciones.html",
         peliculas=_opciones(peliculas, "titulo"),
         locales=_opciones(locales, "nombre"),
-        salas=_opciones(salas, "nombre"),
+        salas=_opciones_salas(salas),
         formulario=formulario,
         errores=errores or {},
         funciones=funciones,
