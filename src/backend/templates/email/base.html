@@ -1,6 +1,7 @@
 {# Plantilla base de los emails de compra (SCRUM-67), según el mockup "D10 Email de confirmación" (Figma 26:950):
    fondo sup2, tarjeta blanca de 640 px con cabecera oscura, título en Oswald, datos en filas y botón rojo.
-   La reutilizan la factura y el aviso de cancelación; cada una llena los bloques y el resto sale de acá.
+   La reutilizan la factura, el aviso de cancelación y el de recuperación de contraseña; cada una llena los bloques
+   y el resto sale de acá. El detalle de la compra solo se muestra si el contexto trae `compra`.
 
    Los clientes de correo ignoran hojas externas, variables CSS y fuentes web: los estilos van en línea, con los
    colores de tokens.css / variables de Figma escritos en hex, y las fuentes caen a Arial Narrow / Arial.
@@ -31,11 +32,13 @@
 {%- set fuente_texto = "Roboto,'Segoe UI',Arial,sans-serif" -%}
 {%- set estilo_etiqueta = "padding:6px 16px 6px 0;font-family:" ~ fuente_texto ~ ";font-size:16px;line-height:24px;font-weight:400;color:#6b645c;text-align:left;vertical-align:top;white-space:nowrap;" -%}
 {%- set estilo_valor = "padding:6px 0;font-family:" ~ fuente_texto ~ ";font-size:16px;line-height:24px;font-weight:500;color:#14120f;text-align:right;vertical-align:top;" -%}
-{%- set funcion = compra.funcion -%}
 {%- set textos_servicios = namespace(items=[]) -%}
-{%- for servicio in compra.servicios -%}
-  {%- set textos_servicios.items = textos_servicios.items + [servicio.nombre ~ " × " ~ servicio.cantidad ~ " (" ~ (servicio.precio_unitario | precio) ~ ")"] -%}
-{%- endfor %}
+{%- if compra is defined -%}
+  {%- set funcion = compra.funcion -%}
+  {%- for servicio in compra.servicios -%}
+    {%- set textos_servicios.items = textos_servicios.items + [servicio.nombre ~ " × " ~ servicio.cantidad ~ " (" ~ (servicio.precio_unitario | precio) ~ ")"] -%}
+  {%- endfor -%}
+{%- endif %}
 <body style="margin:0;padding:0;background-color:#2b2723;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#2b2723" style="background-color:#2b2723;">
     <tr>
@@ -73,6 +76,7 @@
               </table>
               {%- endif %}
 
+              {%- if compra is defined %}
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
                 style="width:100%;margin:24px 0 0;border-collapse:collapse;border-top:1px solid #e2ddd7;">
                 <tr><td colspan="2" style="height:10px;line-height:10px;font-size:0;">&nbsp;</td></tr>
@@ -87,6 +91,7 @@
                   <td style="{{ estilo_valor }}padding-top:14px;">{{ compra.total | precio }}</td>
                 </tr>
               </table>
+              {%- endif %}
 
               {%- if self.boton_texto() | trim %}
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto 0;">

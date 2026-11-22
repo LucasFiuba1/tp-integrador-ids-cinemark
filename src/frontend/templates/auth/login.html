@@ -8,5 +8,6 @@
 {% block campos %}
   {{ campo("email", "Email", "email", formulario.email, placeholder="tu@email.com", autocompletar="email", error=errores.email) }}
   {{ campo("password", "Contraseña", "password", placeholder="••••••••", autocompletar="current-password", error=errores.password) }}
+  <p class="auth-olvido"><a href="{{ url_for('publico.olvide_password') }}">¿Olvidaste tu contraseña?</a></p>
   {{ boton("Ingresar", bloque=true) }}
 {% endblock %}

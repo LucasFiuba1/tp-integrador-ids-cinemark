@@ -65,6 +65,9 @@ Un parámetro **vacío** (`?local_id=`) se trata según el listado:
 |---|---|---|---|
 | POST | `/api/auth/registro` | 🌐 | Registra un cliente nuevo. |
 | POST | `/api/auth/login` | 🌐 | Inicia sesión y devuelve el token. |
+| POST | `/api/auth/recuperar` | 🌐 | Olvidé mi contraseña: envía por email el enlace para restablecerla. |
+| GET | `/api/auth/restablecer?token=` | 🌐 | Indica si el enlace de recuperación sigue vigente. |
+| POST | `/api/auth/restablecer` | 🌐 | Cambia la contraseña con el token del enlace. |
 | GET | `/api/auth/me` | 👤 🛠️ | Datos del usuario logueado. |
 
 ```http
@@ -103,6 +106,39 @@ Authorization: Bearer <token>
 ```
 
 Errores de `/me`: 401 sin token, token inválido o vencido · 403 si el rol no está habilitado.
+
+### Recuperación de contraseña
+
+```http
+POST /api/auth/recuperar
+{ "email": "ana@mail.com" }
+
+200 OK
+{ "mensaje": "Si el email corresponde a una cuenta, te enviamos un enlace para restablecer la contraseña." }
+```
+
+Si el email es de una cuenta, se envía por Mailjet (igual que la factura) un email con el enlace
+`FRONTEND_URL/restablecer/<token>`. La respuesta es **la misma** exista o no la cuenta y aunque el email no salga,
+para no revelar qué emails están registrados. Errores: 400 `DATOS_INVALIDOS` (email sin formato válido).
+
+```http
+GET /api/auth/restablecer?token=<token>
+200 OK
+{ "valido": true }
+
+POST /api/auth/restablecer
+{ "token": "<token>", "password": "nueva-clave-456" }
+
+200 OK
+{ "mensaje": "Listo, ya podés ingresar con tu nueva contraseña." }
+```
+
+El token va firmado con `SECRET_KEY` (salt propio: no sirve como token de sesión, QR ni cancelación), **vence a la
+hora** y lleva una huella del hash actual de la contraseña: al cambiarla deja de valer, así que cada enlace sirve
+una sola vez sin guardar nada en la base. Son públicos como el login porque quien olvidó la contraseña no tiene
+sesión; la seguridad la da el token que solo llega a la casilla del usuario.
+Errores: 400 `TOKEN_INVALIDO` (falta, alterado, vencido, ya usado o de un usuario inexistente) ·
+400 `DATOS_INVALIDOS` (contraseña fuera de 8 a 128 caracteres).
 
 ## Cartelera (público)
 
