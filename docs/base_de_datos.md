@@ -36,8 +36,11 @@ erDiagram
     }
     locales {
         int id PK
-        varchar nombre UK
-        varchar direccion UK
+        varchar nombre
+        varchar direccion
+        boolean activo
+        varchar nombre_activo UK "generada"
+        varchar direccion_activa UK "generada"
     }
     salas {
         int id PK
@@ -147,5 +150,6 @@ erDiagram
 | Dashboards | Se calculan con `GROUP BY` sobre `entradas`, `funciones`, `peliculas.genero` y `compras`. |
 | Entrada de la misma función que su compra | `compras` tiene `UNIQUE (id, funcion_id)` y `entradas` una FK compuesta `(compra_id, funcion_id)` hacia ese par: la base rechaza una entrada de otra función. |
 | Nombre de sala único por local, también después de una baja | `salas.nombre_activo` es una columna generada (`IF(activa, nombre, NULL)`) y el índice único es `(local_id, nombre_activo)`: dos salas activas del mismo local no pueden llamarse igual, pero al dar de baja una sala su nombre queda libre (MySQL admite varios `NULL` en un índice único). |
-| Baja de un local | Solo si no tiene salas activas ni funciones registradas (tampoco de salas dadas de baja, que son historial). Al borrarlo se borran sus salas dadas de baja y, en cascada, sus butacas. |
+| Baja de una sala | Solo si no tiene funciones programadas o en curso (activas con `fecha_hora + duracion_min > NOW()`). Es baja lógica (`activa = FALSE`). |
+| Baja de un local | Solo si ninguna de sus salas (activas o no) tiene funciones programadas o en curso. Si nunca tuvo funciones se borra junto con sus salas (y, en cascada, sus butacas); si tiene historial, baja lógica del local (`activo = FALSE`) y de sus salas. `nombre_activo` y `direccion_activa` son columnas generadas como en salas, así el nombre y la dirección quedan libres. |
 | Precio histórico | `entradas.precio` y `compra_servicios.precio_unitario` guardan el precio al momento de comprar. |

@@ -11,11 +11,11 @@ LOCALES = [
 
 SALAS = {
     1: [
-        {"id": 1, "local_id": 1, "nombre": "Sala 1", "activa": True},
-        {"id": 2, "local_id": 1, "nombre": "Sala 2", "activa": True},
+        {"id": 1, "local_id": 1, "local": "Paradiso Centro", "nombre": "Sala 1", "activa": True},
+        {"id": 2, "local_id": 1, "local": "Paradiso Centro", "nombre": "Sala 2", "activa": True},
     ],
     2: [
-        {"id": 3, "local_id": 2, "nombre": "Sala 1", "activa": True},
+        {"id": 3, "local_id": 2, "local": "Paradiso Belgrano", "nombre": "Sala 1", "activa": True},
     ],
 }
 
@@ -73,8 +73,10 @@ def _api_simulada(metodo, ruta, json=None, params=None):
 
     if metodo == "GET" and ruta == "/api/admin/salas":
         local_id = (params or {}).get("local_id")
+        if local_id is None:
+            return SALAS[1] + SALAS[2], None
         return SALAS.get(local_id, []), None
-
+    
     if metodo == "GET" and ruta == "/api/admin/funciones":
         return FUNCIONES, None
 
@@ -220,7 +222,7 @@ def test_funciones_filtra_por_local_y_fecha(
     assert call(
         "GET",
         "/api/admin/salas",
-        params={"local_id": 2},
+        params={"local_id": None},
     ) in api_funciones.call_args_list
 
     assert call(
@@ -248,7 +250,7 @@ def test_funciones_local_inexistente_usa_el_primero(
     assert call(
         "GET",
         "/api/admin/salas",
-        params={"local_id": 1},
+        params={"local_id": None},
     ) in api_funciones.call_args_list
 
 
@@ -609,3 +611,30 @@ def test_editar_funcion_con_error_de_la_api_conserva_lo_cargado(cliente_admin):
     assert respuesta.status_code == 409
     assert "Ya hay una función superpuesta en esa sala." in html
     assert 'value="7100"' in html
+
+def test_formulario_ofrece_las_salas_de_todos_los_locales(
+    cliente_admin,
+    api_funciones,
+):
+    respuesta = cliente_admin.get(
+        "/admin/funciones",
+        query_string={"local_id": "2"},
+    )
+    html = respuesta.get_data(as_text=True)
+
+    assert respuesta.status_code == 200
+    assert "Paradiso Centro · Sala 1" in html
+    assert "Paradiso Centro · Sala 2" in html
+    assert "Paradiso Belgrano · Sala 1" in html
+
+
+def test_formulario_preselecciona_la_primera_sala_del_local_elegido(
+    cliente_admin,
+    api_funciones,
+):
+    html = cliente_admin.get(
+        "/admin/funciones",
+        query_string={"local_id": "2"},
+    ).get_data(as_text=True)
+
+    assert '<option value="3" selected>' in html

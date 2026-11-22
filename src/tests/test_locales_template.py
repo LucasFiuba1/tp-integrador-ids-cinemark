@@ -110,12 +110,13 @@ def test_editar_local_inexistente_vuelve_al_listado(cliente_admin):
     assert respuesta.headers["Location"] == "/admin/locales"
 
 
-def test_baja_de_local_con_salas_muestra_el_error_de_la_api(cliente_admin):
-    error = _error(409, "LOCAL_CON_SALAS", "No se puede eliminar un local que tiene salas.")
+def test_baja_de_local_con_funciones_vigentes_muestra_el_error_de_la_api(cliente_admin):
+    mensaje = "No se puede eliminar el local: tiene salas con funciones programadas o en curso."
+    error = _error(409, "LOCAL_CON_FUNCIONES", mensaje)
     with patch(LLAMAR, side_effect=[error, ([], None)]) as llamar:
         respuesta = cliente_admin.post("/admin/locales/1/baja", follow_redirects=True)
     assert llamar.call_args_list[0].args == ("DELETE", "/api/admin/locales/1")
-    assert "No se puede eliminar un local que tiene salas." in _html(respuesta)
+    assert mensaje in _html(respuesta)
 
 
 # --- salas ---

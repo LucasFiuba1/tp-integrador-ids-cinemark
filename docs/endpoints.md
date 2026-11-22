@@ -408,16 +408,16 @@ PATCH /api/admin/peliculas/3
 | GET | `/api/admin/locales` | 🛠️ | Lista de locales. |
 | POST | `/api/admin/locales` | 🛠️ | Crea un local. |
 | PUT | `/api/admin/locales/<id>` | 🛠️ | Modifica un local. |
-| DELETE | `/api/admin/locales/<id>` | 🛠️ | Elimina un local sin salas activas ni funciones (409 `LOCAL_CON_SALAS` / `LOCAL_CON_HISTORIAL`). |
+| DELETE | `/api/admin/locales/<id>` | 🛠️ | Elimina un local si ninguna de sus salas tiene funciones programadas o en curso (409 `LOCAL_CON_FUNCIONES`). Sin funciones registradas lo borra junto con sus salas; con historial, baja lógica del local y sus salas. |
 | GET | `/api/admin/salas?local_id=` | 🛠️ | Lista de salas activas, opcionalmente de un local (`local_id` inválido → 400). |
 | POST | `/api/admin/salas` | 🛠️ | Crea una sala y genera sus butacas. |
 | GET | `/api/admin/salas/<id>` | 🛠️ | Detalle de la sala con su grilla de butacas. |
-| PUT | `/api/admin/salas/<id>` | 🛠️ | Modifica una sala; achicarla no se permite con funciones futuras ni con entradas vendidas en las butacas que se quitan. |
-| DELETE | `/api/admin/salas/<id>` | 🛠️ | Baja lógica (no si tiene funciones futuras). |
+| PUT | `/api/admin/salas/<id>` | 🛠️ | Modifica una sala; achicarla no se permite con funciones programadas o en curso ni con entradas vendidas en las butacas que se quitan. |
+| DELETE | `/api/admin/salas/<id>` | 🛠️ | Baja lógica (no si tiene funciones programadas o en curso: activas y que todavía no terminaron). |
 
 Errores: 400 `DATOS_INVALIDOS` · 404 `NO_ENCONTRADO` · 409 `LOCAL_DUPLICADO` (mismo nombre o dirección) ·
-409 `LOCAL_CON_SALAS` / `LOCAL_CON_HISTORIAL` (`DELETE` de un local) · 409 `SALA_DUPLICADA` (mismo nombre en el
-local) · 409 `SALA_CON_FUNCIONES` (reducir o dar de baja una sala con funciones futuras) · 409
+409 `LOCAL_CON_FUNCIONES` (`DELETE` de un local) · 409 `SALA_DUPLICADA` (mismo nombre en el
+local) · 409 `SALA_CON_FUNCIONES` (reducir o dar de baja una sala con funciones programadas o en curso) · 409
 `BUTACAS_CON_ENTRADAS` (achicar una sala que tiene entradas vendidas en las butacas que se quitarían).
 
 ```http
