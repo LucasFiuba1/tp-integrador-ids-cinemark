@@ -21,7 +21,8 @@ ADMIN = ("admin",)
 CLIENTE_Y_ADMIN = ("cliente", "admin")
 
 # (método, ruta de ejemplo, regla de Flask, roles que la pueden usar). PUBLICO = no pide sesión.
-# Las dos rutas "por-token" son públicas a propósito: las protege el token firmado del email (docs/endpoints.md).
+# Las rutas "por-token" y "por-qr" son públicas a propósito: las protege el token firmado del email o del QR
+# (docs/endpoints.md).
 MATRIZ = [
     ("GET", "/api/salud", "/api/salud", PUBLICO),
     ("POST", "/api/auth/registro", "/api/auth/registro", PUBLICO),
@@ -29,6 +30,8 @@ MATRIZ = [
     ("GET", "/api/auth/me", "/api/auth/me", CLIENTE_Y_ADMIN),
     ("GET", "/api/locales", "/api/locales", PUBLICO),
     ("GET", "/api/cartelera", "/api/cartelera", PUBLICO),
+    ("GET", "/api/catalogos/generos", "/api/catalogos/generos", PUBLICO),
+    ("GET", "/api/catalogos/clasificaciones", "/api/catalogos/clasificaciones", PUBLICO),
     ("GET", "/api/peliculas/1", "/api/peliculas/<int:pelicula_id>", PUBLICO),
     ("GET", "/api/funciones/1", "/api/funciones/<int:funcion_id>", PUBLICO),
     ("GET", "/api/funciones/1/butacas", "/api/funciones/<int:funcion_id>/butacas", PUBLICO),
@@ -39,6 +42,7 @@ MATRIZ = [
     ("POST", "/api/compras/1/confirmar", "/api/compras/<int:compra_id>/confirmar", CLIENTE),
     ("POST", "/api/compras/1/cancelar", "/api/compras/<int:compra_id>/cancelar", CLIENTE),
     ("GET", "/api/compras/por-token", "/api/compras/por-token", PUBLICO),
+    ("GET", "/api/compras/por-qr", "/api/compras/por-qr", PUBLICO),
     ("POST", "/api/compras/cancelar-por-token", "/api/compras/cancelar-por-token", PUBLICO),
     ("GET", "/api/me/compras", "/api/me/compras", CLIENTE_Y_ADMIN),
     ("GET", "/api/me/peliculas-vistas", "/api/me/peliculas-vistas", CLIENTE_Y_ADMIN),
@@ -66,6 +70,7 @@ MATRIZ = [
     ("POST", "/api/admin/funciones", "/api/admin/funciones", ADMIN),
     ("PUT", "/api/admin/funciones/1", "/api/admin/funciones/<int:funcion_id>", ADMIN),
     ("DELETE", "/api/admin/funciones/1", "/api/admin/funciones/<int:funcion_id>", ADMIN),
+    ("GET", "/api/admin/dashboards/resumen", "/api/admin/dashboards/resumen", ADMIN),
     ("GET", "/api/admin/dashboards/ocupacion", "/api/admin/dashboards/ocupacion", ADMIN),
     ("GET", "/api/admin/dashboards/ventas-genero", "/api/admin/dashboards/ventas-genero", ADMIN),
     ("GET", "/api/admin/dashboards/franjas-horarias", "/api/admin/dashboards/franjas-horarias", ADMIN),
@@ -75,9 +80,9 @@ MATRIZ = [
 ]
 
 SERVICES_CON_BD = (
-    "src.backend.services.cartelera", "src.backend.services.compras", "src.backend.services.cuentas",
-    "src.backend.services.dashboards", "src.backend.services.funciones", "src.backend.services.ingresos",
-    "src.backend.services.peliculas", "src.backend.services.perfil",
+    "src.backend.services.cartelera", "src.backend.services.catalogos", "src.backend.services.compras",
+    "src.backend.services.cuentas", "src.backend.services.dashboards", "src.backend.services.funciones",
+    "src.backend.services.ingresos", "src.backend.services.peliculas", "src.backend.services.perfil",
 )
 
 
@@ -115,12 +120,13 @@ def test_matriz_cubre_todos_los_endpoints_de_la_api(app_backend):
     assert en_matriz - registrados == set(), "MATRIZ tiene endpoints que ya no existen."
 
 
-def test_solo_salud_login_registro_cartelera_y_tokens_del_email_son_publicos():
+def test_solo_salud_login_registro_cartelera_y_tokens_firmados_son_publicos():
     publicos = {ruta for _, ruta, _, roles in MATRIZ if roles == PUBLICO}
     assert publicos == {
         "/api/salud", "/api/auth/registro", "/api/auth/login", "/api/locales", "/api/cartelera",
+        "/api/catalogos/generos", "/api/catalogos/clasificaciones",
         "/api/peliculas/1", "/api/funciones/1", "/api/funciones/1/butacas", "/api/servicios",
-        "/api/compras/por-token", "/api/compras/cancelar-por-token",
+        "/api/compras/por-token", "/api/compras/cancelar-por-token", "/api/compras/por-qr",
     }
 
 
@@ -163,6 +169,10 @@ def test_admin_en_endpoint_solo_de_cliente_devuelve_403(cliente_backend, cabecer
 
 
 # --- rol permitido ---
+# Los agregados sin GROUP BY siempre devuelven una fila en MySQL; la base vacía simulada devuelve [], así que el
+# resumen del dashboard recibe la fila que daría una base sin ventas.
+FILA_AGREGADOS_VACIA = {"entradas": 0, "ingresos": 0, "vendidas": 0, "capacidad": 0, "canceladas": 0, "compras": 0}
+CONSULTAS_SIMULADAS = {"/api/admin/dashboards/resumen": [FILA_AGREGADOS_VACIA]}
 PERMITIDOS = [pytest.param(caso, rol, id=f"{rol} {_id(caso)}") for caso in MATRIZ for rol in caso[3]]
 
 
@@ -172,6 +182,7 @@ def test_rol_permitido_pasa_la_autenticacion_y_nunca_da_500(
 ):
     metodo, ruta, _, _ = caso
     cabeceras = cabeceras_admin if rol == "admin" else cabeceras_cliente
+    bd.consultar.return_value = CONSULTAS_SIMULADAS.get(ruta, [])
     respuesta = _pedir(cliente_backend, metodo, ruta, cabeceras, json={})
     assert respuesta.status_code not in (401, 403, 500), respuesta.get_json()
 

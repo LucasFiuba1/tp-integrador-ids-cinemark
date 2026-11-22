@@ -1,5 +1,5 @@
-"""Pruebas de dashboards: vista del backoffice (SCRUM-121 y 77) y franjas horarias / cancelaciones del
-backend (SCRUM-76). Las del backend simulan la base (`consultar` de services/dashboards.py); la verificación
+"""Pruebas de dashboards: vista del backoffice (SCRUM-121 y 77), franjas horarias / cancelaciones (SCRUM-76) y
+resumen de indicadores (SCRUM-124) del backend. Las del backend simulan la base (`consultar` de services/dashboards.py); la verificación
 contra MySQL real está en test_dashboards_mysql.py (opt-in)."""
 import re
 from datetime import date, datetime
@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 from werkzeug.exceptions import HTTPException
 
-from src.backend.services.filtros_dashboards import construir_filtros
+from src.backend.services.reportes import construir_filtros
 from src.frontend.filtros import numero
 
 # Respuestas de ejemplo de GET /api/admin/dashboards/<tablero> (ver docs/endpoints.md).
@@ -36,6 +36,12 @@ RESPUESTAS = {
         ],
         "por_periodo": [],
     },
+    "/api/admin/dashboards/resumen": {
+        "entradas": {"valor": 1742, "anterior": 1500, "variacion": 16.13},
+        "ingresos": {"valor": 4820000.0, "anterior": 4820000.0, "variacion": 0.0},
+        "ocupacion": {"valor": 70.0, "anterior": 72.5, "variacion": -2.5},
+        "cancelaciones": {"valor": 4.2, "anterior": 3.0, "variacion": 1.2},
+    },
     "/api/admin/locales": [{"id": 1, "nombre": "Paradiso Centro", "direccion": "Av. Corrientes 1234"}],
 }
 
@@ -60,12 +66,40 @@ def test_muestra_los_kpi_y_los_cuatro_tableros(cliente_admin, api):
     html = respuesta.get_data(as_text=True)
     assert respuesta.status_code == 200
     assert 'href="/admin/dashboards" aria-current="page"' in html
-    # 742 / 1060 butacas y 21 / 500 compras, sumando las respuestas de la API.
     for valor in ("1.742", "$4.820.000", "70%", "4,2%"):
         assert f'<p class="kpi-valor">{valor}</p>' in html
     for titulo in ("Entradas por franja horaria", "Ocupación por película", "Ventas por género",
                    "Cancelaciones por película", "Ocupación por función"):
         assert f">{titulo}</h2>" in html
+
+
+def test_las_tarjetas_muestran_la_variacion_con_su_color(cliente_admin, api):
+    html = cliente_admin.get("/admin/dashboards").get_data(as_text=True)
+    assert '<p class="kpi-detalle kpi-positivo">+16,1 % vs. período anterior</p>' in html
+    assert '<p class="kpi-detalle">0 % vs. período anterior</p>' in html
+    assert '<p class="kpi-detalle kpi-negativo">-2,5 pts vs. período anterior</p>' in html
+    # En las cancelaciones, subir es malo.
+    assert '<p class="kpi-detalle kpi-negativo">+1,2 pts vs. período anterior</p>' in html
+
+
+@pytest.mark.parametrize("api", [{"/api/admin/dashboards/resumen": {
+    "entradas": {"valor": 0, "anterior": 0, "variacion": None},
+    "ingresos": {"valor": 0.0, "anterior": 0.0, "variacion": None},
+    "ocupacion": {"valor": None, "anterior": None, "variacion": None},
+    "cancelaciones": {"valor": 10.0, "anterior": 12.5, "variacion": -2.5},
+}}], indirect=True)
+def test_tarjetas_sin_datos_y_cancelaciones_que_bajan(cliente_admin, api):
+    html = cliente_admin.get("/admin/dashboards").get_data(as_text=True)
+    assert '<p class="kpi-valor">0</p>' in html and '<p class="kpi-valor">$0</p>' in html
+    assert html.count('<p class="kpi-valor">Sin datos</p>') == 1
+    assert html.count("Sin comparación con el período anterior") == 3
+    assert '<p class="kpi-detalle kpi-positivo">-2,5 pts vs. período anterior</p>' in html
+
+
+def test_el_resumen_se_pide_a_la_api_con_los_filtros_del_formulario(cliente_admin, api):
+    cliente_admin.get("/admin/dashboards?desde=2026-11-01&hasta=2026-11-07&local_id=2")
+    api.assert_any_call("GET", "/api/admin/dashboards/resumen", params={
+        "desde": "2026-11-01T00:00:00", "hasta": "2026-11-07T23:59:59", "local_id": "2"})
 
 
 def test_la_franja_mas_vendida_se_destaca_y_las_columnas_son_proporcionales(cliente_admin, api):
@@ -99,6 +133,7 @@ def test_tableros_vacios_no_rompen_la_pagina(cliente_admin, api):
     html = respuesta.get_data(as_text=True)
     assert respuesta.status_code == 200
     assert html.count("Todavía no hay datos para este período.") == 5
+    assert html.count('<p class="kpi-valor">Sin datos</p>') == 4
     assert 'class="columnas"' not in html
 
 
@@ -137,32 +172,37 @@ FRANJAS = "/api/admin/dashboards/franjas-horarias"
 CANCELACIONES = "/api/admin/dashboards/cancelaciones"
 OCUPACION = "/api/admin/dashboards/ocupacion"
 VENTAS_GENERO = "/api/admin/dashboards/ventas-genero"
+RESUMEN = "/api/admin/dashboards/resumen"
 RUTAS = (FRANJAS, CANCELACIONES, OCUPACION, VENTAS_GENERO)
+RUTAS_CON_RESUMEN = RUTAS + (RESUMEN,)
 DESDE = "2026-11-06T17:30:00"
 HASTA = "2026-11-08T23:59:59"
 
-# Filas tal como las devuelve MySQL: SUM/porcentaje llegan como Decimal y DATE() como date.
+# Filas tal como las devuelve MySQL: SUM llega como Decimal y DATE() como date. Los porcentajes no vienen del
+# SQL: los calcula reportes.porcentaje (SCRUM-109).
 FILAS_FRANJAS = [
     {"hora_desde": 20, "hora_hasta": 22, "entradas": 4},
     {"hora_desde": 16, "hora_hasta": 18, "entradas": 1},
 ]
 FILAS_PELICULAS = [
-    {"pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": Decimal("1"),
-     "porcentaje": Decimal("50.00")},
-    {"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": Decimal("0"),
-     "porcentaje": Decimal("0.00")},
+    {"pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": Decimal("1")},
+    {"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": Decimal("0")},
 ]
 FILAS_PERIODOS = [
-    {"periodo": date(2026, 11, 6), "compras": 2, "canceladas": Decimal("0"), "porcentaje": Decimal("0.00")},
-    {"periodo": date(2026, 11, 8), "compras": 2, "canceladas": Decimal("1"), "porcentaje": Decimal("50.00")},
+    {"periodo": date(2026, 11, 6), "compras": 2, "canceladas": Decimal("0")},
+    {"periodo": date(2026, 11, 8), "compras": 2, "canceladas": Decimal("1")},
 ]
 PELICULAS_JSON = [
-    {"pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": 1, "porcentaje": 50.0},
-    {"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": 0, "porcentaje": 0.0},
+    {"pelicula_id": 7, "pelicula": "Jurassic Park", "compras": 2, "canceladas": 1,
+     "etiqueta": "Jurassic Park", "valor": 1, "porcentaje": 50.0},
+    {"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "compras": 1, "canceladas": 0,
+     "etiqueta": "El viaje de Chihiro", "valor": 0, "porcentaje": 0.0},
 ]
 PERIODOS_JSON = [
-    {"periodo": "2026-11-06T00:00:00", "compras": 2, "canceladas": 0, "porcentaje": 0.0},
-    {"periodo": "2026-11-08T00:00:00", "compras": 2, "canceladas": 1, "porcentaje": 50.0},
+    {"periodo": "2026-11-06T00:00:00", "compras": 2, "canceladas": 0,
+     "etiqueta": "2026-11-06T00:00:00", "valor": 0, "porcentaje": 0.0},
+    {"periodo": "2026-11-08T00:00:00", "compras": 2, "canceladas": 1,
+     "etiqueta": "2026-11-08T00:00:00", "valor": 1, "porcentaje": 50.0},
 ]
 
 
@@ -205,8 +245,8 @@ def test_franjas_horarias_devuelve_200_con_las_franjas(cliente_backend, cabecera
     respuesta = cliente_backend.get(FRANJAS, headers=cabeceras)
     assert respuesta.status_code == 200
     assert respuesta.get_json() == [
-        {"hora_desde": 20, "hora_hasta": 22, "entradas": 4},
-        {"hora_desde": 16, "hora_hasta": 18, "entradas": 1},
+        {"hora_desde": 20, "hora_hasta": 22, "entradas": 4, "etiqueta": "20 a 22 h", "valor": 4, "porcentaje": 80.0},
+        {"hora_desde": 16, "hora_hasta": 18, "entradas": 1, "etiqueta": "16 a 18 h", "valor": 1, "porcentaje": 20.0},
     ]
     assert bd.call_count == 1
 
@@ -243,7 +283,7 @@ def test_local_inexistente_devuelve_resultados_vacios_y_no_404(cliente_backend, 
 
 
 # seguridad
-@pytest.mark.parametrize("ruta", RUTAS)
+@pytest.mark.parametrize("ruta", RUTAS_CON_RESUMEN)
 def test_dashboards_sin_token_devuelve_401_sin_consultar(cliente_backend, bd, ruta):
     respuesta = cliente_backend.get(ruta)
     assert respuesta.status_code == 401
@@ -251,7 +291,7 @@ def test_dashboards_sin_token_devuelve_401_sin_consultar(cliente_backend, bd, ru
     bd.assert_not_called()
 
 
-@pytest.mark.parametrize("ruta", RUTAS)
+@pytest.mark.parametrize("ruta", RUTAS_CON_RESUMEN)
 def test_dashboards_con_rol_cliente_devuelve_403_sin_consultar(cliente_backend, cabeceras, usuario, bd, ruta):
     usuario["rol"] = "cliente"
     respuesta = cliente_backend.get(ruta, headers=cabeceras)
@@ -415,7 +455,7 @@ FORMATOS_INVALIDOS = ["", " ", "ayer", "2026-11-06", "2026-11-06T10:00", "2026-1
 
 @pytest.mark.parametrize("valor", FORMATOS_INVALIDOS)
 @pytest.mark.parametrize("campo", ["desde", "hasta"])
-@pytest.mark.parametrize("ruta", RUTAS)
+@pytest.mark.parametrize("ruta", RUTAS_CON_RESUMEN)
 def test_fecha_invalida_devuelve_400_sin_consultar(cliente_backend, cabeceras, bd, ruta, campo, valor):
     respuesta = cliente_backend.get(ruta, query_string={campo: valor}, headers=cabeceras)
     assert respuesta.status_code == 400
@@ -424,7 +464,7 @@ def test_fecha_invalida_devuelve_400_sin_consultar(cliente_backend, cabeceras, b
 
 
 @pytest.mark.parametrize("valor", ["", " ", "0", "-1", "abc", "1.5", "1e2", "1,2", "3 4", "0x3", "1" * 19])
-@pytest.mark.parametrize("ruta", RUTAS)
+@pytest.mark.parametrize("ruta", RUTAS_CON_RESUMEN)
 def test_local_id_invalido_devuelve_400_sin_consultar(cliente_backend, cabeceras, bd, ruta, valor):
     respuesta = cliente_backend.get(ruta, query_string={"local_id": valor}, headers=cabeceras)
     assert respuesta.status_code == 400
@@ -432,7 +472,7 @@ def test_local_id_invalido_devuelve_400_sin_consultar(cliente_backend, cabeceras
     bd.assert_not_called()
 
 
-@pytest.mark.parametrize("ruta", RUTAS)
+@pytest.mark.parametrize("ruta", RUTAS_CON_RESUMEN)
 def test_rango_invertido_devuelve_400_sin_consultar(cliente_backend, cabeceras, bd, ruta):
     filtros = {"desde": "2026-11-08T00:00:01", "hasta": "2026-11-08T00:00:00"}
     respuesta = cliente_backend.get(ruta, query_string=filtros, headers=cabeceras)
@@ -452,10 +492,9 @@ def test_desde_igual_a_hasta_es_un_rango_valido(cliente_backend, cabeceras, bd, 
 
 # --- backend: ocupación y ventas por género (SCRUM-75) ---
 FILA_OCUPACION_PELICULA = {"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "vendidas": Decimal("2"),
-                           "capacidad": Decimal("192"), "ocupacion": Decimal("1.04")}
+                           "capacidad": Decimal("192")}
 FILA_OCUPACION_FUNCION = {"funcion_id": 9, "pelicula": "El viaje de Chihiro", "local": "Centro", "sala": "Sala 1",
-                          "fecha_hora": datetime(2026, 11, 7, 21, 0, 0), "vendidas": 2, "capacidad": 96,
-                          "ocupacion": Decimal("2.08")}
+                          "fecha_hora": datetime(2026, 11, 7, 21, 0, 0), "vendidas": 2, "capacidad": 96}
 FILA_VENTAS_GENERO = {"genero": "Animación", "entradas": 3, "monto": Decimal("16500.00")}
 
 
@@ -469,9 +508,10 @@ def test_ocupacion_devuelve_200_con_numeros_y_fecha_iso(cliente_backend, cabecer
     assert respuesta.status_code == 200
     assert respuesta.get_json() == {
         "por_pelicula": [{"pelicula_id": 5, "pelicula": "El viaje de Chihiro", "vendidas": 2, "capacidad": 192,
-                          "ocupacion": 1.04}],
+                          "ocupacion": 1.04, "etiqueta": "El viaje de Chihiro", "valor": 2, "porcentaje": 1.04}],
         "por_funcion": [{"funcion_id": 9, "pelicula": "El viaje de Chihiro", "local": "Centro", "sala": "Sala 1",
-                         "fecha_hora": "2026-11-07T21:00:00", "vendidas": 2, "capacidad": 96, "ocupacion": 2.08}],
+                         "fecha_hora": "2026-11-07T21:00:00", "vendidas": 2, "capacidad": 96, "ocupacion": 2.08,
+                         "etiqueta": "El viaje de Chihiro (Centro, Sala 1)", "valor": 2, "porcentaje": 2.08}],
     }
 
 
@@ -496,7 +536,8 @@ def test_ventas_genero_devuelve_200_con_numeros(cliente_backend, cabeceras, bd):
     respuesta = cliente_backend.get(VENTAS_GENERO, headers=cabeceras)
     datos = respuesta.get_json()
     assert respuesta.status_code == 200
-    assert datos == [{"genero": "Animación", "entradas": 3, "monto": 16500.0}]
+    assert datos == [{"genero": "Animación", "entradas": 3, "monto": 16500.0,
+                      "etiqueta": "Animación", "valor": 3, "porcentaje": 100.0}]
     assert isinstance(datos[0]["monto"], float)
 
 
@@ -512,3 +553,103 @@ def test_ventas_genero_agrupa_por_primer_genero_y_suma_precio_de_entradas(client
     assert "GROUP BY SUBSTRING_INDEX(p.genero, ',', 1)" in sql
     assert "SUM(e.precio)" in sql and "c.total" not in sql
     assert "c.estado = 'confirmada' AND e.activa = 1" in sql
+
+
+# --- backend: resumen de indicadores (SCRUM-124) ---
+FILTROS_SEMANA = {"desde": "2026-11-03T00:00:00", "hasta": "2026-11-09T23:59:59"}
+INICIO_SEMANA = datetime(2026, 11, 3)
+FIN_SEMANA = datetime(2026, 11, 9, 23, 59, 59)
+INICIO_ANTERIOR = datetime(2026, 10, 27)
+FIN_ANTERIOR = datetime(2026, 11, 2, 23, 59, 59)
+# Ocupación y cancelaciones llegan como parte y total: el porcentaje lo calcula reportes.porcentaje (SCRUM-109).
+FILAS_SIN_DATOS = {"ventas": {"entradas": Decimal("0"), "ingresos": Decimal("0")},
+                   "ocupacion": {"vendidas": Decimal("0"), "capacidad": None},
+                   "cancelaciones": {"compras": 0, "canceladas": None}}
+FILAS_ACTUALES = {"ventas": {"entradas": Decimal("5"), "ingresos": Decimal("39000.00")},
+                  "ocupacion": {"vendidas": Decimal("42"), "capacidad": Decimal("10000")},
+                  "cancelaciones": {"compras": 4, "canceladas": Decimal("1")}}
+FILAS_ANTERIORES = {"ventas": {"entradas": Decimal("4"), "ingresos": Decimal("30000.00")},
+                    "ocupacion": {"vendidas": Decimal("30"), "capacidad": Decimal("10000")},
+                    "cancelaciones": {"compras": 2, "canceladas": Decimal("1")}}
+
+
+def _bd_resumen(bd, actuales, anteriores):
+    """Las filas dependen del período pedido (primer parámetro) y de la consulta (ventas, ocupación o cancelaciones)."""
+    def consultar_falso(sql, parametros=None):
+        filas = anteriores if parametros and parametros[0] == INICIO_ANTERIOR else actuales
+        tabla = "ventas" if "ingresos" in sql else "ocupacion" if " AS capacidad" in sql else "cancelaciones"
+        return [filas[tabla]]
+    bd.side_effect = consultar_falso
+
+
+def _pedir_resumen(cliente_backend, cabeceras, **filtros):
+    respuesta = cliente_backend.get(RESUMEN, query_string=filtros, headers=cabeceras)
+    assert respuesta.status_code == 200
+    return respuesta.get_json()
+
+
+def test_resumen_devuelve_valor_anterior_y_variacion_de_cada_indicador(cliente_backend, cabeceras, bd):
+    _bd_resumen(bd, FILAS_ACTUALES, FILAS_ANTERIORES)
+    assert _pedir_resumen(cliente_backend, cabeceras, **FILTROS_SEMANA) == {
+        "entradas": {"valor": 5, "anterior": 4, "variacion": 25.0},  # (5 - 4) / 4
+        "ingresos": {"valor": 39000.0, "anterior": 30000.0, "variacion": 30.0},  # (39000 - 30000) / 30000
+        "ocupacion": {"valor": 0.42, "anterior": 0.3, "variacion": 0.12},  # puntos: 0,42 - 0,30
+        "cancelaciones": {"valor": 25.0, "anterior": 50.0, "variacion": -25.0},  # puntos: 25 - 50
+    }
+
+
+def test_resumen_compara_con_el_periodo_de_igual_duracion_justo_anterior(cliente_backend, cabeceras, bd):
+    _bd_resumen(bd, FILAS_ACTUALES, FILAS_ANTERIORES)
+    _pedir_resumen(cliente_backend, cabeceras, local_id="2", **FILTROS_SEMANA)
+    parametros = [parametros for _, parametros in _consultas(bd)]
+    assert parametros == [[INICIO_SEMANA, FIN_SEMANA, 2]] * 3 + [[INICIO_ANTERIOR, FIN_ANTERIOR, 2]] * 3
+
+
+@pytest.mark.parametrize("filtros", [{}, {"desde": "2026-11-03T00:00:00"}, {"hasta": "2026-11-09T23:59:59"}])
+def test_resumen_sin_periodo_completo_no_compara(cliente_backend, cabeceras, bd, filtros):
+    _bd_resumen(bd, FILAS_ACTUALES, FILAS_ANTERIORES)
+    datos = _pedir_resumen(cliente_backend, cabeceras, **filtros)
+    assert bd.call_count == 3
+    assert datos["entradas"] == {"valor": 5, "anterior": None, "variacion": None}
+    assert datos["cancelaciones"] == {"valor": 25.0, "anterior": None, "variacion": None}
+
+
+def test_resumen_sin_datos_devuelve_ceros_y_null_sin_dividir_por_cero(cliente_backend, cabeceras, bd):
+    _bd_resumen(bd, FILAS_SIN_DATOS, FILAS_SIN_DATOS)
+    assert _pedir_resumen(cliente_backend, cabeceras, **FILTROS_SEMANA) == {
+        "entradas": {"valor": 0, "anterior": 0, "variacion": None},
+        "ingresos": {"valor": 0.0, "anterior": 0.0, "variacion": None},
+        "ocupacion": {"valor": None, "anterior": None, "variacion": None},
+        "cancelaciones": {"valor": None, "anterior": None, "variacion": None},
+    }
+
+
+def test_resumen_con_ventas_solo_en_el_periodo_actual_no_calcula_porcentaje(cliente_backend, cabeceras, bd):
+    _bd_resumen(bd, FILAS_ACTUALES, FILAS_SIN_DATOS)
+    datos = _pedir_resumen(cliente_backend, cabeceras, **FILTROS_SEMANA)
+    assert datos["entradas"]["variacion"] is None and datos["ingresos"]["variacion"] is None
+    assert datos["ocupacion"]["variacion"] is None
+
+
+def test_resumen_con_ocupacion_anterior_cero_si_calcula_puntos(cliente_backend, cabeceras, bd):
+    anteriores = dict(FILAS_ANTERIORES, ocupacion={"vendidas": Decimal("0"), "capacidad": Decimal("10000")})
+    _bd_resumen(bd, FILAS_ACTUALES, anteriores)
+    assert _pedir_resumen(cliente_backend, cabeceras, **FILTROS_SEMANA)["ocupacion"]["variacion"] == 0.42
+
+
+@pytest.mark.parametrize("filtros", [
+    {"desde": "1000-01-01T00:00:00", "hasta": "9999-12-31T23:59:59"},
+    {"desde": "1000-01-01T00:00:00", "hasta": "1000-01-01T00:00:00"},
+])
+def test_resumen_sin_fechas_validas_para_el_periodo_anterior_no_compara(cliente_backend, cabeceras, bd, filtros):
+    _bd_resumen(bd, FILAS_ACTUALES, FILAS_ANTERIORES)
+    assert _pedir_resumen(cliente_backend, cabeceras, **filtros)["entradas"]["anterior"] is None
+    assert bd.call_count == 3
+
+
+def test_resumen_suma_el_total_de_confirmadas_sin_multiplicarlo_por_entrada(cliente_backend, cabeceras, bd):
+    _bd_resumen(bd, FILAS_ACTUALES, FILAS_ANTERIORES)
+    _pedir_resumen(cliente_backend, cabeceras)
+    sql = _consultas(bd)[0][0]
+    assert "SUM(c.total)" in sql and "c.estado = 'confirmada'" in sql
+    assert "LEFT JOIN (SELECT compra_id, COUNT(*) AS entradas FROM entradas WHERE activa = 1" in sql

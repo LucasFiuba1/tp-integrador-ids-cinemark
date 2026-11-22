@@ -15,7 +15,7 @@ herencia, `@dataclass`, `@property` ni clases de excepción propias (para errore
 - Solo HTTP: leer `request`, llamar a un service, devolver `jsonify(...)` con el status correcto (201 al crear).
 - Sin SQL ni reglas de negocio en las rutas.
 - Cada endpoint lleva `@requiere_rol(...)` salvo los públicos listados en `docs/endpoints.md`
-  (salud, registro, login, cartelera, cancelación por token).
+  (salud, registro, login, cartelera, cancelación por token y entrada por QR).
 - El decorador de Flask (`@bp.get`, `@bp.post`, …) va arriba y `@requiere_rol` debajo.
 - Verbos: `GET` leer, `POST` crear o acciones (`/confirmar`, `/cancelar`), `PUT` reemplazar el recurso completo,
   `PATCH` actualizar parcialmente, `DELETE` baja.

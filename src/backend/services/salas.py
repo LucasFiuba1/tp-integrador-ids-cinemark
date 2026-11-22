@@ -1,18 +1,22 @@
-from src.backend import db
+from src.backend import abm, db
+from src.backend.filtros import VACIO_SE_IGNORA, construir_condiciones
 from src.backend.services.validaciones import entero_en_rango, texto_no_vacio
 
 
-def listar_salas(local_id=None):
-    query = """
-        SELECT s.id, s.local_id, l.nombre AS local, s.nombre, s.filas, s.columnas, 
-               s.filas * s.columnas AS capacidad
-        FROM salas s
-        JOIN locales l ON l.id = s.local_id
-        WHERE s.activa = TRUE AND (%s IS NULL OR s.local_id = %s)
-        ORDER BY l.nombre, s.nombre
-    """
-    res = db.consultar(query, (local_id, local_id))
-    return res
+FILTROS_SALAS = {"local_id": ("s.local_id", "entero")}
+
+
+def listar_salas(argumentos):
+    """Salas activas, opcionalmente de un local. `local_id` vacío se ignora; uno inválido da 400 (SCRUM-106)."""
+    clausulas, parametros = construir_condiciones(argumentos, FILTROS_SALAS, vacio=VACIO_SE_IGNORA)
+    query = (
+        "SELECT s.id, s.local_id, l.nombre AS local, s.nombre, s.filas, s.columnas, "
+        "s.filas * s.columnas AS capacidad "
+        "FROM salas s "
+        "JOIN locales l ON l.id = s.local_id "
+        "WHERE s.activa = TRUE" + clausulas + " ORDER BY l.nombre, s.nombre"
+    )
+    return db.consultar(query, parametros)
 
 
 def validar_salas(nombre, filas, columnas):
@@ -78,8 +82,7 @@ def tiene_funciones_futuras(sala_id):
 
 
 def eliminar_sala(sala_id):
-    query = "UPDATE salas SET activa = FALSE WHERE id = %s"
-    db.ejecutar(query, (sala_id,))
+    abm.dar_de_baja_logica("salas", sala_id)
 
 
 def hay_entradas_en_butacas_eliminadas(sala_id, filas, columnas):

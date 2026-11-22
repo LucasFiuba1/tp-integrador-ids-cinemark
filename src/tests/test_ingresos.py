@@ -166,6 +166,18 @@ def test_validar_compra_cancelada_devuelve_409_cancelada_antes_que_otros_motivos
     assert _ultimo_insert_validacion(bd.cursor) == (COMPRA_ID, FUNCION_ID, "cancelada")
 
 
+def test_validar_compra_cancelada_sin_token_guardado_devuelve_cancelada(
+    cliente_backend, cabeceras_admin, bd, token_valido
+):
+    """Así queda una compra después de cancelarla: estado cancelada y token_qr en NULL (SCRUM-79)."""
+    bd.cursor.fetchone.return_value = _fila_compra(None, estado="cancelada")
+    respuesta = cliente_backend.post(
+        RUTA, json={"token_qr": token_valido, "funcion_id": FUNCION_ID}, headers=cabeceras_admin
+    )
+    afirmar_error_json(respuesta, 409, "CANCELADA")
+    assert _ultimo_insert_validacion(bd.cursor) == (COMPRA_ID, FUNCION_ID, "cancelada")
+
+
 # --- 3. YA_UTILIZADA (incluye fecha y hora del primer uso; prioridad sobre OTRA_FUNCION y FUERA_DE_FECHA) ---
 def test_validar_entrada_ya_usada_devuelve_409_con_fecha_y_hora_del_primer_uso(
     cliente_backend, cabeceras_admin, bd, token_valido
@@ -373,7 +385,7 @@ def test_historial_sin_filtros_usa_limite_20_y_ordena_por_fecha_descendente(clie
         },
     ]
     sql, parametros = bd.consultar.call_args.args
-    assert "WHERE v.funcion_id = %s" not in sql
+    assert "v.funcion_id = %s" not in sql
     assert "ORDER BY v.fecha_hora DESC, v.id DESC LIMIT %s" in sql
     assert parametros == (20,)
 
@@ -386,7 +398,7 @@ def test_historial_con_funcion_id_y_limite_filtra_por_ambos(cliente_backend, cab
     assert respuesta.status_code == 200
     assert respuesta.get_json() == []
     sql, parametros = bd.consultar.call_args.args
-    assert "WHERE v.funcion_id = %s" in sql
+    assert "AND v.funcion_id = %s" in sql
     assert parametros == (12, 5)
 
 

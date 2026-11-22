@@ -1,11 +1,11 @@
 """Cartelera pública y detalle de películas con sus funciones (SCRUM-20, SCRUM-21)."""
-from datetime import date, datetime, timedelta
+from datetime import datetime
 
+from src.backend.abm import requerir_existente
 from src.backend.db import consultar, consultar_uno
-from src.backend.errores import error_api
 from src.backend.serializacion import serializar, serializar_lista
 from src.backend.services.peliculas import COLUMNAS
-from src.backend.services.validaciones import entero_positivo_texto
+from src.backend.filtros import construir_condiciones
 
 # Funciones que se pueden vender: activas, en salas activas, futuras y dentro del período de la película.
 FUNCIONES_VIGENTES = """
@@ -19,34 +19,22 @@ FUNCIONES_VIGENTES = """
     AND funciones.fecha_hora >= %s
     AND funciones.fecha_hora BETWEEN peliculas.disponible_desde AND peliculas.disponible_hasta
 """
+FILTROS_CARTELERA = {"local_id": ("locales.id", "entero"), "fecha": ("funciones.fecha_hora", "dia")}
 
 
-def _dia(texto):
-    try:
-        return datetime.combine(date.fromisoformat(texto), datetime.min.time())
-    except ValueError:
-        error_api(400, "DATOS_INVALIDOS", "fecha debe tener formato YYYY-MM-DD.")
+def listar(argumentos):
+    """Películas con funciones vigentes y la próxima función de cada una (una fila por película).
 
-
-def listar(local_id=None, fecha=None):
-    """Películas con funciones vigentes y la próxima función de cada una (una fila por película)."""
+    argumentos: query params (`local_id`, `fecha`); uno vacío da 400, como antes de SCRUM-106.
+    """
+    clausulas, filtros = construir_condiciones(argumentos, FILTROS_CARTELERA)
     sql = (
         "SELECT peliculas.id, peliculas.titulo, peliculas.poster_url, peliculas.duracion_min, "
         "peliculas.clasificacion, peliculas.genero, MIN(funciones.fecha_hora) AS proxima_funcion"
-        + FUNCIONES_VIGENTES
+        + FUNCIONES_VIGENTES + clausulas
+        + " GROUP BY peliculas.id ORDER BY proxima_funcion"
     )
-    parametros = [datetime.now()]
-    if local_id is not None:
-        sql += " AND locales.id = %s"
-        parametros.append(entero_positivo_texto(local_id, "local_id"))
-    if fecha is not None:
-        # Rango en vez de LIKE para que MySQL pueda usar el índice de fecha_hora.
-        inicio = _dia(fecha)
-        sql += " AND funciones.fecha_hora >= %s AND funciones.fecha_hora < %s"
-        parametros += [inicio, inicio + timedelta(days=1)]
-    sql += " GROUP BY peliculas.id ORDER BY proxima_funcion"
-
-    filas = consultar(sql, parametros)
+    filas = consultar(sql, [datetime.now(), *filtros])
     return serializar_lista(filas)
 
 
@@ -55,8 +43,7 @@ def obtener_pelicula(pelicula_id):
     pelicula = consultar_uno(
         "SELECT " + COLUMNAS + " FROM peliculas WHERE id = %s AND activa = TRUE", (pelicula_id,)
     )
-    if pelicula is None:
-        error_api(404, "NO_ENCONTRADO", "La película no existe.")
+    requerir_existente(pelicula, "La película no existe.")
 
     funciones = consultar(
         "SELECT funciones.id, funciones.fecha_hora, funciones.precio, "
@@ -80,8 +67,7 @@ def mapa_de_butacas(funcion_id):
         "WHERE funciones.id = %s AND funciones.activa = TRUE AND salas.activa = TRUE",
         (funcion_id,),
     )
-    if funcion is None:
-        error_api(404, "NO_ENCONTRADO", "La función no existe.")
+    requerir_existente(funcion, "La función no existe.")
 
     # Ocupa la butaca una entrada vigente de una compra confirmada o pendiente sin vencer.
     # Las de compras canceladas o vencidas no matchean el LEFT JOIN y la butaca queda libre.

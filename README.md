@@ -11,13 +11,19 @@ src/
   backend/          API REST en Flask (JSON) que se conecta a MySQL
     app.py          create_app(): configuración, manejo de errores y blueprints
     config.py       lectura de variables de entorno
+    auth.py         token firmado y decorador @requiere_rol
+    abm.py          helpers comunes de los ABM (bajas lógicas, duplicados)
+    filtros.py      validación de los filtros de los listados
+    tokens.py       tokens firmados del QR y del enlace de cancelación
     db/
       schema.sql    creación de tablas y relaciones
       seed.sql      datos iniciales
     db.py           acceso a MySQL con SQL explícito (sin ORM)
     errores.py      formato único de errores JSON
     routes/         un blueprint por módulo (auth, cartelera, compras, admin, dashboards)
-    services/       lógica de negocio por funcionalidad, a implementar con los casos de uso
+    services/       casos de uso y validaciones por funcionalidad (compras, cartelera, funciones, ingresos,
+                    dashboards, correo, qr, tmdb...)
+    templates/email/ plantillas del correo de factura y de cancelación
   frontend/         sitio del cliente y backoffice en Flask + Jinja
     app.py          create_app()
     api_client.py   única puerta al backend, usando requests
@@ -27,25 +33,92 @@ src/
   tests/              pruebas automatizadas con pytest
 docs/
   entorno.md        variables, claves, MySQL y configuración local
+  requisitos.md     resumen del enunciado y checklist de entrega
+  informe.md        informe del proyecto (versión PDF: informe.pdf)
+  design_system.md  tokens, componentes y macros del sitio
+  pruebas_e2e.md    recorridos de prueba de extremo a extremo
   deploy.md         publicación gratuita de las dos apps y la base
   endpoints.md      listado de endpoints con ejemplos
   base_de_datos.md  diagrama entidad-relación y reglas del negocio en la base
 init.sh             instala dependencias y prepara la configuración
-.env.example        variables de configuración (copiar a .env)
+.env.example        variables de configuración, comentadas y sin secretos (copiar a .env)
+.env.test.example   base MySQL de pruebas (copiar a .env.test)
+requirements.txt    dependencias con versión fija (requirements-deploy.txt suma gunicorn)
+render.yaml         publicación gratuita en Render
+CLAUDE.md           reglas del proyecto para trabajar con Claude Code
+Dockerfile          imagen única de Python para la API y el sitio
+docker-compose.yml  MySQL + API + sitio con un solo comando
 ```
+
+## Opción rápida: Docker Compose
+
+Solo requiere [Docker](https://docs.docker.com/get-docker/) (Docker Desktop en macOS y Windows); no hace falta
+instalar Python ni MySQL.
+
+```bash
+cp .env.example .env        # opcional: claves propias, TMDB_API_KEY y MAILJET_*
+docker compose up --build   # sitio en http://localhost:5001, API en http://localhost:5000/api/salud
+```
+
+- La primera vez crea la base en un contenedor MySQL 8.4 y carga `schema.sql` y `seed.sql`. Los datos
+  quedan en un volumen: `docker compose down` los conserva y `docker compose down -v` los borra
+  (al volver a levantar se recarga el seed, por ejemplo para tener funciones futuras de nuevo).
+- Los datos de conexión a la base los fija `docker-compose.yml` y pisan los del `.env`. Desde la
+  máquina, la base queda en `localhost:3307` (usuario `cine` / `cine`).
+- Para escanear el QR con el celular, poner en `.env` `FRONTEND_URL=http://<IP-de-la-compu>:5001`.
+- Los cambios en el código requieren `docker compose up --build` (no hay recarga automática).
+
+Sin Docker, seguir los pasos de abajo.
 
 ## Requisitos
 
-- Python 3.9 o superior
-- MySQL 8 (o MariaDB 10.5+)
+- Python 3.12 o superior (la versión que usa el `Dockerfile`)
+- MySQL 8 (o MariaDB 10.5+), con el cliente `mysql` en el PATH si se usa `bash init.sh --db`
+- Git y Bash (en Windows, Git Bash o WSL)
+- Opcional: una API key v3 de [TMDB](https://www.themoviedb.org/) para importar películas y una cuenta Mailjet
+  (plan Free) para el correo de la compra (ver [TMDB y Mailjet](#configurar-tmdb-y-mailjet))
 
 ## Instalación
 
-```bash
-bash init.sh          # crea .venv, instala dependencias y genera .env
-# Completar .env: claves propias, MySQL y TMDB (ver la guía del entorno)
-bash init.sh --db     # SOLO base local descartable: borra tablas y carga datos de prueba
-```
+1. Clonar el repositorio y entrar en la carpeta:
+
+   ```bash
+   git clone https://github.com/LucasFiuba1/tp-integrador-ids-cinemark.git
+   cd tp-integrador-ids-cinemark
+   ```
+
+2. Crear el entorno virtual, instalar las dependencias de `requirements.txt` y generar el `.env`:
+
+   ```bash
+   bash init.sh          # crea .venv, instala dependencias y copia .env.example a .env
+   ```
+
+3. Completar `.env`. Hacen falta dos claves distintas (`SECRET_KEY` y `FRONTEND_SECRET_KEY`); generar cada una con:
+
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(48))"
+   ```
+
+   También revisar `DB_*` (usuario y contraseña de MySQL) y, si se van a usar, `TMDB_API_KEY` y `MAILJET_*`.
+
+4. Crear en MySQL el usuario de la aplicación (`DB_USER` / `DB_PASSWORD`). La plantilla no lo crea. Con
+   todos los permisos sobre `cine_paradiso` alcanza para que `schema.sql` cree la base y las tablas:
+
+   ```sql
+   CREATE USER 'cine'@'localhost' IDENTIFIED BY 'cine';
+   GRANT ALL PRIVILEGES ON cine_paradiso.* TO 'cine'@'localhost';
+   ```
+
+5. Cargar la base con `src/backend/db/schema.sql` (crea `cine_paradiso` y las tablas) y
+   `src/backend/db/seed.sql` (datos de prueba):
+
+   ```bash
+   bash init.sh --db     # SOLO base local descartable: borra tablas y carga datos de prueba
+   ```
+
+   Equivale a correr a mano `mysql -u <usuario> -p < src/backend/db/schema.sql` y después lo mismo con `seed.sql`.
+
+6. Levantar las aplicaciones (ver [Ejecución](#ejecución)).
 
 Seguir [Configuración del entorno](docs/entorno.md) para generar `SECRET_KEY` y
 `FRONTEND_SECRET_KEY`, crear el usuario MySQL y completar todas las variables.
@@ -72,7 +145,7 @@ Verificación rápida: `http://localhost:5000/api/salud` devuelve `{"estado": "o
 ### Verificación de extremo a extremo (compra y validación de QR)
 
 1. Abrir `http://localhost:5001/ingresar` e iniciar sesión como cliente (`ana@mail.com` / `cliente1234`).
-2. Elegir una película de la cartelera, seleccionar una función futura, marcar al menos una butaca libre y continuar hasta confirmar el pago simulado para obtener el código QR y la factura.
+2. Elegir una película de la cartelera, seleccionar una función futura, marcar al menos una butaca libre y continuar hasta confirmar el pago simulado para obtener el código QR y la factura (también llega por email si Mailjet está configurado).
 3. Cerrar sesión, ingresar como administrador (`admin@cineparadiso.com` / `admin1234`), ir a `/admin/validar` y validar el código QR de la entrada para la función reservada.
 
 Usuarios de prueba que carga `seed.sql`:
@@ -89,9 +162,32 @@ Para publicar, seguir [Deploy gratuito](docs/deploy.md): servidor WSGI, HTTPS,
 credenciales privadas y carga de la base sin usar el servidor de desarrollo.
 Los emails de compra y cancelación se envían por la API HTTPS de Mailjet. La factura
 incluye un único QR dentro del mensaje y el enlace de cancelación, sin copia adjunta.
-Para habilitarlos, configurar `MAILJET_API_KEY`, `MAILJET_SECRET_KEY` y un
-`MAIL_FROM` verificado siguiendo [Correo](docs/entorno.md#correo-mailjet-por-https).
-Las pruebas locales simulan el proveedor; no certifican la entrega real.
+Si faltan las claves o el envío falla, la compra queda confirmada igual (`email_enviado: false`)
+y el motivo queda en el log. Las pruebas locales simulan el proveedor; no certifican la entrega real.
+
+## Configurar TMDB y Mailjet
+
+Ninguna de las dos es necesaria para levantar el proyecto con los datos del seed; sí para importar películas
+nuevas (TMDB) y para recibir el correo de la compra (Mailjet). Se configuran en `.env`; el detalle y los errores
+frecuentes están en [Configuración del entorno](docs/entorno.md).
+
+**TMDB** (películas del backoffice):
+
+1. Crear una cuenta en [themoviedb.org](https://www.themoviedb.org/) y pedir una API key en **Settings → API**.
+2. Copiar la **API key (v3 auth)** a `TMDB_API_KEY`. No sirve el "API Read Access Token".
+3. Reiniciar el backend. Sin clave, la importación devuelve `502 TMDB_NO_DISPONIBLE`.
+
+**Mailjet** (factura con QR y aviso de cancelación, por HTTPS):
+
+1. Crear una cuenta en [Mailjet](https://www.mailjet.com/) con el plan **Free** (sin tarjeta ni trial).
+2. Verificar en Mailjet la dirección que se usará como `MAIL_FROM`.
+3. Copiar la API key y la Secret key de [API Key Management](https://app.mailjet.com/account/api_keys) a
+   `MAILJET_API_KEY` y `MAILJET_SECRET_KEY`. `FRONTEND_URL` arma el enlace "Cancelar compra" del email y el QR:
+   para escanearlo con el celular, usar `http://<IP-de-la-compu>:5001`.
+
+El paso a paso completo está en [Correo](docs/entorno.md#correo-mailjet-por-https).
+
+No subir nunca el `.env` ni pegar claves en commits, issues o capturas: `.env` está en el `.gitignore`.
 
 ## Pruebas
 
@@ -127,18 +223,35 @@ La simulación ofrece mocks de `consultar`, `consultar_uno`, `ejecutar`,
 La autenticación se simula por separado con las fixtures de usuarios:
 no incluir `src.backend.auth` entre los destinos del service.
 
-Para verificar las consultas de dashboards contra el `seed.sql` real (SCRUM-76),
-hay pruebas MySQL opcionales. Requieren una base **descartable y aislada** en
-`127.0.0.1`, con usuario `root`, contraseña vacía y nombre `cine_paradiso`,
-cargada con `schema.sql` y `seed.sql`. No usar una base de trabajo ni producción.
+### Pruebas contra MySQL real (opcionales)
+
+Algunas reglas solo se pueden comprobar con una base de verdad: la doble venta con pedidos simultáneos,
+los bloqueos, los índices únicos y las consultas de dashboards. Esas pruebas (`src/tests/*_mysql.py`) usan
+una **base de pruebas separada** que se borra y se vuelve a crear con `schema.sql` + `seed.sql` en cada corrida
+(SCRUM-78). Sin configurarla se saltean y el resto de la suite corre igual.
 
 ```bash
-PRUEBAS_MYSQL_PUERTO=33976 python -m pytest src/tests/test_dashboards_mysql.py -v
+cp .env.test.example .env.test   # completar host, puerto, usuario y clave de un MySQL local
+```
+```bash
+python -m pytest src/tests -v
 ```
 
-El puerto debe ser el de esa instancia aislada. Sin la variable, estas pruebas
-se omiten y la suite normal sigue sin necesitar MySQL. Los contratos y los
-valores esperados del seed están en [Dashboards](docs/endpoints.md#dashboards).
+El nombre de la base (`PRUEBAS_DB_NAME`, por defecto `cine_paradiso_test`) tiene que terminar en `_test` y
+ser distinto del `DB_NAME` del `.env`: así nunca se borra la base de trabajo. No usar la base de producción.
+También se puede configurar por variables de entorno (`PRUEBAS_DB_PORT=3306 python -m pytest ...`).
+
+Fixtures de `conftest.py` para estas pruebas: `mysql_pruebas` (config de la base ya recreada),
+`app_mysql` y `cliente_http` (app real contra esa base), `token_admin`, `token_cliente` y `token_otro_cliente`
+(login real con los usuarios del seed), `fabrica_funciones` y `funcion_con_butacas` (funciones con commit real
+que se borran al terminar). Los helpers están en `src/tests/mysql_pruebas.py`.
+
+| Archivo | Qué prueba |
+|---|---|
+| `test_base_pruebas_mysql.py` | Ejemplo: salud, login y fixtures |
+| `test_reglas_criticas_mysql.py` | Doble venta con hilos simultáneos, superposición, cancelación en el límite del plazo y QR (SCRUM-79) |
+| `test_butacas_mysql.py` | Bloqueo y liberación de varias butacas |
+| `test_dashboards_mysql.py` | Consultas de dashboards contra el seed ([valores esperados](docs/endpoints.md#dashboards)) |
 
 ## Reglas del proyecto
 

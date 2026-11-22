@@ -1,0 +1,96 @@
+{# Entrada escaneada (SCRUM-74): /entrada?token=<token_qr> es la URL que codifica el QR de la compra.
+   compra es la respuesta de GET /api/compras/por-qr, que ya trae solo lo que puede ver quien consulta:
+     - vista "publica" (anónimo o cliente que no hizo la compra): película, local, sala, función, butacas y estado.
+     - vista "comprador": además n.º de operación, cantidad de entradas, servicios, total y estado del pago.
+     - vista "admin": lo mismo que el comprador más el titular; si validable, el formulario para validar el ingreso
+       (POST a /admin/ingreso con el token y la función que se controla; funciones son las de hoy).
+   estado: valida, utilizada, cancelada, vencida o pendiente. compra es none si el código no sirve; error, el motivo. #}
+{% extends "base.html" %}
+{% from "macros.html" import boton, datos, filtro, badge_estado %}
+
+{% set ESTADOS = {
+  "valida": ("confirmada", "Válida para ingresar"),
+  "utilizada": ("utilizada", "Ya utilizada"),
+  "cancelada": ("cancelada", "Cancelada"),
+  "vencida": ("inactiva", "Vencida"),
+  "pendiente": ("pendiente", "Sin confirmar"),
+} %}
+{% set AVISOS = {
+  "utilizada": "Esta entrada ya se usó para ingresar a la función.",
+  "cancelada": "La compra se canceló: esta entrada no permite el ingreso.",
+  "vencida": "La función ya terminó: esta entrada no permite el ingreso.",
+  "pendiente": "La compra todavía no está pagada: esta entrada no permite el ingreso.",
+} %}
+{% set PAGOS = {"pagado": "Pagado", "anulado": "Anulado (compra cancelada)", "pendiente": "Pendiente"} %}
+
+{% block titulo %}Entrada · Cine Paradiso{% endblock %}
+
+{% block contenido %}
+  <section class="cancelar">
+    {% if compra is none %}
+      <header class="confirmada-cabecera">
+        <h1>Entrada no encontrada</h1>
+        <p class="cabecera-bajada">No pudimos leer el código QR.</p>
+      </header>
+      <p class="aviso aviso-error cancelar-aviso">{{ error }}</p>
+    {% else %}
+      {% set clase, texto = ESTADOS[compra.estado] %}
+      <header class="confirmada-cabecera">
+        <h1>{{ "Tu entrada" if compra.vista == "comprador" else "Entrada" }}</h1>
+        <p class="cabecera-bajada">{{ badge_estado(clase, texto) }}</p>
+      </header>
+
+      <article class="panel ticket" aria-labelledby="titulo-ticket">
+        <div class="ticket-detalle">
+          <h2 id="titulo-ticket">{{ compra.pelicula }}</h2>
+          {% set filas = [
+            ("Local", compra.local),
+            ("Sala", compra.sala),
+            ("Función", compra.funcion | fecha_hora),
+            ("Butaca" if compra.butacas | length == 1 else "Butacas", compra.butacas | join(", ")),
+          ] %}
+          {% if compra.vista != "publica" %}
+            {% set servicios = namespace(textos=[]) %}
+            {% for servicio in compra.servicios %}
+              {% set servicios.textos = servicios.textos + [servicio.nombre ~ " × " ~ servicio.cantidad] %}
+            {% endfor %}
+            {% set filas = filas + [
+              ("Entradas", compra.cantidad_entradas),
+              ("Servicios", servicios.textos | join(", ") or "Sin servicios"),
+              ("Pago", PAGOS[compra.estado_pago]),
+            ] %}
+            {% if compra.vista == "admin" %}{% set filas = filas + [("Titular", compra.titular)] %}{% endif %}
+          {% endif %}
+          {{ datos(filas) }}
+          {% if compra.vista != "publica" %}
+            <p class="resumen-total"><span>Total</span><strong>{{ compra.total | precio }}</strong></p>
+            <p class="ticket-numero">N.º de operación #{{ compra.id }}</p>
+          {% endif %}
+        </div>
+      </article>
+
+      {% if compra.estado in AVISOS %}
+        <p class="aviso aviso-error cancelar-aviso">{{ AVISOS[compra.estado] }}</p>
+      {% endif %}
+
+      {% if validable %}
+        <section class="panel validar-lector" aria-labelledby="titulo-validar">
+          <h2 id="titulo-validar">Validar ingreso</h2>
+          <form method="post" action="{{ url_for('backoffice.ingreso') }}" class="validar-formulario" novalidate>
+            <input type="hidden" name="token" value="{{ token }}">
+            {{ filtro("funcion_id", "Función que controlás", funciones, funcion_id) }}
+            {{ boton("Validar", bloque=true) }}
+          </form>
+          <p class="resultado-nota">Ver esta página no usa la entrada: se marca como utilizada recién al validar.</p>
+        </section>
+      {% endif %}
+    {% endif %}
+
+    <div class="confirmada-acciones">
+      {% if compra is not none and compra.vista == "comprador" %}
+        {{ boton("Ver mis compras", "borde", url=url_for('publico.perfil')) }}
+      {% endif %}
+      {{ boton("Ir a cartelera", "borde", url=url_for('publico.inicio')) }}
+    </div>
+  </section>
+{% endblock %}

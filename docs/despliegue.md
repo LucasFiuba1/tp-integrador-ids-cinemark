@@ -114,8 +114,7 @@ claves secretas fuertes. Luego verificar la URL real del backend.
 - `GET https://<api>/api/salud` debe responder `200` con `{"estado":"ok"}`.
   Esta ruta no consulta MySQL: por sí sola **no verifica la base**.
 - `GET https://<api>/api/cartelera` debe devolver las películas de la base
-  remota. La portada de la versión actual de `develop` solo muestra el estado
-  de la API: desplegarla no implementa la pantalla de cartelera pendiente.
+  remota, y la portada del sitio debe mostrar la cartelera sin avisos de conexión.
 - Probar login y cierre de sesión con un usuario exclusivo de la demo.
 - Verificar que `/admin` no sea accesible sin una sesión con rol administrador.
 - Confirmar una compra y revisar el email con un único QR dentro de la tarjeta; cancelar desde el

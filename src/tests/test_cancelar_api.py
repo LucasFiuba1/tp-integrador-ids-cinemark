@@ -3,7 +3,7 @@ import base64
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pymysql
 import pytest
@@ -11,6 +11,7 @@ import pytest
 from src.backend.services.qr import generar_qr
 from src.backend.tokens import firmar_cancelacion, firmar_qr
 from src.tests.utilidades import ID_CLIENTE, afirmar_error_json, simular_bd
+from src.backend.services import compras as servicio_compras
 
 COMPRA_ID = 88
 
@@ -19,6 +20,7 @@ def _fila_detalle(**cambios):
     fila = {
         "id": COMPRA_ID,
         "usuario_id": ID_CLIENTE,
+        "funcion_id": 12,
         "estado": "confirmada",
         "total": Decimal("23000.00"),
         "vence_en": datetime(2026, 11, 5, 18, 40),
@@ -45,6 +47,8 @@ def _fila_cancelar(**cambios):
         "estado": "confirmada",
         "utilizada_en": None,
         "fecha_hora": datetime.now().replace(microsecond=0) + timedelta(days=2),
+        "nombre": "Cliente",
+        "email": "cliente@email.com",
     }
     fila.update(cambios)
     return fila
@@ -74,7 +78,8 @@ def bd():
     with simular_bd(destinos=("src.backend.services.compras",)) as simulacion:
         simulacion.consultar_uno.return_value = _fila_detalle()
         simulacion.consultar.side_effect = [
-            [{"fila": "D", "numero": 5, "precio": Decimal("5000.00")}, {"fila": "D", "numero": 6, "precio": Decimal("5000.00")}],
+            [{"id": 41, "fila": "D", "numero": 5, "precio": Decimal("5000.00")},
+             {"id": 42, "fila": "D", "numero": 6, "precio": Decimal("5000.00")}],
             [{"servicio_id": 1, "nombre": "Combo pochoclos grande", "cantidad": 2,
               "precio_unitario": Decimal("6500.00")}],
         ]
@@ -117,6 +122,7 @@ def test_obtener_compra_ok_devuelve_detalle_completo(cliente_backend, cabeceras_
     assert datos["id"] == COMPRA_ID
     assert datos["pelicula"] == "Volver al futuro"
     assert datos["butacas"] == ["D5", "D6"]
+    assert datos["butaca_ids"] == [41, 42] and datos["funcion_id"] == 12  # para volver a elegir butacas
     assert datos["subtotal_entradas"] == 10000.0
     assert datos["servicios"] == [
         {"servicio_id": 1, "nombre": "Combo pochoclos grande", "cantidad": 2, "precio_unitario": 6500.0,
@@ -227,22 +233,93 @@ def test_cancelar_compra_fuera_de_plazo_devuelve_409(cliente_backend, cabeceras_
         cliente_backend.post(f"/api/compras/{COMPRA_ID}/cancelar", headers=cabeceras_cliente), 409, "FUERA_DE_PLAZO"
     )
 
+def test_cancelar_compra_en_el_limite_exacto_devuelve_409(
+    cliente_backend,
+    cabeceras_cliente,
+    bd,
+):
+    bd.cursor.fetchone.return_value = _fila_cancelar(
+        fecha_hora=datetime(2026, 11, 11, 20, 30)
+    )
+    with patch("src.backend.services.compras.datetime") as datetime_simulado:
+        datetime_simulado.now.return_value = datetime(2026, 11, 11, 18, 30)
+        afirmar_error_json(
+            cliente_backend.post(
+                f"/api/compras/{COMPRA_ID}/cancelar",
+                headers=cabeceras_cliente,
+            ),
+            409,
+            "FUERA_DE_PLAZO",
+        )
 
-def test_cancelar_compra_ok_invalida_qr_y_libera_butacas(cliente_backend, cabeceras_cliente, bd):
-    respuesta = cliente_backend.post(f"/api/compras/{COMPRA_ID}/cancelar", headers=cabeceras_cliente)
+def test_cancelar_compra_un_segundo_antes_del_limite_funciona(
+    cliente_backend,
+    cabeceras_cliente,
+    bd,
+):
+    bd.cursor.fetchone.return_value = _fila_cancelar(
+        fecha_hora=datetime(2026, 11, 11, 20, 30)
+    )
+
+    with patch("src.backend.services.compras.datetime") as datetime_simulado:
+        datetime_simulado.now.return_value = datetime(2026, 11, 11, 18, 29, 59)
+
+        respuesta = cliente_backend.post(
+            f"/api/compras/{COMPRA_ID}/cancelar",
+            headers=cabeceras_cliente,
+        )
+
     assert respuesta.status_code == 200
-    assert respuesta.get_json() == {"id": COMPRA_ID, "estado": "cancelada"}
+    assert respuesta.get_json() == {
+        "id": COMPRA_ID,
+        "estado": "cancelada",
+    }
+
+
+def test_cancelar_compra_ok_invalida_qr_y_libera_butacas(
+    cliente_backend,
+    cabeceras_cliente,
+    bd,
+):
+    bd.consultar_uno.return_value = CLIENTE_EMAIL
+    respuesta = cliente_backend.post(
+        f"/api/compras/{COMPRA_ID}/cancelar",
+        headers=cabeceras_cliente,
+    )
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {
+        "id": COMPRA_ID,
+        "estado": "cancelada",
+    }
     sentencias = [llamada.args[0] for llamada in bd.cursor.execute.call_args_list]
     assert "FOR UPDATE" in sentencias[0]
-    assert any("SET estado = 'cancelada', cancelada_en = NOW(), token_qr = NULL" in sql for sql in sentencias)
-    assert any("UPDATE entradas SET activa = NULL" in sql for sql in sentencias)
+    assert any(
+        "SET estado = 'cancelada', cancelada_en = NOW(), token_qr = NULL" in sql
+        for sql in sentencias
+    )
+    assert any(
+        "UPDATE entradas SET activa = NULL" in sql
+        for sql in sentencias
+    )
+    bd.obtener_compra.assert_called_once_with(COMPRA_ID)
+    bd.enviar_cancelacion.assert_called_once_with(_detalle_cancelada(), CLIENTE_EMAIL)
 
 
 # --- POST /api/compras/cancelar-por-token (público) ---
-def test_cancelar_por_token_valido_no_pide_sesion_y_cancela(cliente_backend, bd, token_cancelacion):
-    respuesta = cliente_backend.post("/api/compras/cancelar-por-token", json={"token": token_cancelacion})
+def test_cancelar_por_token_valido_no_pide_sesion_y_cancela(
+    cliente_backend,
+    bd,
+    token_cancelacion,
+):
+    respuesta = cliente_backend.post(
+        "/api/compras/cancelar-por-token",
+        json={"token": token_cancelacion},
+    )
     assert respuesta.status_code == 200
-    assert respuesta.get_json() == {"id": COMPRA_ID, "estado": "cancelada"}
+    assert respuesta.get_json() == {
+        "id": COMPRA_ID,
+        "estado": "cancelada",
+    }
 
 
 @pytest.mark.parametrize("cuerpo", [{}, {"token": ""}, {"token": "falso"}, {"token": 123}])
@@ -372,3 +449,90 @@ def test_el_email_se_prepara_y_envia_despues_del_commit_de_la_cancelacion(
 
     assert cancelar(cliente_backend, cabeceras_cliente, token_cancelacion).status_code == 200
     assert eventos == ["abre transacción", "commit", "lee detalle", "envía email"]
+def test_cancelar_por_token_alterado_devuelve_400(
+    cliente_backend,
+    bd,
+    token_cancelacion,
+):
+    token_alterado = token_cancelacion + "alterado"
+    afirmar_error_json(
+        cliente_backend.post(
+            "/api/compras/cancelar-por-token",
+            json={"token": token_alterado},
+        ),
+        400,
+        "TOKEN_INVALIDO",
+    )
+    bd.cursor.execute.assert_not_called()
+
+
+def test_cancelar_por_token_valido_fuera_de_plazo_devuelve_409(
+    cliente_backend,
+    bd,
+    token_cancelacion,
+):
+    bd.cursor.fetchone.return_value = _fila_cancelar(
+        fecha_hora=datetime.now() + timedelta(minutes=30)
+    )
+    afirmar_error_json(
+        cliente_backend.post(
+            "/api/compras/cancelar-por-token",
+            json={"token": token_cancelacion},
+        ),
+        409,
+        "FUERA_DE_PLAZO",
+    )
+
+def test_doble_cancelacion_segunda_devuelve_409(
+    cliente_backend,
+    cabeceras_cliente,
+    bd,
+):
+    bd.cursor.fetchone.side_effect = [
+        _fila_cancelar(),
+        _fila_cancelar(estado="cancelada"),
+    ]
+
+    primera = cliente_backend.post(
+        f"/api/compras/{COMPRA_ID}/cancelar",
+        headers=cabeceras_cliente,
+    )
+
+    segunda = cliente_backend.post(
+        f"/api/compras/{COMPRA_ID}/cancelar",
+        headers=cabeceras_cliente,
+    )
+
+    assert primera.status_code == 200
+    afirmar_error_json(
+        segunda,
+        409,
+        "YA_CANCELADA",
+    )
+
+    bd.enviar_cancelacion.assert_called_once()
+
+
+def test_error_bd_hace_rollback_y_no_envia_email(app_backend):
+    cursor = MagicMock()
+    cursor.fetchone.return_value = _fila_cancelar()
+    cursor.execute.side_effect = [
+        None,
+        None,
+        RuntimeError("fallo al liberar butacas"),
+    ]
+    conexion = MagicMock()
+    conexion.cursor.return_value.__enter__.return_value = cursor
+    with patch(
+        "src.backend.db._conectar",
+        return_value=conexion,
+    ), patch(
+        "src.backend.services.compras.correo.enviar_cancelacion"
+    ) as enviar_cancelacion:
+
+        with pytest.raises(RuntimeError, match="fallo al liberar butacas"):
+            servicio_compras.cancelar(ID_CLIENTE, COMPRA_ID)
+    conexion.rollback.assert_called_once()
+    conexion.commit.assert_not_called()
+    conexion.close.assert_called_once()
+    enviar_cancelacion.assert_not_called()

@@ -63,7 +63,7 @@ El frontend no se conecta directamente a MySQL ni consulta TMDB. No necesita esa
 | `MAILJET_API_KEY` | API key de Mailjet (usuario de la autenticación HTTPS). | Vacía por defecto: no se intenta enviar. |
 | `MAILJET_SECRET_KEY` | Secret key de Mailjet (contraseña de la autenticación HTTPS). | Vacía por defecto; guardar ambas claves solo en el backend privado. |
 | `MAIL_FROM` | Dirección que figura como remitente. | Debe estar verificada y autorizada en Mailjet; vacía por defecto, sin remitente automático. |
-| `FRONTEND_URL` | Dirección pública del sitio del cliente (sin `/` al final). | `http://localhost:5001` en local; se usa para el enlace "Cancelar compra" del email y para la URL `/admin/ingreso?token=...` que codifica el QR. |
+| `FRONTEND_URL` | Dirección pública del sitio del cliente (sin `/` al final). | `http://localhost:5001` en local; se usa para el enlace "Cancelar compra" del email y para la URL `/entrada?token=...` que codifica el QR. |
 
 El backend usa `POST https://api.mailjet.com/v3.1/send` con un tiempo máximo de
 espera de 10 segundos, sin reintentos automáticos ni redirecciones. No necesita

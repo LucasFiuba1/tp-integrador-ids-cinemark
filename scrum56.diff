@@ -1,0 +1,518 @@
+diff --git a/src/backend/routes/admin.py b/src/backend/routes/admin.py
+index 182bd04..2999593 100644
+--- a/src/backend/routes/admin.py
++++ b/src/backend/routes/admin.py
+@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, request
+ from src.backend.auth import requiere_rol
+ from src.backend.errores import respuesta_error
+ from src.backend.routes.comun import cuerpo_json
+-from src.backend.services import locales, peliculas, salas
++from src.backend.services import funciones, locales, peliculas, salas
+ from src.backend.services.validaciones import entero_positivo
+ 
+ admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
+@@ -145,3 +145,33 @@ def modificar_pelicula(pelicula_id):
+ @requiere_rol("admin")
+ def eliminar_pelicula(pelicula_id):
+     return jsonify(peliculas.dar_de_baja(pelicula_id))
++
++
++@admin_bp.get("/funciones")
++@requiere_rol("admin")
++def listar_funciones():
++    return jsonify(
++        funciones.listar(
++            request.args.get("local_id"),
++            request.args.get("desde"),
++            request.args.get("hasta"),
++        )
++    )
++
++
++@admin_bp.post("/funciones")
++@requiere_rol("admin")
++def crear_funcion():
++    return jsonify(funciones.crear(cuerpo_json())), 201
++
++
++@admin_bp.put("/funciones/<int:funcion_id>")
++@requiere_rol("admin")
++def modificar_funcion(funcion_id):
++    return jsonify(funciones.modificar(funcion_id, cuerpo_json()))
++
++
++@admin_bp.delete("/funciones/<int:funcion_id>")
++@requiere_rol("admin")
++def eliminar_funcion(funcion_id):
++    return jsonify(funciones.dar_de_baja(funcion_id))
+\ No newline at end of file
+diff --git a/src/backend/services/funciones.py b/src/backend/services/funciones.py
+index d685bd1..02228fd 100644
+--- a/src/backend/services/funciones.py
++++ b/src/backend/services/funciones.py
+@@ -1,9 +1,29 @@
+-"""Detalle público de una función (el mapa de butacas está en services/cartelera.py)."""
+-from src.backend.db import consultar_uno
++
++"""Consultas publicas y ABM administrativo de funciones (SCRUM-56)."""
++from datetime import datetime, timedelta
++from decimal import Decimal
++
++from src.backend.db import consultar, consultar_uno, transaccion
+ from src.backend.errores import error_api
++from src.backend.services.validaciones import (datos_invalidos, entero_positivo, entero_positivo_texto, fecha_hora_iso, requerir_campos,)
++
++MARGEN_MINUTOS = 15
++
++COLUMNAS_ADMIN = (
++    "f.id, f.pelicula_id, p.titulo AS pelicula, f.sala_id, "
++    "s.nombre AS sala, s.local_id, l.nombre AS local, "
++    "f.fecha_hora, f.precio, f.activa"
++)
++JOINS_ADMIN = (
++    " FROM funciones f "
++    "JOIN peliculas p ON p.id = f.pelicula_id "
++    "JOIN salas s ON s.id = f.sala_id "
++    "JOIN locales l ON l.id = s.local_id "
++)
+ 
+ 
+ def obtener(funcion_id):
++    """Detalle publico; se conserva para no romper la cartelera."""
+     funcion = consultar_uno(
+         "SELECT f.id, f.fecha_hora, f.precio, p.titulo AS pelicula, p.poster_url, "
+         "s.id AS sala_id, s.nombre AS sala, l.nombre AS local "
+@@ -22,3 +42,162 @@ def obtener(funcion_id):
+     funcion.pop("sala_id")
+     return funcion
+ 
++
++def _a_json(fila):
++    fila["fecha_hora"] = fila["fecha_hora"].isoformat()
++    fila["precio"] = float(fila["precio"])
++    fila["activa"] = bool(fila["activa"])
++    return fila
++
++
++def _precio_valido(valor):
++    if type(valor) not in (int, float, Decimal):
++        datos_invalidos("precio debe ser un número positivo.")
++    precio = Decimal(str(valor))
++    if (
++        not precio.is_finite()
++        or precio <= 0
++        or precio > Decimal("99999999.99")
++        or precio != precio.quantize(Decimal("0.01"))
++    ):
++        datos_invalidos("precio debe ser positivo y tener como máximo dos decimales.")
++    return precio
++
++
++def _validar_datos(datos, actual=None):
++    campos = ("pelicula_id", "sala_id", "fecha_hora", "precio") if actual is None else ()
++    requerir_campos(datos, campos)
++
++    pelicula_id = entero_positivo(datos.get("pelicula_id", actual["pelicula_id"] if actual else None), "pelicula_id")
++    sala_id = entero_positivo(datos.get("sala_id", actual["sala_id"] if actual else None), "sala_id")
++    fecha = datos.get("fecha_hora", actual["fecha_hora"] if actual else None)
++    fecha_hora = fecha if isinstance(fecha, datetime) else fecha_hora_iso(fecha, "fecha_hora")
++    precio = _precio_valido(datos.get("precio", actual["precio"] if actual else None))
++
++    if fecha_hora <= datetime.now():
++        datos_invalidos("fecha_hora debe ser futura.")
++    return pelicula_id, sala_id, fecha_hora, precio
++
++
++def _validar_pelicula_sala(cursor, pelicula_id, sala_id, fecha_hora):
++    # El bloqueo de la sala serializa escrituras de funciones en una misma sala.
++    cursor.execute("SELECT id FROM salas WHERE id = %s AND activa = TRUE FOR UPDATE", (sala_id,))
++    if cursor.fetchone() is None:
++        error_api(404, "NO_ENCONTRADO", "La sala no existe o está inactiva.")
++
++    cursor.execute(
++        "SELECT duracion_min, disponible_desde, disponible_hasta "
++        "FROM peliculas WHERE id = %s AND activa = TRUE",
++        (pelicula_id,),
++    )
++    pelicula = cursor.fetchone()
++    if pelicula is None:
++        error_api(404, "NO_ENCONTRADO", "La película no existe o está inactiva.")
++    if not pelicula["disponible_desde"] <= fecha_hora <= pelicula["disponible_hasta"]:
++        datos_invalidos("fecha_hora está fuera de la disponibilidad de la película.")
++    return pelicula["duracion_min"]
++
++
++def _validar_solapamiento(cursor, sala_id, fecha_hora, duracion_min, funcion_id=None):
++    fin_nuevo = fecha_hora + timedelta(minutes=duracion_min + MARGEN_MINUTOS)
++    sql = (
++        "SELECT f.id FROM funciones f "
++        "JOIN peliculas p ON p.id = f.pelicula_id "
++        "WHERE f.sala_id = %s AND f.activa = TRUE "
++        "AND f.fecha_hora < %s "
++        "AND TIMESTAMPADD(MINUTE, p.duracion_min + %s, f.fecha_hora) > %s"
++    )
++    parametros = [sala_id, fin_nuevo, MARGEN_MINUTOS, fecha_hora]
++    if funcion_id is not None:
++        sql += " AND f.id <> %s"
++        parametros.append(funcion_id)
++    cursor.execute(sql + " LIMIT 1", tuple(parametros))
++    if cursor.fetchone() is not None:
++        error_api(409, "FUNCION_SUPERPUESTA", "Ya hay una función superpuesta en esa sala.")
++
++
++def _tiene_entradas(cursor, funcion_id):
++    cursor.execute("SELECT id FROM entradas WHERE funcion_id = %s LIMIT 1 FOR UPDATE", (funcion_id,))
++    return cursor.fetchone() is not None
++
++
++def _actual(cursor, funcion_id):
++    cursor.execute(
++        "SELECT pelicula_id, sala_id, fecha_hora, precio FROM funciones "
++        "WHERE id = %s AND activa = TRUE FOR UPDATE",
++        (funcion_id,),
++    )
++    actual = cursor.fetchone()
++    if actual is None:
++        error_api(404, "NO_ENCONTRADO", "La función no existe o está inactiva.")
++    return actual
++
++
++def _detalle_admin(cursor, funcion_id):
++    cursor.execute("SELECT " + COLUMNAS_ADMIN + JOINS_ADMIN + " WHERE f.id = %s", (funcion_id,))
++    return _a_json(cursor.fetchone())
++
++
++def listar(local_id=None, desde=None, hasta=None):
++    sql = "SELECT " + COLUMNAS_ADMIN + JOINS_ADMIN + " WHERE 1 = 1"
++    parametros = []
++
++    if local_id not in (None, ""):
++        sql += " AND s.local_id = %s"
++        parametros.append(entero_positivo_texto(local_id, "local_id"))
++
++    fecha_desde = fecha_hora_iso(desde, "desde") if desde not in (None, "") else None
++    fecha_hasta = fecha_hora_iso(hasta, "hasta") if hasta not in (None, "") else None
++    if fecha_desde and fecha_hasta and fecha_desde > fecha_hasta:
++        datos_invalidos("desde no puede ser posterior a hasta.")
++    if fecha_desde is not None:
++        sql += " AND f.fecha_hora >= %s"
++        parametros.append(fecha_desde)
++    if fecha_hasta is not None:
++        sql += " AND f.fecha_hora <= %s"
++        parametros.append(fecha_hasta)
++
++    filas = consultar(sql + " ORDER BY f.fecha_hora", tuple(parametros))
++    return [_a_json(fila) for fila in filas]
++
++
++def crear(datos):
++    pelicula_id, sala_id, fecha_hora, precio = _validar_datos(datos)
++    with transaccion() as cursor:
++        duracion_min = _validar_pelicula_sala(cursor, pelicula_id, sala_id, fecha_hora)
++        _validar_solapamiento(cursor, sala_id, fecha_hora, duracion_min)
++        cursor.execute(
++            "INSERT INTO funciones (pelicula_id, sala_id, fecha_hora, precio) VALUES (%s, %s, %s, %s)",
++            (pelicula_id, sala_id, fecha_hora, precio),
++        )
++        resultado = _detalle_admin(cursor, cursor.lastrowid)
++    return resultado
++
++
++def modificar(funcion_id, datos):
++    with transaccion() as cursor:
++        actual = _actual(cursor, funcion_id)
++        pelicula_id, sala_id, fecha_hora, precio = _validar_datos(datos, actual)
++        if _tiene_entradas(cursor, funcion_id) and (
++            sala_id != actual["sala_id"] or fecha_hora != actual["fecha_hora"]
++        ):
++            error_api(409, "FUNCION_CON_ENTRADAS", "No se puede cambiar sala u horario con entradas registradas.")
++
++        duracion_min = _validar_pelicula_sala(cursor, pelicula_id, sala_id, fecha_hora)
++        _validar_solapamiento(cursor, sala_id, fecha_hora, duracion_min, funcion_id)
++        cursor.execute(
++            "UPDATE funciones SET pelicula_id = %s, sala_id = %s, fecha_hora = %s, precio = %s "
++            "WHERE id = %s",
++            (pelicula_id, sala_id, fecha_hora, precio, funcion_id),
++        )
++        resultado = _detalle_admin(cursor, funcion_id)
++    return resultado
++
++
++def dar_de_baja(funcion_id):
++    with transaccion() as cursor:
++        _actual(cursor, funcion_id)
++        if _tiene_entradas(cursor, funcion_id):
++            error_api(409, "FUNCION_CON_ENTRADAS", "No se puede eliminar una función con entradas registradas.")
++        cursor.execute("UPDATE funciones SET activa = FALSE WHERE id = %s", (funcion_id,))
++    return {"id": funcion_id, "baja": "logica"}
+diff --git a/src/tests/test_funciones.py b/src/tests/test_funciones.py
+new file mode 100644
+index 0000000..75e7d62
+--- /dev/null
++++ b/src/tests/test_funciones.py
+@@ -0,0 +1,265 @@
++"""Pruebas del CRUD administrativo de funciones (SCRUM-56), sin MySQL real.
++
++Usa las fixtures compartidas de src/tests/conftest.py y simula el cursor SQL.
++"""
++from contextlib import nullcontext
++from datetime import datetime, timedelta
++from decimal import Decimal
++from types import SimpleNamespace
++from unittest.mock import MagicMock, patch
++
++import pytest
++
++RUTA = "/api/admin/funciones"
++INICIO = datetime(2099, 11, 10, 18, 0)
++
++
++def datos(**cambios):
++    return {
++        "pelicula_id": 3,
++        "sala_id": 1,
++        "fecha_hora": INICIO.isoformat(),
++        "precio": 5000,
++        **cambios,
++    }
++
++
++def pelicula(**cambios):
++    return {
++        "duracion_min": 120,
++        "disponible_desde": datetime(2099, 1, 1),
++        "disponible_hasta": datetime(2100, 12, 31),
++        **cambios,
++    }
++
++
++def detalle(**cambios):
++    return {
++        "id": 12, "pelicula_id": 3, "pelicula": "Volver al futuro",
++        "sala_id": 1, "sala": "Sala 1", "local_id": 1, "local": "Centro",
++        "fecha_hora": INICIO, "precio": Decimal("5000.00"), "activa": 1,
++        **cambios,
++    }
++
++
++def actual(**cambios):
++    return {
++        "pelicula_id": 3, "sala_id": 1,
++        "fecha_hora": INICIO, "precio": Decimal("5000.00"),
++        **cambios,
++    }
++
++
++@pytest.fixture
++def bd():
++    """Intercepta la transacción sin abrir una conexión a MySQL."""
++    cursor = MagicMock()
++    cursor.lastrowid = 12
++    with patch("src.backend.services.funciones.transaccion", return_value=nullcontext(cursor)) as tx, \
++         patch("src.backend.services.funciones.consultar") as consultar:
++        yield SimpleNamespace(cursor=cursor, tx=tx, consultar=consultar)
++
++
++def simular_alta(bd, sala_id=1, conflicto=None, resultado=None):
++    # SELECT sala; SELECT película; SELECT solapamiento; SELECT detalle tras INSERT.
++    bd.cursor.fetchone.side_effect = [
++        {"id": sala_id}, pelicula(), conflicto, detalle(sala_id=sala_id) if resultado is None else resultado,
++    ]
++
++
++def peticion(cliente_backend, cabeceras, metodo="POST", ruta=RUTA, cuerpo=None):
++    return cliente_backend.open(
++        ruta, method=metodo, json=datos() if cuerpo is None and metodo == "POST" else cuerpo,
++        headers=cabeceras,
++    )
++
++
++# --- Protección del backoffice ---
++@pytest.mark.parametrize("metodo,ruta", [
++    ("GET", RUTA), ("POST", RUTA), ("PUT", RUTA + "/12"), ("DELETE", RUTA + "/12"),
++])
++def test_sin_token_devuelve_401(cliente_backend, metodo, ruta):
++    assert cliente_backend.open(ruta, method=metodo).status_code == 401
++
++
++@pytest.mark.parametrize("metodo,ruta", [
++    ("GET", RUTA), ("POST", RUTA), ("PUT", RUTA + "/12"), ("DELETE", RUTA + "/12"),
++])
++def test_cliente_sin_rol_admin_devuelve_403(cliente_backend, cabeceras, usuario, metodo, ruta):
++    usuario["rol"] = "cliente"
++    assert cliente_backend.open(ruta, method=metodo, headers=cabeceras).status_code == 403
++
++
++# --- Alta y SQL de solapamiento ---
++def test_crear_funcion_valida_devuelve_201(cliente_backend, cabeceras, bd):
++    simular_alta(bd)
++    respuesta = peticion(cliente_backend, cabeceras)
++    assert respuesta.status_code == 201
++    assert respuesta.get_json()["id"] == 12
++    assert respuesta.get_json()["fecha_hora"] == INICIO.isoformat()
++    assert any("INSERT INTO funciones" in c.args[0] for c in bd.cursor.execute.call_args_list)
++
++
++def test_misma_sala_y_horarios_superpuestos_devuelve_409(cliente_backend, cabeceras, bd):
++    simular_alta(bd, conflicto={"id": 8})
++    respuesta = peticion(cliente_backend, cabeceras)
++    assert respuesta.status_code == 409
++    assert respuesta.get_json()["error"]["codigo"] == "FUNCION_SUPERPUESTA"
++    consultas = [c.args for c in bd.cursor.execute.call_args_list]
++    solapamiento = next((sql, params) for sql, params in consultas if "TIMESTAMPADD" in sql)
++    sql, parametros = solapamiento
++    # La duración de la función nueva es 120 + 15 minutos.
++    assert parametros == (1, INICIO + timedelta(minutes=135), 15, INICIO)
++    # Los extremos son estrictos: dos intervalos contiguos no se pisan.
++    assert "f.fecha_hora < %s" in sql
++    assert "TIMESTAMPADD(MINUTE, p.duracion_min + %s, f.fecha_hora) > %s" in sql
++    assert "f.activa = TRUE" in sql
++    assert not any("INSERT INTO funciones" in c.args[0] for c in bd.cursor.execute.call_args_list)
++
++
++def test_otra_sala_mismo_horario_devuelve_201(cliente_backend, cabeceras, bd):
++    simular_alta(bd, sala_id=2)
++    respuesta = peticion(cliente_backend, cabeceras, cuerpo=datos(sala_id=2))
++    assert respuesta.status_code == 201
++    sql, parametros = next(c.args for c in bd.cursor.execute.call_args_list if "TIMESTAMPADD" in c.args[0])
++    assert "f.sala_id = %s" in sql
++    assert parametros[0] == 2
++
++
++def test_funcion_contigua_tras_15_minutos_devuelve_201(cliente_backend, cabeceras, bd):
++    # Caso: la anterior va de 18:00 a 20:00, con margen hasta 20:15.
++    # No hay conflicto SQL para una nueva función que empieza exactamente a las 20:15.
++    simular_alta(bd)
++    nuevo_inicio = INICIO + timedelta(minutes=135)
++    respuesta = peticion(cliente_backend, cabeceras, cuerpo=datos(fecha_hora=nuevo_inicio.isoformat()))
++    assert respuesta.status_code == 201
++    sql, parametros = next(c.args for c in bd.cursor.execute.call_args_list if "TIMESTAMPADD" in c.args[0])
++    assert " > %s" in sql and " < %s" in sql
++    assert parametros[-1] == nuevo_inicio
++
++
++@pytest.mark.parametrize("cambio", [
++    {"precio": 0}, {"precio": -1}, {"precio": True}, {"precio": "5000"},
++    {"precio": 12.345}, {"pelicula_id": 0}, {"sala_id": "1"},
++    {"fecha_hora": "2020-01-01T12:00:00"}, {"fecha_hora": "mañana"},
++])
++def test_alta_con_datos_invalidos_devuelve_400(cliente_backend, cabeceras, bd, cambio):
++    respuesta = peticion(cliente_backend, cabeceras, cuerpo=datos(**cambio))
++    assert respuesta.status_code == 400
++    assert respuesta.get_json()["error"]["codigo"] == "DATOS_INVALIDOS"
++    bd.tx.assert_not_called()
++
++
++def test_alta_con_campos_faltantes_devuelve_400(cliente_backend, cabeceras, bd):
++    respuesta = peticion(cliente_backend, cabeceras, cuerpo={"pelicula_id": 3})
++    assert respuesta.status_code == 400
++    bd.tx.assert_not_called()
++
++
++def test_alta_fuera_de_disponibilidad_devuelve_400(cliente_backend, cabeceras, bd):
++    bd.cursor.fetchone.side_effect = [
++        {"id": 1}, pelicula(disponible_hasta=datetime(2099, 11, 1)),
++    ]
++    respuesta = peticion(cliente_backend, cabeceras)
++    assert respuesta.status_code == 400
++    assert not any("INSERT INTO funciones" in c.args[0] for c in bd.cursor.execute.call_args_list)
++
++
++@pytest.mark.parametrize("respuestas", [
++    [None],
++    [{"id": 1}, None],
++])
++def test_pelicula_o_sala_inexistente_devuelve_404(cliente_backend, cabeceras, bd, respuestas):
++    bd.cursor.fetchone.side_effect = respuestas
++    respuesta = peticion(cliente_backend, cabeceras)
++    assert respuesta.status_code == 404
++
++
++# --- Listado con filtros ---
++def test_listar_funciones_devuelve_200(cliente_backend, cabeceras, bd):
++    bd.consultar.return_value = [detalle()]
++    respuesta = peticion(cliente_backend, cabeceras, metodo="GET")
++    assert respuesta.status_code == 200
++    assert respuesta.get_json()[0]["precio"] == 5000.0
++    assert respuesta.get_json()[0]["activa"] is True
++
++
++def test_listar_filtra_por_local_y_fechas(cliente_backend, cabeceras, bd):
++    bd.consultar.return_value = []
++    respuesta = peticion(
++        cliente_backend, cabeceras, metodo="GET",
++        ruta=RUTA + "?local_id=2&desde=2099-11-01T00:00:00&hasta=2099-11-30T23:59:59",
++    )
++    assert respuesta.status_code == 200
++    sql, parametros = bd.consultar.call_args.args
++    assert "s.local_id = %s" in sql and "f.fecha_hora >= %s" in sql and "f.fecha_hora <= %s" in sql
++    assert parametros[0] == 2
++
++
++@pytest.mark.parametrize("filtro", [
++    "local_id=abc", "local_id=0", "desde=ayer",
++    "desde=2099-12-01T00:00:00&hasta=2099-11-01T00:00:00",
++])
++def test_listar_con_filtro_invalido_devuelve_400(cliente_backend, cabeceras, bd, filtro):
++    respuesta = peticion(cliente_backend, cabeceras, metodo="GET", ruta=RUTA + "?" + filtro)
++    assert respuesta.status_code == 400
++    bd.consultar.assert_not_called()
++
++
++# --- Modificación ---
++@pytest.mark.parametrize("cambio", [
++    {"sala_id": 2},
++    {"fecha_hora": (INICIO + timedelta(hours=2)).isoformat()},
++])
++def test_no_modificar_sala_ni_horario_con_entradas(cliente_backend, cabeceras, bd, cambio):
++    bd.cursor.fetchone.side_effect = [actual(), {"id": 50}]
++    respuesta = peticion(cliente_backend, cabeceras, metodo="PUT", ruta=RUTA + "/12", cuerpo=cambio)
++    assert respuesta.status_code == 409
++    assert respuesta.get_json()["error"]["codigo"] == "FUNCION_CON_ENTRADAS"
++    assert not any("UPDATE funciones" in c.args[0] for c in bd.cursor.execute.call_args_list)
++
++
++def test_modificar_precio_con_entradas_es_valido(cliente_backend, cabeceras, bd):
++    bd.cursor.fetchone.side_effect = [actual(), {"id": 50}, {"id": 1}, pelicula(), None, detalle(precio=Decimal("5500.00"))]
++    respuesta = peticion(cliente_backend, cabeceras, metodo="PUT", ruta=RUTA + "/12", cuerpo={"precio": 5500})
++    assert respuesta.status_code == 200
++    assert respuesta.get_json()["precio"] == 5500.0
++    sql, parametros = next(c.args for c in bd.cursor.execute.call_args_list if "TIMESTAMPADD" in c.args[0])
++    assert "f.id <> %s" in sql
++    assert parametros[-1] == 12
++
++
++def test_modificar_con_conflicto_devuelve_409(cliente_backend, cabeceras, bd):
++    bd.cursor.fetchone.side_effect = [actual(), None, {"id": 1}, pelicula(), {"id": 99}]
++    respuesta = peticion(cliente_backend, cabeceras, metodo="PUT", ruta=RUTA + "/12", cuerpo={"precio": 5200})
++    assert respuesta.status_code == 409
++    assert respuesta.get_json()["error"]["codigo"] == "FUNCION_SUPERPUESTA"
++
++
++def test_modificar_funcion_inexistente_devuelve_404(cliente_backend, cabeceras, bd):
++    bd.cursor.fetchone.return_value = None
++    respuesta = peticion(cliente_backend, cabeceras, metodo="PUT", ruta=RUTA + "/999", cuerpo={"precio": 5200})
++    assert respuesta.status_code == 404
++
++
++# --- Baja ---
++def test_eliminar_con_entradas_devuelve_409(cliente_backend, cabeceras, bd):
++    bd.cursor.fetchone.side_effect = [actual(), {"id": 50}]
++    respuesta = peticion(cliente_backend, cabeceras, metodo="DELETE", ruta=RUTA + "/12")
++    assert respuesta.status_code == 409
++    assert respuesta.get_json()["error"]["codigo"] == "FUNCION_CON_ENTRADAS"
++    assert not any("UPDATE funciones" in c.args[0] for c in bd.cursor.execute.call_args_list)
++
++
++def test_eliminar_sin_entradas_hace_baja_logica(cliente_backend, cabeceras, bd):
++    bd.cursor.fetchone.side_effect = [actual(), None]
++    respuesta = peticion(cliente_backend, cabeceras, metodo="DELETE", ruta=RUTA + "/12")
++    assert respuesta.status_code == 200
++    assert respuesta.get_json() == {"id": 12, "baja": "logica"}
++    assert any("UPDATE funciones SET activa = FALSE" in c.args[0] for c in bd.cursor.execute.call_args_list)
++
++
++def test_eliminar_inexistente_devuelve_404(cliente_backend, cabeceras, bd):
++    bd.cursor.fetchone.return_value = None
++    respuesta = peticion(cliente_backend, cabeceras, metodo="DELETE", ruta=RUTA + "/999")
++    assert respuesta.status_code == 404

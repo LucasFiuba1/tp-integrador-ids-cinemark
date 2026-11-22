@@ -4,7 +4,7 @@ Los endpoints de este módulo están listados en docs/endpoints.md.
 """
 from flask import Blueprint, jsonify, request
 
-from src.backend.services import cartelera, funciones, locales, servicios
+from src.backend.services import catalogos, cartelera, funciones, locales, servicios
 
 cartelera_bp = Blueprint("cartelera", __name__, url_prefix="/api")
 
@@ -14,9 +14,19 @@ def listar_locales():
     return jsonify(locales.listar_locales_publicos())
 
 
+@cartelera_bp.get("/catalogos/generos")
+def listar_generos():
+    return jsonify(catalogos.listar_generos())
+
+
+@cartelera_bp.get("/catalogos/clasificaciones")
+def listar_clasificaciones():
+    return jsonify(catalogos.listar_clasificaciones())
+
+
 @cartelera_bp.get("/cartelera")
 def obtener_cartelera():
-    return jsonify(cartelera.listar(request.args.get("local_id"), request.args.get("fecha")))
+    return jsonify(cartelera.listar(request.args))
 
 
 @cartelera_bp.get("/peliculas/<int:pelicula_id>")
