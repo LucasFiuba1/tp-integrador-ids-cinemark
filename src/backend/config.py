@@ -12,7 +12,6 @@ def _leer_booleano(nombre):
 def cargar_configuracion():
     """Devuelve un diccionario con la configuración de la app."""
     load_dotenv()
-    smtp_user = os.getenv("SMTP_USER", "")
     return {
         "SECRET_KEY": os.getenv("SECRET_KEY", "dev-solo-para-desarrollo"),
         "DB_HOST": os.getenv("DB_HOST", "localhost"),
@@ -24,10 +23,8 @@ def cargar_configuracion():
         "TMDB_API_KEY": os.getenv("TMDB_API_KEY", ""),
         "MINUTOS_RESERVA": int(os.getenv("MINUTOS_RESERVA", "10")),
         "HORAS_LIMITE_CANCELACION": int(os.getenv("HORAS_LIMITE_CANCELACION", "2")),
-        "SMTP_HOST": os.getenv("SMTP_HOST", ""),
-        "SMTP_PORT": int(os.getenv("SMTP_PORT", "587")),
-        "SMTP_USER": smtp_user,
-        "SMTP_PASSWORD": os.getenv("SMTP_PASSWORD", ""),
-        "MAIL_FROM": os.getenv("MAIL_FROM", "") or smtp_user or "no-responder@cineparadiso.local",
+        "MAILJET_API_KEY": os.getenv("MAILJET_API_KEY", "").strip(),
+        "MAILJET_SECRET_KEY": os.getenv("MAILJET_SECRET_KEY", "").strip(),
+        "MAIL_FROM": os.getenv("MAIL_FROM", "").strip(),
         "FRONTEND_URL": os.getenv("FRONTEND_URL", "http://localhost:5001").rstrip("/"),
     }

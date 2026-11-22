@@ -45,7 +45,7 @@ Los valores por defecto siguientes son los del código cuando falta una variable
 | `DB_NAME` | Nombre de la base. | `cine_paradiso` en local; en hosting puede tener un prefijo obligatorio. |
 | `TMDB_API_KEY` | Consulta y búsqueda de películas en TMDB desde el backend. | API key **v3**, no el token de lectura. Sin clave, la importación devuelve `TMDB_NO_DISPONIBLE`; el seed no necesita consultar TMDB. |
 | `MINUTOS_RESERVA` | Minutos hasta que vence una reserva pendiente. | `10`; usar un entero positivo. Se usa al crear la reserva. |
-| `HORAS_LIMITE_CANCELACION` | Configuración prevista del límite de cancelación antes de una función. | `2`; entero positivo. En esta versión se lee la variable, pero no hay todavía un flujo completo de cancelación que garantice aplicarla. |
+| `HORAS_LIMITE_CANCELACION` | Límite de cancelación antes de una función. | `2`; entero positivo. Se aplica al cancelar desde el perfil o el enlace del email. |
 
 ### Frontend
 
@@ -56,18 +56,69 @@ Los valores por defecto siguientes son los del código cuando falta una variable
 
 El frontend no se conecta directamente a MySQL ni consulta TMDB. No necesita esas credenciales si se despliega por separado. La cookie está **firmada, no cifrada**: no guardar contraseñas ni claves de servicios en la sesión.
 
-### Correo (SMTP)
+### Correo (Mailjet por HTTPS)
 
 | Variable | Para qué sirve | Valor |
 |---|---|---|
-| `SMTP_HOST` | Servidor de salida de correo. | Por ejemplo, `smtp.gmail.com`; default del código: vacío (no envía y deja un aviso en el log). |
-| `SMTP_PORT` | Puerto SMTP. | La plantilla usa `587` (STARTTLS si el servidor lo anuncia); con `465` se usa TLS directo (`SMTP_SSL`). |
-| `SMTP_USER` | Usuario/cuenta que envía el correo. | Dirección de correo o usuario entregado por el proveedor. |
-| `SMTP_PASSWORD` | Credencial SMTP. | En Gmail, contraseña de aplicación, **no** contraseña normal de la cuenta. |
-| `MAIL_FROM` | Dirección que figura como remitente (`From`). | Si se deja vacía, usa `SMTP_USER`. |
-| `FRONTEND_URL` | Dirección pública del sitio del cliente (sin `/` al final). | `http://localhost:5001` en local; se usa para el enlace "Cancelar compra" del email y para la URL `/admin/ingreso?token=...` que codifica el QR. |
+| `MAILJET_API_KEY` | API key de Mailjet (usuario de la autenticación HTTPS). | Vacía por defecto: no se intenta enviar. |
+| `MAILJET_SECRET_KEY` | Secret key de Mailjet (contraseña de la autenticación HTTPS). | Vacía por defecto; guardar ambas claves solo en el backend privado. |
+| `MAIL_FROM` | Dirección que figura como remitente. | Debe estar verificada y autorizada en Mailjet; vacía por defecto, sin remitente automático. |
+| `FRONTEND_URL` | Dirección pública del sitio del cliente (sin `/` al final). | `http://localhost:5001` en local; se usa para el enlace "Cancelar compra" del email y para la URL `/entrada?token=...` que codifica el QR. |
 
-Para Gmail: activar verificación en dos pasos y crear una [contraseña de aplicación](https://myaccount.google.com/apppasswords). No todas las cuentas permiten hacerlo; ver [ayuda de Google](https://support.google.com/accounts/answer/185833). No pegar esa credencial en issues, chats ni capturas.
+El backend usa `POST https://api.mailjet.com/v3.1/send` con un tiempo máximo de
+espera de 10 segundos, sin reintentos automáticos ni redirecciones. No necesita
+SMTP, que Render Free bloquea. Las variables `SMTP_*` y `BREVO_API_KEY` ya no se usan.
+Se reemplazó Brevo porque su API transaccional no documenta soporte para imágenes
+embebidas por Content-ID. Mailjet permite incluir el QR en el mensaje sin alojarlo
+en una URL pública.
+
+**Activar el correo:**
+
+1. Crear una cuenta en [Mailjet](https://www.mailjet.com/) y seleccionar únicamente
+   el plan **Free**, sin tarjeta, trial ni upgrades. Su documentación anuncia
+   200 emails diarios y 6000 por mes; confirmar la cuota y el importe $0 en la cuenta antes de usarla.
+2. En la configuración de remitentes, agregar la dirección que se usará como
+   `MAIL_FROM` y completar su verificación. Revisar también que la cuenta tenga
+   autorizado el envío transaccional. La verificación previa en Brevo no se traslada
+   a Mailjet. El proveedor puede exigir autenticación del dominio por sus reglas
+   o por DMARC; verificar una casilla no garantiza que cualquier
+   dirección pueda usarse como remitente.
+3. Obtener **API key y Secret key** en
+   [API Key Management](https://app.mailjet.com/account/api_keys). Guardarlas en
+   `MAILJET_API_KEY` y `MAILJET_SECRET_KEY` del `.env` privado o del panel del backend;
+   nunca en el frontend, Git, capturas ni logs. La secret key puede mostrarse una sola vez.
+4. En Render, cargar `MAILJET_API_KEY`, `MAILJET_SECRET_KEY` y `MAIL_FROM` en el servicio de la API.
+   `render.yaml` los declara con `sync: false`, pero no contiene los valores.
+   Revisar que `FRONTEND_URL` sea la URL pública real del sitio y reiniciar/desplegar
+   el backend con esta versión. Las variables de un servicio existente pueden
+   requerir carga manual en el panel.
+5. Con una cuenta cliente cuya casilla puedas revisar, confirmar una compra para
+   una función a más de `HORAS_LIMITE_CANCELACION` horas. Comprobar en la casilla
+    (incluido spam) el detalle, un único QR visible dentro de la tarjeta y el enlace
+   de cancelación. Abrir ese enlace, confirmar la cancelación y comprobar el
+   segundo email. Verificar también que se liberen las butacas y se invalide el QR.
+
+El QR se incrusta mediante `InlinedAttachments` con `ContentID`, referenciado por
+`cid:` en el HTML. No se agrega una copia en `Attachments`, porque algunos clientes
+la muestran debajo del mensaje y duplican visualmente el QR. No se usa una URL
+pública ni una imagen base64 dentro del HTML. Si el cliente oculta imágenes,
+habilitar la visualización del contenido HTML. El aviso de cancelación no incluye QR. Un fallo del
+proveedor no revierte una compra confirmada ni una cancelación; en la confirmación
+se informa `email_enviado: false`. `email_enviado: true` indica aceptación del
+proveedor, **no recepción en la casilla**. Revisar la entrega y los registros de
+Mailjet, incluidos rechazos, remitente sin autorización y cuota agotada.
+
+**Pruebas locales:** `python -m pytest src/tests/test_correo.py src/tests/test_cancelar_api.py -q`
+usa mocks y no manda correos. Hay una prueba de envío real optativa en
+`src/tests/test_correo.py`: con las credenciales configuradas, definir
+`MAILJET_PRUEBA_DESTINO` en el entorno y ejecutar únicamente
+`test_envio_real_a_casilla_configurada`. Esa prueba envía un mail de ejemplo,
+consume cuota y verifica la aceptación de la API, no la llegada ni una compra real.
+No habilitarla en CI ni al correr la suite habitual.
+
+Fuentes: [referencia oficial de Send API y adjuntos](https://dev.mailjet.com/_bundle/openapi/openapi-mailjet.yaml),
+[validación del remitente](https://dev.mailjet.com/docs/email-api/senders-domains/sender-validation)
+y [límites de Free](https://documentation.mailjet.com/hc/en-us/articles/19154256993051-Changes-to-Our-Free-Plan).
 
 ## 3. Generar las dos claves de la aplicación
 
@@ -135,10 +186,10 @@ Verificar `http://localhost:5000/api/salud` y abrir `http://localhost:5001`. El 
 | MySQL: conexión rechazada | Servidor encendido, host/puerto, red y restricciones del proveedor. |
 | `TMDB_NO_DISPONIBLE` | Clave v3 correcta, reinicio, salida HTTPS y disponibilidad del proveedor. |
 | `BACKEND_NO_DISPONIBLE` en el sitio | API activa y `BACKEND_URL` accesible **desde el servidor del frontend**. `localhost` allí no es tu computadora. |
-| `ValueError` al arrancar | `DB_PORT`, `SMTP_PORT` y tiempos deben ser enteros. |
+| `ValueError` al arrancar | `DB_PORT` y tiempos deben ser enteros. |
 | Cambié .env y nada cambió | Reiniciar; revisar variables exportadas/panel, que tienen prioridad sobre el archivo. |
 | Sesión inválida después de actualizar | Claves rotadas o instancias con claves diferentes; unificar por servicio y volver a ingresar. |
-| No llega el email | El envío todavía no está implementado; completar SMTP no lo habilita. |
+| No llega el email | Revisar ambas claves de Mailjet, `MAIL_FROM` autorizado, cuota, logs del backend y del proveedor y carpeta de spam. Ver [Correo](#correo-mailjet-por-https); aceptación no significa entrega. |
 
 No imprimir `.env`, subirlo a Git, enviarlo al grupo ni incluirlo en logs. Comprobar sin mostrar su contenido:
 

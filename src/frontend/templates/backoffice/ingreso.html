@@ -1,5 +1,6 @@
 {# Validar ingreso (SCRUM-74, Figma B6 desktop y M2 mobile): una sola vista para el QR escaneado y el código pegado.
-   El QR abre /admin/ingreso?token=...: el campo llega cargado y recién el botón "Validar" (POST) gasta la entrada.
+   El QR abre /entrada?token=..., que para un admin envía acá el token y la función; también se puede abrir
+   /admin/ingreso?token=... o pegar el código. Recién el botón "Validar" (POST) gasta la entrada.
    funciones son opciones {"valor", "texto"} con las funciones de hoy; formulario, {"funcion_id", "token"};
    resultado, none hasta validar, o {"valido": true, "pelicula", "butacas", "compra_id"} (respuesta de
    POST /api/admin/ingresos/validar) o {"valido": false, "motivo", "mensaje"} si la API rechazó el QR;

@@ -93,8 +93,10 @@ que las cinco entradas inválidas son rechazadas por CHECK (error 3819) y que
    - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`: conexión real de
      TiDB, no `localhost` ni credenciales de desarrollo.
    - `DB_SSL=true`: el blueprint ya lo define; verifica certificado y hostname.
-   - `TMDB_API_KEY`: clave de TMDB si se usará la importación de películas.
-     Puede quedar vacía para una demo que solo use películas ya cargadas.
+    - `TMDB_API_KEY`: clave de TMDB si se usará la importación de películas.
+      Puede quedar vacía para una demo que solo use películas ya cargadas.
+    - `MAILJET_API_KEY`, `MAILJET_SECRET_KEY` y `MAIL_FROM`: ambas claves privadas y
+      remitente autorizado de Mailjet Free. Seguir [Correo](entorno.md#correo-mailjet-por-https); no configurar SMTP.
 4. Completar `BACKEND_URL` del frontend con la URL **pública HTTPS** de la API,
    sin `/api` al final. Render puede agregar un sufijo al nombre del servicio;
    copiar la URL real del panel y corregir la variable si hace falta.
@@ -112,10 +114,12 @@ claves secretas fuertes. Luego verificar la URL real del backend.
 - `GET https://<api>/api/salud` debe responder `200` con `{"estado":"ok"}`.
   Esta ruta no consulta MySQL: por sí sola **no verifica la base**.
 - `GET https://<api>/api/cartelera` debe devolver las películas de la base
-  remota. La portada de la versión actual de `develop` solo muestra el estado
-  de la API: desplegarla no implementa la pantalla de cartelera pendiente.
+  remota, y la portada del sitio debe mostrar la cartelera sin avisos de conexión.
 - Probar login y cierre de sesión con un usuario exclusivo de la demo.
 - Verificar que `/admin` no sea accesible sin una sesión con rol administrador.
+- Confirmar una compra y revisar el email con un único QR dentro de la tarjeta; cancelar desde el
+  enlace del correo y revisar el aviso de cancelación. La aceptación de la API
+  de Mailjet no acredita recepción: verificar ambas casillas y los logs del proveedor.
 - Esperar a que los servicios se duerman y verificar la primera visita:
   puede tardar alrededor de un minuto. El frontend permite 90 segundos de
   espera por petición al backend; no reintenta automáticamente compras.
@@ -136,10 +140,11 @@ python -m pytest src/tests -q
 - TiDB Free limita almacenamiento y Request Units; al agotar la cuota aplica
   throttling. No convertir la instancia a Scalable para resolverlo sin revisar
   costos y obtener autorización.
-- Render Free bloquea SMTP en los puertos 25, 465 y 587. **Los emails de compra
-  no quedan operativos con la configuración SMTP habitual**. No afirmar que
-  el flujo completo de compra funciona hasta verificar cómo maneja la app esa
-  limitación. Un proveedor de email por HTTPS requeriría otra integración.
+- Render Free bloquea SMTP en los puertos 25, 465 y 587. Esta versión envía los
+  emails de compra y cancelación por HTTPS con Mailjet, sin esos puertos. Requiere
+  API key, remitente autorizado y cuota disponible; no afirmar entrega real sin
+  repetir la verificación en el sitio publicado. Usar únicamente Mailjet Free y
+  detenerse si pide contratar un plan o agregar una tarjeta.
 - Esto es un deploy de demostración, no una garantía de disponibilidad para
   producción. No usarlo para ventas reales.
 

@@ -1,15 +1,29 @@
 {% extends "email/base.html" %}
 
 {% block titulo %}Compra #{{ compra.id }} confirmada · Cine Paradiso{% endblock %}
-{% block encabezado %}¡Compra confirmada!{% endblock %}
-{% block bajada %}Hola {{ cliente.nombre }}, acá tenés tu factura y el código QR para presentar al ingresar a la sala.{% endblock %}
+{% block encabezado %}¡Tu compra está confirmada!{% endblock %}
+{% block bajada %}Hola{% if cliente.nombre %} {{ cliente.nombre }}{% endif %}, estos son los datos de tu compra #{{ compra.id }}. No tiene validez fiscal.{% endblock %}
 
 {% block antes_detalle %}
-  <img class="qr" src="cid:{{ qr_cid }}" alt="Código QR de ingreso de la compra #{{ compra.id }}">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;">
+    <tr>
+      <td align="center" style="padding:0;">
+        <img src="cid:{{ qr_cid }}" alt="Código QR de ingreso de la compra #{{ compra.id }}" width="200" height="200"
+          style="display:block;width:200px;max-width:100%;height:auto;margin:0 auto;border:0;background-color:#ffffff;">
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:16px 0 0;font-family:{{ fuente_texto }};font-size:14px;line-height:22px;color:#6b645c;">
+        Presentá este QR en el ingreso a la sala. Es válido una sola vez.
+      </td>
+    </tr>
+  </table>
 {% endblock %}
 
-{% block pie %}
-  <p class="nota">Podés cancelar tu compra hasta {{ config.HORAS_LIMITE_CANCELACION }} horas antes de la función
-    (hasta las {{ compra.cancelable_hasta | fecha_hora }}). Al cancelar se liberan las butacas y el QR deja de ser válido.</p>
-  <p><a class="boton" href="{{ enlace_cancelacion }}">Cancelar compra</a></p>
-{% endblock %}
+{% block boton_url %}{{ enlace_cancelacion }}{% endblock %}
+{% block boton_texto %}Cancelar compra{% endblock %}
+
+{% block pie -%}
+  Podés cancelar hasta {{ config.HORAS_LIMITE_CANCELACION }} horas antes de la función (hasta las {{ compra.cancelable_hasta | fecha_hora }}).
+  Al cancelar se liberan las butacas y el QR deja de ser válido.
+{%- endblock %}

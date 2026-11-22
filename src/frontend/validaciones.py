@@ -111,7 +111,7 @@ def _error_token_qr(token):
 
 
 def token_del_qr(texto):
-    """El QR de la entrada es la URL /admin/ingreso?token=... Si el lector (o el admin) pega la URL entera, se usa
+    """El QR de la entrada es la URL /entrada?token=... Si el lector (o el admin) pega la URL entera, se usa
     solo el token; cualquier otro texto se devuelve tal cual para que lo valide el backend (SCRUM-81)."""
     partes = urlsplit(texto)
     if partes.scheme in ("http", "https"):

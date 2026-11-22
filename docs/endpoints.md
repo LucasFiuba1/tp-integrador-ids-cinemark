@@ -20,8 +20,21 @@ Backend Flask en `http://localhost:5000`. Todas las respuestas son JSON.
 | 401 | Sin token o token inválido/vencido |
 | 403 | El rol no tiene permiso o el recurso es de otro usuario |
 | 404 | Recurso inexistente |
+| 405 | Verbo HTTP no permitido para esa ruta |
 | 409 | Conflicto con una regla de negocio (butaca ocupada, funciones superpuestas, fuera de plazo…) |
 | 500 | Error inesperado |
+| 502 | TMDB no disponible (falta `TMDB_API_KEY`, error de red o respuesta de error del proveedor) |
+
+Códigos genéricos que puede devolver cualquier endpoint (los arma `src/backend/errores.py`):
+| HTTP | Código | Cuándo |
+|---|---|---|
+| 400 | `DATOS_INVALIDOS` | Cuerpo o parámetros inválidos. |
+| 401 | `NO_AUTENTICADO` | Falta el header `Authorization: Bearer <token>` en un endpoint protegido. |
+| 401 | `TOKEN_INVALIDO` | El token tiene una firma inválida o venció. |
+| 403 | `SIN_PERMISO` | El rol no alcanza o el recurso es de otro usuario. |
+| 404 | `NO_ENCONTRADO` | Ruta o recurso inexistente. |
+| 405 | `METODO_NO_PERMITIDO` | La ruta existe pero no con ese verbo. |
+| 500 | `ERROR_INTERNO` | Error inesperado (el detalle queda en el log, no en la respuesta). |
 
 ### Filtros de los listados
 
@@ -52,7 +65,7 @@ Un parámetro **vacío** (`?local_id=`) se trata según el listado:
 |---|---|---|---|
 | POST | `/api/auth/registro` | 🌐 | Registra un cliente nuevo. |
 | POST | `/api/auth/login` | 🌐 | Inicia sesión y devuelve el token. |
-| GET | `/api/auth/me` | 👤 | Datos del usuario logueado. |
+| GET | `/api/auth/me` | 👤 🛠️ | Datos del usuario logueado. |
 
 ```http
 POST /api/auth/registro
@@ -163,6 +176,7 @@ Solo devuelve los servicios activos (los dados de baja no aparecen), ordenados p
 | POST | `/api/compras/<id>/confirmar` | 👤 | Checkout con pago simulado: confirma, genera el QR y envía el email con la factura. |
 | GET | `/api/compras/<id>` | 👤 🛠️ | Detalle de una compra propia (el admin puede ver cualquiera); incluye el QR si está confirmada. |
 | GET | `/api/compras/por-token?token=` | 🌐 | Detalle de la compra identificada por el token firmado del enlace del email (sin requerir sesión). |
+| GET | `/api/compras/por-qr?token=` | 🌐 | Entrada identificada por el token firmado del QR: datos básicos para cualquiera; compra completa para el comprador y el admin. |
 | POST | `/api/compras/<id>/cancelar` | 👤 | Cancela una compra propia dentro del plazo permitido. |
 | POST | `/api/compras/cancelar-por-token` | 🌐 | Cancela desde el enlace del email (el token firmado identifica la compra). |
 
@@ -214,7 +228,7 @@ El `total` se recalcula al confirmar (entradas activas + servicios de la compra)
 { "id": 88, "estado": "confirmada", "total": 23000.00, "qr_png_base64": "iVBORw0...", "email_enviado": true }
 ```
 
-`qr_png_base64` es el QR de ingreso: codifica `<FRONTEND_URL>/admin/ingreso?token=<token_qr>` (el mismo `token_qr` que valida `POST /api/admin/ingresos/validar`), así la cámara del celular abre directo la pantalla de validación del backoffice.
+`qr_png_base64` es el QR de ingreso: codifica `<FRONTEND_URL>/entrada?token=<token_qr>` (el mismo `token_qr` que valida `POST /api/admin/ingresos/validar`). Al escanearlo con la cámara del celular se abre la página de la entrada (`GET /api/compras/por-qr`): cualquiera ve los datos básicos, el comprador ve su compra completa y el admin, además, puede validar el ingreso.
 
 ```http
 GET /api/compras/88
@@ -233,7 +247,42 @@ GET /api/compras/88
 
 `estado` es `pendiente`, `confirmada`, `cancelada` o `vencida`; una `pendiente` cuyo `vence_en` ya pasó se informa como `vencida` aunque la base todavía no se haya actualizado. `vence_en` solo tiene valor en las pendientes en plazo y `qr_png_base64` solo en las confirmadas. `cancelable` y `cancelable_hasta` se calculan igual que en el perfil. Errores: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (un cliente pidiendo una compra ajena). `GET /api/compras/por-token` devuelve el mismo detalle.
 
-Errores de confirmación: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `COMPRA_NO_PENDIENTE` · 409 `RESERVA_VENCIDA` (libera las butacas). Si el envío por SMTP falla, la compra queda confirmada igual con `"email_enviado": false`.
+```http
+GET /api/compras/por-qr?token=eyJjb21wcmFfaWQiOjg4fQ.firma
+
+200 OK   (sin sesión, o un cliente que no hizo la compra)
+{
+  "vista": "publica", "estado": "valida", "pelicula": "Volver al futuro", "poster_url": "https://image.tmdb.org/...",
+  "local": "Paradiso Centro", "sala": "Sala 1", "funcion": "2026-11-12T20:30:00", "butacas": ["F7", "F8"]
+}
+
+200 OK   (Authorization del cliente que hizo la compra)
+{
+  "vista": "comprador", "estado": "valida", "pelicula": "Volver al futuro", "...": "mismos datos básicos",
+  "id": 88, "cantidad_entradas": 2, "servicios": [{"servicio_id": 3, "nombre": "Pochoclo grande", "cantidad": 1,
+  "precio_unitario": 5000.0, "subtotal": 5000.0}], "total": 23000.0, "estado_pago": "pagado",
+  "utilizada_en": null, "cancelada_en": null
+}
+```
+
+Pública a propósito, como las rutas por token del email: la protege la firma del token del QR (un token de
+cancelación no sirve acá ni al revés). El `Authorization` es **opcional**: si viene un token de sesión válido, el
+backend decide qué devolver; si falta o no sirve, responde la vista pública (nunca 401).
+
+| `vista` | Quién | Qué agrega |
+|---|---|---|
+| `publica` | Sin sesión, o un cliente que **no** hizo la compra | Solo película, local, sala, función, butacas y estado. Sin datos personales ni de pago. |
+| `comprador` | El cliente que hizo la compra | N.º de operación (`id`), `cantidad_entradas`, servicios, `total`, `estado_pago` (`pagado`, `anulado`, `pendiente`), `utilizada_en` y `cancelada_en`. |
+| `admin` | Administrador | Lo mismo que el comprador más `titular` (nombre completo). Valida con `POST /api/admin/ingresos/validar`. |
+
+`estado` es `valida`, `utilizada`, `cancelada`, `vencida` (la función ya terminó: inicio + duración de la película)
+o `pendiente` (compra sin pagar). La firma alcanza para informar también una compra cancelada, que ya no tiene
+`token_qr`. Ninguna vista devuelve el email, el QR ni los datos para cancelar. Errores: 400 `TOKEN_INVALIDO`
+(falta o la firma no es válida) · 404 `NO_ENCONTRADO`.
+
+Errores de confirmación: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `COMPRA_NO_PENDIENTE` · 409 `RESERVA_VENCIDA` (libera las butacas). Si el envío por la API HTTPS de Mailjet falla o falta su configuración, la compra queda confirmada igual con `"email_enviado": false`. Un valor `true` indica aceptación del proveedor, no entrega en la casilla. La factura incluye un único QR embebido por Content-ID y el enlace firmado de cancelación, sin copia adjunta del QR.
+
+Al cancelar desde el perfil o por token, se intenta enviar el aviso al dueño de la compra **después del commit**. No incluye QR. Un fallo al preparar el aviso o enviarlo no revierte la cancelación, la liberación de butacas ni la invalidación del QR. La respuesta conserva `{"id": 88, "estado": "cancelada"}`; no informa el resultado del correo. Una cancelación rechazada no envía avisos.
 
 Errores de cancelación: 400 `TOKEN_INVALIDO` (en las rutas por token, cuando falta o la firma no es válida) · 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `FUERA_DE_PLAZO` · 409 `YA_CANCELADA` · 409 `YA_UTILIZADA` · 409 `COMPRA_NO_CONFIRMADA`.
 
@@ -241,8 +290,8 @@ Errores de cancelación: 400 `TOKEN_INVALIDO` (en las rutas por token, cuando fa
 
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
-| GET | `/api/me/compras` | 👤 | Historial de compras (entradas, servicios, total, estado, si es cancelable). |
-| GET | `/api/me/peliculas-vistas` | 👤 | Películas cuyo QR fue validado en el ingreso. |
+| GET | `/api/me/compras` | 👤 🛠️ | Historial de compras (entradas, servicios, total, estado, si es cancelable). |
+| GET | `/api/me/peliculas-vistas` | 👤 🛠️ | Películas cuyo QR fue validado en el ingreso. |
 
 El usuario sale del token: no hay parámetros. El historial incluye compras `confirmada` y `cancelada`, más las `pendiente` que todavía no vencieron (para poder pagarlas desde el perfil); las `vencida` nunca se pagaron y no aparecen. `vence_en` solo tiene valor en las pendientes. `token_qr` es `null` si la compra no está confirmada. `cancelable_hasta` es la fecha de la función menos `HORAS_LIMITE_CANCELACION`, y `cancelable` es `true` solo si la compra está confirmada, sin usar y todavía no pasó ese límite.
 
@@ -303,6 +352,11 @@ POST /api/admin/peliculas
 { "id": 3, "titulo": "Volver al futuro", "duracion_min": 116, "genero": "Ciencia ficción" }
 ```
 
+Errores de TMDB e importación: 502 `TMDB_NO_DISPONIBLE` (falta `TMDB_API_KEY`, no se pudo consultar TMDB o devolvió
+un error) · 404 `TMDB_NO_ENCONTRADA` (el `tmdb_id` no existe en TMDB) · 409 `PELICULA_DUPLICADA` (ya fue importada) ·
+409 `PELICULA_INCOMPLETA` (TMDB no tiene duración o género). Todos los endpoints de esta sección devuelven 401
+`NO_AUTENTICADO` sin token y 403 `SIN_PERMISO` si el rol no es admin.
+
 ```http
 PATCH /api/admin/peliculas/3
 { "disponible_hasta": "2027-01-31T00:00:00" }
@@ -324,6 +378,11 @@ PATCH /api/admin/peliculas/3
 | GET | `/api/admin/salas/<id>` | 🛠️ | Detalle de la sala con su grilla de butacas. |
 | PUT | `/api/admin/salas/<id>` | 🛠️ | Modifica una sala; achicarla no se permite con funciones futuras ni con entradas vendidas en las butacas que se quitan. |
 | DELETE | `/api/admin/salas/<id>` | 🛠️ | Baja lógica (no si tiene funciones futuras). |
+
+Errores: 400 `DATOS_INVALIDOS` · 404 `NO_ENCONTRADO` · 409 `LOCAL_DUPLICADO` (mismo nombre o dirección) ·
+409 `LOCAL_CON_SALAS` / `LOCAL_CON_HISTORIAL` (`DELETE` de un local) · 409 `SALA_DUPLICADA` (mismo nombre en el
+local) · 409 `SALA_CON_FUNCIONES` (reducir o dar de baja una sala con funciones futuras) · 409
+`BUTACAS_CON_ENTRADAS` (achicar una sala que tiene entradas vendidas en las butacas que se quitarían).
 
 ```http
 POST /api/admin/salas
@@ -349,6 +408,9 @@ GET /api/admin/salas/6
 | POST | `/api/admin/funciones` | 🛠️ | Programa una función (valida superposición y período). |
 | PUT | `/api/admin/funciones/<id>` | 🛠️ | Modifica una función sin entradas vendidas. |
 | DELETE | `/api/admin/funciones/<id>` | 🛠️ | Da de baja una función sin entradas vendidas. |
+
+Errores: 400 `DATOS_INVALIDOS` · 404 `NO_ENCONTRADO` · 409 `FUNCION_SUPERPUESTA` (la sala ya tiene otra función en ese
+horario) · 409 `FUNCION_CON_ENTRADAS` (`PUT` que cambia sala u horario, o `DELETE`, con entradas registradas).
 
 ```http
 POST /api/admin/funciones

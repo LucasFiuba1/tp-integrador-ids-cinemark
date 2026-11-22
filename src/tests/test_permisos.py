@@ -21,7 +21,8 @@ ADMIN = ("admin",)
 CLIENTE_Y_ADMIN = ("cliente", "admin")
 
 # (método, ruta de ejemplo, regla de Flask, roles que la pueden usar). PUBLICO = no pide sesión.
-# Las dos rutas "por-token" son públicas a propósito: las protege el token firmado del email (docs/endpoints.md).
+# Las rutas "por-token" y "por-qr" son públicas a propósito: las protege el token firmado del email o del QR
+# (docs/endpoints.md).
 MATRIZ = [
     ("GET", "/api/salud", "/api/salud", PUBLICO),
     ("POST", "/api/auth/registro", "/api/auth/registro", PUBLICO),
@@ -41,6 +42,7 @@ MATRIZ = [
     ("POST", "/api/compras/1/confirmar", "/api/compras/<int:compra_id>/confirmar", CLIENTE),
     ("POST", "/api/compras/1/cancelar", "/api/compras/<int:compra_id>/cancelar", CLIENTE),
     ("GET", "/api/compras/por-token", "/api/compras/por-token", PUBLICO),
+    ("GET", "/api/compras/por-qr", "/api/compras/por-qr", PUBLICO),
     ("POST", "/api/compras/cancelar-por-token", "/api/compras/cancelar-por-token", PUBLICO),
     ("GET", "/api/me/compras", "/api/me/compras", CLIENTE_Y_ADMIN),
     ("GET", "/api/me/peliculas-vistas", "/api/me/peliculas-vistas", CLIENTE_Y_ADMIN),
@@ -118,13 +120,13 @@ def test_matriz_cubre_todos_los_endpoints_de_la_api(app_backend):
     assert en_matriz - registrados == set(), "MATRIZ tiene endpoints que ya no existen."
 
 
-def test_solo_salud_login_registro_cartelera_y_tokens_del_email_son_publicos():
+def test_solo_salud_login_registro_cartelera_y_tokens_firmados_son_publicos():
     publicos = {ruta for _, ruta, _, roles in MATRIZ if roles == PUBLICO}
     assert publicos == {
         "/api/salud", "/api/auth/registro", "/api/auth/login", "/api/locales", "/api/cartelera",
         "/api/catalogos/generos", "/api/catalogos/clasificaciones",
         "/api/peliculas/1", "/api/funciones/1", "/api/funciones/1/butacas", "/api/servicios",
-        "/api/compras/por-token", "/api/compras/cancelar-por-token",
+        "/api/compras/por-token", "/api/compras/cancelar-por-token", "/api/compras/por-qr",
     }
 
 

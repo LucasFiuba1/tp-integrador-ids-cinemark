@@ -28,7 +28,7 @@ La documentación permite múltiples sitios en una cuenta, también en Free. La 
 - Usar la dirección gratuita de la cuenta `CUENTA.alwaysdata.net`: Free no permite sitios con dominio propio. No crear varias cuentas gratuitas para repartir los componentes.
 - No vender entradas reales ni recibir pagos: el plan no admite uso comercial. Esta receta es para datos ficticios y pago simulado.
 - Sin tarjeta/pagos, alwaysdata documenta un [modo restringido](https://help.alwaysdata.com/en/docs/admin-billing/profile/restricted-mode/) con filtros HTTP y limitaciones de envío SMTP. Probar TMDB y las llamadas del frontend a la API. Si una restricción bloquea el TP, detenerse antes de contratar nada.
-- El envío SMTP de la aplicación **todavía no está implementado**. No prometer factura/QR por email por el solo hecho de configurar el hosting.
+- El correo usa Mailjet por HTTPS, no SMTP. Ver [configuración de correo](entorno.md#correo-mailjet-por-https) y comprobar que el hosting permita acceder a `api.mailjet.com`; no prometer entrega por el solo hecho de cargar las variables.
 
 ### Por qué no usar directamente otras ofertas gratuitas
 
@@ -70,7 +70,7 @@ Si una versión fijada de una dependencia no está disponible o no soporta el Py
 
 Hay dos alternativas: variables del panel de cada sitio WSGI o un `.env` privado. Preferir el panel si permite separar los secretos por servicio.
 
-- **Backend:** `SECRET_KEY`, todas las `DB_*`, `TMDB_API_KEY`, `MINUTOS_RESERVA`, `HORAS_LIMITE_CANCELACION`, `FRONTEND_URL` (la URL pública del sitio: la usan el QR y el enlace de cancelación); `SMTP_*` cuando exista la implementación.
+- **Backend:** `SECRET_KEY`, todas las `DB_*`, `TMDB_API_KEY`, `MINUTOS_RESERVA`, `HORAS_LIMITE_CANCELACION`, `FRONTEND_URL` (la URL pública del sitio: la usan el QR y el enlace de cancelación), `MAILJET_API_KEY`, `MAILJET_SECRET_KEY` y `MAIL_FROM` autorizado en Mailjet.
 - **Frontend:** `FRONTEND_SECRET_KEY`, `BACKEND_URL`.
 - Generar dos claves **nuevas para este deploy**, como indica [la guía del entorno](entorno.md#3-generar-las-dos-claves-de-la-aplicación). No copiar las de un compañero.
 - Usar HTTPS en `BACKEND_URL`, sin `/api` al final. Si la API se publica en `https://CUENTA.alwaysdata.net/api`, la base es `https://CUENTA.alwaysdata.net`: las rutas de la aplicación ya empiezan por `/api`.
@@ -318,7 +318,7 @@ Mantener activa la cuenta: alwaysdata puede suspender Free por no entrar al pane
 ## 8. Límites y pendientes de esta versión
 
 - Esta guía prepara una demo; no certifica que sea apta para manejar clientes reales, cobros ni datos sensibles.
-- El correo está pendiente. El proveedor puede restringir SMTP; completar variables no elimina esa restricción. Probar Gmail/STARTTLS cuando se implemente, sin pagar para desbloquearlo automáticamente.
+- Los mails de compra y cancelación están integrados con Mailjet por HTTPS. Falta configurar y comprobar la entrega en cada despliegue; usar Free y no pagar para desbloquearlo automáticamente. Seguir [la guía de correo](entorno.md#correo-mailjet-por-https).
 - El alcance declarado incluye QR, pago y cancelaciones, pero no todos los flujos están implementados en esta rama. Verificar el código y las pruebas del commit que se publique.
 - Revisar protección CSRF, manejo de proxies, revocación de sesiones, permisos de base y política de backups antes de una publicación productiva. El wrapper no implementa esas funciones.
 - No exponer MySQL públicamente más de lo requerido; no usar `root` como usuario de aplicación ni compartir credenciales entre ambientes.
@@ -334,4 +334,4 @@ Consultadas para esta guía; confirmar límites y disponibilidad en la cuenta an
 - [alwaysdata: restricciones de Free y suspensión por inactividad](https://help.alwaysdata.com/en/docs/admin-billing/profile/suspension/).
 - [PythonAnywhere: límites gratuitos](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/).
 - [Render: servicios gratuitos](https://render.com/docs/free).
-- [TMDB: autenticación](https://developer.themoviedb.org/docs/authentication-application) y [Google: contraseñas de aplicación](https://support.google.com/accounts/answer/185833).
+- [TMDB: autenticación](https://developer.themoviedb.org/docs/authentication-application) y [Mailjet: envío por API](https://dev.mailjet.com/docs/email-api/send-api-v31/send-attached-files).
