@@ -60,15 +60,29 @@ def validar_login(datos):
     })
 
 
-def validar_registro(datos):
+def _errores_password_nueva(datos):
     password = datos["password"]
-    return _sin_vacios({
-        "nombre": _error_texto(datos["nombre"], "Ingresá tu nombre."),
-        "email": _error_email(datos["email"]),
+    return {
         "password": None if len(password) >= MINIMO_PASSWORD
         else f"La contraseña debe tener al menos {MINIMO_PASSWORD} caracteres.",
         "repetir_password": None if datos["repetir_password"] == password else "Las contraseñas no coinciden.",
+    }
+
+
+def validar_registro(datos):
+    return _sin_vacios({
+        "nombre": _error_texto(datos["nombre"], "Ingresá tu nombre."),
+        "email": _error_email(datos["email"]),
+        **_errores_password_nueva(datos),
     })
+
+
+def validar_recuperar(datos):
+    return _sin_vacios({"email": _error_email(datos["email"])})
+
+
+def validar_restablecer(datos):
+    return _sin_vacios(_errores_password_nueva(datos))
 
 
 def _error_numero_tarjeta(numero):

@@ -23,7 +23,9 @@ from src.frontend.validaciones import (
     validar_cantidades_servicios,
     validar_login,
     validar_pago,
+    validar_recuperar,
     validar_registro,
+    validar_restablecer,
 )
 
 publico_bp = Blueprint("publico", __name__)
@@ -286,6 +288,53 @@ def registro():
         "auth/registro.html", ("nombre", "email", "password", "repetir_password"), validar_registro,
         _registrar_e_iniciar_sesion,
     )
+
+
+# Olvidé mi contraseña: el backend manda por email (Mailjet) un enlace /restablecer/<token> que vence a la hora y
+# sirve una sola vez. La respuesta es la misma exista o no la cuenta, para no revelar qué emails están registrados.
+@publico_bp.route("/olvide-contrasena", methods=["GET", "POST"])
+def olvide_password():
+    formulario = leer_formulario(request.form, "email")
+    if request.method == "GET":
+        return render_template("auth/olvide_password.html", formulario=formulario, errores={})
+    errores = validar_recuperar(formulario)
+    if errores:
+        return render_template("auth/olvide_password.html", formulario=formulario, errores=errores), 400
+    respuesta, error = llamar("POST", "/api/auth/recuperar", json={"email": formulario["email"]})
+    if error is not None:
+        flash(error["mensaje"], "error")
+        return render_template("auth/olvide_password.html", formulario=formulario, errores={}), error["status"]
+    flash(respuesta["mensaje"], "exito")
+    return redirect(url_for("publico.ingresar"))
+
+
+def _pantalla_restablecer(errores=None, error_enlace=None, status=200):
+    return render_template(
+        "auth/restablecer_password.html", formulario={}, errores=errores or {}, error_enlace=error_enlace
+    ), status
+
+
+@publico_bp.route("/restablecer/<token>", methods=["GET", "POST"])
+def restablecer_password(token):
+    if request.method == "GET":
+        _, error = llamar("GET", "/api/auth/restablecer", params={"token": token})
+        return _pantalla_restablecer() if error is None else _pantalla_restablecer(
+            error_enlace=error["mensaje"], status=error["status"]
+        )
+    formulario = leer_formulario(request.form, "password", "repetir_password")
+    errores = validar_restablecer(formulario)
+    if errores:
+        return _pantalla_restablecer(errores=errores, status=400)
+    respuesta, error = llamar(
+        "POST", "/api/auth/restablecer", json={"token": token, "password": formulario["password"]}
+    )
+    if error is None:
+        flash(respuesta["mensaje"], "exito")
+        return redirect(url_for("publico.ingresar"))
+    if error["codigo"] == "TOKEN_INVALIDO":
+        return _pantalla_restablecer(error_enlace=error["mensaje"], status=error["status"])
+    flash(error["mensaje"], "error")
+    return _pantalla_restablecer(status=error["status"])
 
 
 @publico_bp.post("/salir")
