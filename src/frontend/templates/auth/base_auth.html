@@ -1,5 +1,6 @@
 {# Tarjeta común de Ingresar y Crear cuenta (Figma D7, D8 y M7): pestañas, título, bajada, formulario y nota.
-   Cada pantalla define el título, la bajada, la acción del formulario y sus campos. #}
+   Cada pantalla define el título, la bajada, la acción del formulario y sus campos. También la usan "Olvidé mi
+   contraseña" y "Restablecer contraseña", que cambian la nota y, si el enlace no sirve, reemplazan el formulario. #}
 {% extends "base.html" %}
 
 {% block contenido %}
@@ -19,11 +20,13 @@
       {% endif %}
 
       {# novalidate: los errores los valida la ruta y se muestran con el estilo del sitio, no con el globo del navegador. #}
-      <form method="post" action="{{ url_for(request.endpoint) }}" class="auth-formulario" novalidate>
-        {% block campos %}{% endblock %}
-      </form>
+      {% block formulario %}
+        <form method="post" action="{{ url_for(request.endpoint, **request.view_args) }}" class="auth-formulario" novalidate>
+          {% block campos %}{% endblock %}
+        </form>
+      {% endblock %}
 
-      <p class="auth-nota">Necesitás una cuenta para comprar entradas. La cartelera es pública.</p>
+      <p class="auth-nota">{% block nota %}Necesitás una cuenta para comprar entradas. La cartelera es pública.{% endblock %}</p>
     </div>
   </section>
 {% endblock %}

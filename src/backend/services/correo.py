@@ -1,4 +1,5 @@
-"""Emails de la compra: factura con el QR y el enlace de cancelación, y aviso de cancelación (SCRUM-67).
+"""Emails de la compra (factura con el QR y el enlace de cancelación, aviso de cancelación; SCRUM-67) y de
+recuperación de contraseña.
 
 Se envían por HTTPS con Mailjet Send API v3.1, sin SMTP: los hostings gratuitos suelen bloquear los puertos SMTP
 salientes. Las claves (MAILJET_API_KEY, MAILJET_SECRET_KEY) y el remitente verificado (MAIL_FROM) salen de .env.
@@ -8,7 +9,7 @@ motivo en el log. Así una falla del correo no deshace una compra ya confirmada.
 (TypeError, KeyError, RuntimeError...) no se capturan: se propagan para no ocultarlos.
 
 El log nunca incluye la clave, el destinatario, el token ni el QR, ni el texto de las excepciones de requests
-(puede traer la URL o cabeceras): solo el id de la compra, el status HTTP y el tipo de la excepción.
+(puede traer la URL o cabeceras): solo el id de la compra (o del usuario), el status HTTP y el tipo de la excepción.
 """
 import base64
 
@@ -16,7 +17,7 @@ import requests
 from flask import current_app, render_template
 from jinja2 import TemplateError
 
-from src.backend.tokens import firmar_cancelacion
+from src.backend.tokens import VIGENCIA_RECUPERACION_SEGUNDOS, firmar_cancelacion
 
 URL_MAILJET = "https://api.mailjet.com/v3.1/send"
 TIMEOUT_SEGUNDOS = 10
@@ -43,13 +44,28 @@ def enviar_factura(compra, cliente, qr_png):
         "Base64Content": base64.b64encode(qr_png).decode("ascii"), "ContentID": cid,
     }
     asunto = f"Tu compra #{compra['id']} en Cine Paradiso"
-    return _enviar(asunto, cliente, "factura", contexto, compra["id"], [imagen])
+    return _enviar(asunto, cliente, "factura", contexto, _de_compra(compra), [imagen])
 
 
 def enviar_cancelacion(compra, cliente):
     """Avisa que la compra se canceló (lo usa la cancelación, SCRUM-69/70). Mismo detalle que la factura, sin QR."""
     asunto = f"Cancelaste tu compra #{compra['id']} en Cine Paradiso"
-    return _enviar(asunto, cliente, "cancelacion", {"compra": compra, "cliente": cliente}, compra["id"])
+    return _enviar(asunto, cliente, "cancelacion", {"compra": compra, "cliente": cliente}, _de_compra(compra))
+
+
+def enviar_recuperacion(usuario, token):
+    """Manda el enlace para restablecer la contraseña. usuario: {"id", "nombre", "email"} · token: firmar_recuperacion."""
+    contexto = {
+        "cliente": usuario,
+        "enlace": f"{current_app.config['FRONTEND_URL']}/restablecer/{token}",
+        "minutos_vigencia": VIGENCIA_RECUPERACION_SEGUNDOS // 60,
+    }
+    asunto = "Restablecé tu contraseña de Cine Paradiso"
+    return _enviar(asunto, usuario, "recuperar_password", contexto, f"de recuperación del usuario {usuario['id']}")
+
+
+def _de_compra(compra):
+    return f"de la compra {compra['id']}"
 
 
 def _armar(asunto, remitente, cliente, plantilla, contexto, imagenes):
@@ -89,15 +105,16 @@ def _mensaje_aceptado(respuesta):
     )
 
 
-def _enviar(asunto, cliente, plantilla, contexto, compra_id, imagenes=None):
+def _enviar(asunto, cliente, plantilla, contexto, referencia, imagenes=None):
+    """referencia identifica el email en el log sin datos personales, por ejemplo "de la compra 88"."""
     config = current_app.config
     clave = (config.get("MAILJET_API_KEY") or "").strip()
     secreto = (config.get("MAILJET_SECRET_KEY") or "").strip()
     remitente = (config.get("MAIL_FROM") or "").strip()
     if not clave or not secreto or not remitente:
         current_app.logger.warning(
-            "No se envió el email de la compra %s: falta configurar MAILJET_API_KEY, MAILJET_SECRET_KEY o MAIL_FROM.",
-            compra_id,
+            "No se envió el email %s: falta configurar MAILJET_API_KEY, MAILJET_SECRET_KEY o MAIL_FROM.",
+            referencia,
         )
         return False
     try:
@@ -112,15 +129,15 @@ def _enviar(asunto, cliente, plantilla, contexto, compra_id, imagenes=None):
         )
     except (requests.RequestException, TemplateError) as error:  # el texto puede traer datos sensibles: no se loguea
         current_app.logger.error(
-            "No se pudo enviar el email de la compra %s: %s.", compra_id, type(error).__name__
+            "No se pudo enviar el email %s: %s.", referencia, type(error).__name__
         )
         return False
     if respuesta.status_code != 200:
         current_app.logger.error(
-            "Mailjet rechazó el email de la compra %s: HTTP %s.", compra_id, respuesta.status_code
+            "Mailjet rechazó el email %s: HTTP %s.", referencia, respuesta.status_code
         )
         return False
     if not _mensaje_aceptado(respuesta):
-        current_app.logger.error("Mailjet no confirmó la aceptación del email de la compra %s.", compra_id)
+        current_app.logger.error("Mailjet no confirmó la aceptación del email %s.", referencia)
         return False
     return True

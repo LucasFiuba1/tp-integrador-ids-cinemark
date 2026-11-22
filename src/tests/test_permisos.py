@@ -27,6 +27,9 @@ MATRIZ = [
     ("GET", "/api/salud", "/api/salud", PUBLICO),
     ("POST", "/api/auth/registro", "/api/auth/registro", PUBLICO),
     ("POST", "/api/auth/login", "/api/auth/login", PUBLICO),
+    ("POST", "/api/auth/recuperar", "/api/auth/recuperar", PUBLICO),
+    ("GET", "/api/auth/restablecer", "/api/auth/restablecer", PUBLICO),
+    ("POST", "/api/auth/restablecer", "/api/auth/restablecer", PUBLICO),
     ("GET", "/api/auth/me", "/api/auth/me", CLIENTE_Y_ADMIN),
     ("GET", "/api/locales", "/api/locales", PUBLICO),
     ("GET", "/api/cartelera", "/api/cartelera", PUBLICO),
@@ -123,7 +126,8 @@ def test_matriz_cubre_todos_los_endpoints_de_la_api(app_backend):
 def test_solo_salud_login_registro_cartelera_y_tokens_firmados_son_publicos():
     publicos = {ruta for _, ruta, _, roles in MATRIZ if roles == PUBLICO}
     assert publicos == {
-        "/api/salud", "/api/auth/registro", "/api/auth/login", "/api/locales", "/api/cartelera",
+        "/api/salud", "/api/auth/registro", "/api/auth/login", "/api/auth/recuperar", "/api/auth/restablecer",
+        "/api/locales", "/api/cartelera",
         "/api/catalogos/generos", "/api/catalogos/clasificaciones",
         "/api/peliculas/1", "/api/funciones/1", "/api/funciones/1/butacas", "/api/servicios",
         "/api/compras/por-token", "/api/compras/cancelar-por-token", "/api/compras/por-qr",

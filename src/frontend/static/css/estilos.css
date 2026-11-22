@@ -614,6 +614,9 @@ h3 { font-size: var(--texto-lg); }
 .auth-formulario .boton-bloque { margin-top: var(--espacio-2); }
 .tarjeta-auth .aviso { margin: 0 0 var(--espacio-4); font-size: var(--texto-sm); }
 .auth-nota { margin: var(--espacio-4) 0 0; color: var(--color-texto-tenue); font-size: var(--texto-xs); }
+.auth-olvido { margin: calc(-1 * var(--espacio-2)) 0 var(--espacio-2); text-align: right; font-size: var(--texto-sm); }
+.auth-olvido a, .auth-nota a { color: var(--color-texto-secundario); text-decoration: underline; }
+.auth-olvido a:hover, .auth-nota a:hover { color: var(--color-texto); }
 
 /* Lista de datos etiqueta -> valor (macro datos): resultado de validar ingreso, resumen y ticket de la compra */
 .datos { margin: 0; font-size: var(--texto-sm); }
