@@ -56,7 +56,7 @@ Solo requiere [Docker](https://docs.docker.com/get-docker/) (Docker Desktop en m
 instalar Python ni MySQL.
 
 ```bash
-cp .env.example .env        # opcional: claves propias, TMDB_API_KEY y SMTP_*
+cp .env.example .env        # opcional: claves propias, TMDB_API_KEY y MAILJET_*
 docker compose up --build   # sitio en http://localhost:5001, API en http://localhost:5000/api/salud
 ```
 
@@ -75,8 +75,8 @@ Sin Docker, seguir los pasos de abajo.
 - Python 3.12 o superior (la versión que usa el `Dockerfile`)
 - MySQL 8 (o MariaDB 10.5+), con el cliente `mysql` en el PATH si se usa `bash init.sh --db`
 - Git y Bash (en Windows, Git Bash o WSL)
-- Opcional: una API key v3 de [TMDB](https://www.themoviedb.org/) para importar películas y una cuenta SMTP
-  para el correo de la compra (ver [TMDB y SMTP](#configurar-tmdb-y-smtp))
+- Opcional: una API key v3 de [TMDB](https://www.themoviedb.org/) para importar películas y una cuenta Mailjet
+  (plan Free) para el correo de la compra (ver [TMDB y Mailjet](#configurar-tmdb-y-mailjet))
 
 ## Instalación
 
@@ -99,7 +99,7 @@ Sin Docker, seguir los pasos de abajo.
    python -c "import secrets; print(secrets.token_urlsafe(48))"
    ```
 
-   También revisar `DB_*` (usuario y contraseña de MySQL) y, si se van a usar, `TMDB_API_KEY` y `SMTP_*`.
+   También revisar `DB_*` (usuario y contraseña de MySQL) y, si se van a usar, `TMDB_API_KEY` y `MAILJET_*`.
 
 4. Crear en MySQL el usuario de la aplicación (`DB_USER` / `DB_PASSWORD`). La plantilla no lo crea. Con
    todos los permisos sobre `cine_paradiso` alcanza para que `schema.sql` cree la base y las tablas:
@@ -145,7 +145,7 @@ Verificación rápida: `http://localhost:5000/api/salud` devuelve `{"estado": "o
 ### Verificación de extremo a extremo (compra y validación de QR)
 
 1. Abrir `http://localhost:5001/ingresar` e iniciar sesión como cliente (`ana@mail.com` / `cliente1234`).
-2. Elegir una película de la cartelera, seleccionar una función futura, marcar al menos una butaca libre y continuar hasta confirmar el pago simulado para obtener el código QR y la factura (también llega por email si hay SMTP configurado).
+2. Elegir una película de la cartelera, seleccionar una función futura, marcar al menos una butaca libre y continuar hasta confirmar el pago simulado para obtener el código QR y la factura (también llega por email si Mailjet está configurado).
 3. Cerrar sesión, ingresar como administrador (`admin@cineparadiso.com` / `admin1234`), ir a `/admin/validar` y validar el código QR de la entrada para la función reservada.
 
 Usuarios de prueba que carga `seed.sql`:
@@ -160,14 +160,15 @@ carga: para tener funciones futuras de nuevo, volver a correr `bash init.sh --db
 Esto reinicia **todos los datos**; solo corresponde a una base local descartable.
 Para publicar, seguir [Deploy gratuito](docs/deploy.md): servidor WSGI, HTTPS,
 credenciales privadas y carga de la base sin usar el servidor de desarrollo.
-Al confirmar la compra, el backend envía por SMTP la factura con el QR y el enlace de cancelación; al cancelar,
-el aviso de cancelación. Si no hay `SMTP_HOST` o el envío falla, la compra queda confirmada igual
-(`email_enviado: false`) y el motivo queda en el log.
+Los emails de compra y cancelación se envían por la API HTTPS de Mailjet. La factura
+incluye un único QR dentro del mensaje y el enlace de cancelación, sin copia adjunta.
+Si faltan las claves o el envío falla, la compra queda confirmada igual (`email_enviado: false`)
+y el motivo queda en el log. Las pruebas locales simulan el proveedor; no certifican la entrega real.
 
-## Configurar TMDB y SMTP
+## Configurar TMDB y Mailjet
 
 Ninguna de las dos es necesaria para levantar el proyecto con los datos del seed; sí para importar películas
-nuevas (TMDB) y para recibir el correo de la compra (SMTP). Se configuran en `.env`; el detalle y los errores
+nuevas (TMDB) y para recibir el correo de la compra (Mailjet). Se configuran en `.env`; el detalle y los errores
 frecuentes están en [Configuración del entorno](docs/entorno.md).
 
 **TMDB** (películas del backoffice):
@@ -176,12 +177,15 @@ frecuentes están en [Configuración del entorno](docs/entorno.md).
 2. Copiar la **API key (v3 auth)** a `TMDB_API_KEY`. No sirve el "API Read Access Token".
 3. Reiniciar el backend. Sin clave, la importación devuelve `502 TMDB_NO_DISPONIBLE`.
 
-**SMTP** (factura con QR y aviso de cancelación):
+**Mailjet** (factura con QR y aviso de cancelación, por HTTPS):
 
-1. Completar `SMTP_HOST`, `SMTP_PORT` (587 usa STARTTLS; 465, TLS directo), `SMTP_USER` y `SMTP_PASSWORD`.
-2. Con Gmail hay que usar una *contraseña de aplicación*, no la contraseña de la cuenta.
-3. `MAIL_FROM` es el remitente (si queda vacío usa `SMTP_USER`). `FRONTEND_URL` arma el enlace
-   "Cancelar compra" del email y el QR: para escanearlo con el celular, usar `http://<IP-de-la-compu>:5001`.
+1. Crear una cuenta en [Mailjet](https://www.mailjet.com/) con el plan **Free** (sin tarjeta ni trial).
+2. Verificar en Mailjet la dirección que se usará como `MAIL_FROM`.
+3. Copiar la API key y la Secret key de [API Key Management](https://app.mailjet.com/account/api_keys) a
+   `MAILJET_API_KEY` y `MAILJET_SECRET_KEY`. `FRONTEND_URL` arma el enlace "Cancelar compra" del email y el QR:
+   para escanearlo con el celular, usar `http://<IP-de-la-compu>:5001`.
+
+El paso a paso completo está en [Correo](docs/entorno.md#correo-mailjet-por-https).
 
 No subir nunca el `.env` ni pegar claves en commits, issues o capturas: `.env` está en el `.gitignore`.
 

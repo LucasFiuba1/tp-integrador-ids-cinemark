@@ -3,6 +3,7 @@ compras (SCRUM-62, SCRUM-64, SCRUM-66, SCRUM-67, SCRUM-69, SCRUM-70)."""
 import base64
 from datetime import datetime, timedelta
 
+import pymysql
 from flask import current_app
 
 from src.backend.abm import requerir_existente, traducir_duplicado
@@ -297,12 +298,32 @@ def _cancelar_compra(compra_id, usuario_id=None):
             (compra_id,),
         )
         cursor.execute("UPDATE entradas SET activa = NULL WHERE compra_id = %s AND activa = 1", (compra_id,))
+        dueno_id = compra["usuario_id"]  # el dueño sale de la compra bloqueada, nunca del request
 
-    detalle = perfil.obtener_compra(compra_id)
-    if detalle is not None:
-        correo.enviar_cancelacion(detalle,{"nombre": compra["nombre"], "email": compra["email"]},)
-
+    _notificar_cancelacion(compra_id, dueno_id)
     return {"id": compra_id, "estado": "cancelada"}
+
+
+def _notificar_cancelacion(compra_id, usuario_id):
+    """Avisa por email la cancelación ya confirmada (commit hecho).
+
+    Corre fuera de la transacción: leer el detalle y el cliente y hablar con el proveedor de email no debe retener
+    los locks de la compra ni de las butacas. Un error de base de datos al preparar el aviso se registra y se omite
+    el email; los errores de programación no se esconden. Que el envío falle (False) tampoco afecta la cancelación.
+    """
+    try:
+        detalle = perfil.obtener_compra(compra_id)
+        cliente = consultar_uno("SELECT nombre, email FROM usuarios WHERE id = %s", (usuario_id,))
+    except pymysql.MySQLError as error:
+        current_app.logger.error(
+            "Compra %s cancelada, pero no se pudo preparar el email de cancelación: %s",
+            compra_id, type(error).__name__,
+        )
+        return
+    if detalle is None or cliente is None:
+        current_app.logger.warning("Compra %s cancelada, pero faltan datos para el email de cancelación.", compra_id)
+        return
+    correo.enviar_cancelacion(detalle, {"nombre": cliente["nombre"], "email": cliente["email"]})
 
 
 def cancelar(usuario_id, compra_id):
@@ -408,7 +429,8 @@ def confirmar(usuario, compra_id):
     """Confirma una compra pendiente, genera su QR y envía la factura por email (SCRUM-66, SCRUM-67).
 
     Si la reserva ya venció, la marca como vencida y libera las butacas antes de devolver 409 RESERVA_VENCIDA.
-    El envío del email ocurre fuera de la transacción: si SMTP falla, la compra queda confirmada igual.
+    El envío del email ocurre fuera de la transacción: si el proveedor de email (API HTTPS) falla,
+    la compra queda confirmada igual.
     """
     with transaccion() as cursor:
         vencida = _bloquear_compra_pendiente(cursor, compra_id, usuario["id"])

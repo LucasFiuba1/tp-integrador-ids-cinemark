@@ -1,9 +1,11 @@
 """Pruebas de los endpoints de detalle y cancelación de compras (SCRUM-69, SCRUM-70, SCRUM-123)."""
 import base64
 from datetime import datetime, timedelta
+from contextlib import contextmanager
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
+import pymysql
 import pytest
 
 from src.backend.services.qr import generar_qr
@@ -32,6 +34,7 @@ def _fila_detalle(**cambios):
         "sala": "Sala 1",
         "local": "Paradiso Centro",
         "email": "ana@email.com",
+        "nombre": "Ana",
     }
     fila.update(cambios)
     return fila
@@ -51,6 +54,20 @@ def _fila_cancelar(**cambios):
     return fila
 
 
+def _detalle_cancelada():
+    return {
+        "id": COMPRA_ID,
+        "estado": "cancelada",
+        "total": 23000.0,
+        "funcion": {"id": 12, "pelicula": "Volver al futuro", "sala": "Sala 1", "local": "Paradiso Centro"},
+        "butacas": ["D5", "D6"],
+        "servicios": [],
+    }
+
+
+CLIENTE_EMAIL = {"nombre": "Ana", "email": "ana@email.com"}
+
+
 @pytest.fixture
 def token_cancelacion(app_backend):
     return firmar_cancelacion(COMPRA_ID)
@@ -67,20 +84,13 @@ def bd():
               "precio_unitario": Decimal("6500.00")}],
         ]
         simulacion.cursor.fetchone.return_value = _fila_cancelar()
-        yield simulacion
-
-@pytest.fixture
-def email_cancelacion():
-    detalle = {"id": COMPRA_ID}
-
-    with patch(
-        "src.backend.services.compras.perfil.obtener_compra",
-        return_value=detalle,
-    ) as obtener_compra, patch(
-        "src.backend.services.compras.correo.enviar_cancelacion",
-        return_value=True,
-    ) as enviar_cancelacion:
-        yield obtener_compra, enviar_cancelacion
+        with (
+            patch("src.backend.services.compras.perfil.obtener_compra", return_value=_detalle_cancelada()) as detalle,
+            patch("src.backend.services.compras.correo.enviar_cancelacion", return_value=True) as enviar,
+        ):
+            simulacion.obtener_compra = detalle
+            simulacion.enviar_cancelacion = enviar
+            yield simulacion
 
 
 # --- GET /api/compras/<id> ---
@@ -246,7 +256,6 @@ def test_cancelar_compra_un_segundo_antes_del_limite_funciona(
     cliente_backend,
     cabeceras_cliente,
     bd,
-    email_cancelacion,
 ):
     bd.cursor.fetchone.return_value = _fila_cancelar(
         fecha_hora=datetime(2026, 11, 11, 20, 30)
@@ -271,8 +280,8 @@ def test_cancelar_compra_ok_invalida_qr_y_libera_butacas(
     cliente_backend,
     cabeceras_cliente,
     bd,
-    email_cancelacion,
 ):
+    bd.consultar_uno.return_value = CLIENTE_EMAIL
     respuesta = cliente_backend.post(
         f"/api/compras/{COMPRA_ID}/cancelar",
         headers=cabeceras_cliente,
@@ -292,12 +301,8 @@ def test_cancelar_compra_ok_invalida_qr_y_libera_butacas(
         "UPDATE entradas SET activa = NULL" in sql
         for sql in sentencias
     )
-    obtener_compra, enviar_cancelacion = email_cancelacion
-    obtener_compra.assert_called_once_with(COMPRA_ID)
-    enviar_cancelacion.assert_called_once_with(
-        {"id": COMPRA_ID},
-        {"nombre": "Cliente", "email": "cliente@email.com"},
-    )
+    bd.obtener_compra.assert_called_once_with(COMPRA_ID)
+    bd.enviar_cancelacion.assert_called_once_with(_detalle_cancelada(), CLIENTE_EMAIL)
 
 
 # --- POST /api/compras/cancelar-por-token (público) ---
@@ -305,7 +310,6 @@ def test_cancelar_por_token_valido_no_pide_sesion_y_cancela(
     cliente_backend,
     bd,
     token_cancelacion,
-    email_cancelacion,
 ):
     respuesta = cliente_backend.post(
         "/api/compras/cancelar-por-token",
@@ -326,6 +330,125 @@ def test_cancelar_por_token_invalido_devuelve_400(cliente_backend, bd, cuerpo):
     bd.cursor.execute.assert_not_called()
 
 
+# --- email de cancelación (después del commit) ---
+RUTA_CANCELAR = f"/api/compras/{COMPRA_ID}/cancelar"
+
+
+def _cancelar_por_cliente(cliente_backend, cabeceras_cliente, token):
+    return cliente_backend.post(RUTA_CANCELAR, headers=cabeceras_cliente)
+
+
+def _cancelar_por_enlace(cliente_backend, cabeceras_cliente, token):
+    return cliente_backend.post("/api/compras/cancelar-por-token", json={"token": token})
+
+
+@pytest.mark.parametrize("cancelar", [_cancelar_por_cliente, _cancelar_por_enlace])
+def test_cancelar_ok_envia_un_email_al_dueno_con_el_detalle_cancelado(
+    cliente_backend, cabeceras_cliente, bd, token_cancelacion, cancelar
+):
+    bd.consultar_uno.return_value = CLIENTE_EMAIL
+    respuesta = cancelar(cliente_backend, cabeceras_cliente, token_cancelacion)
+
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {"id": COMPRA_ID, "estado": "cancelada"}
+    bd.obtener_compra.assert_called_once_with(COMPRA_ID)
+    bd.enviar_cancelacion.assert_called_once_with(_detalle_cancelada(), CLIENTE_EMAIL)
+    sql, parametros = bd.consultar_uno.call_args.args
+    assert "FROM usuarios WHERE id = %s" in sql
+    assert parametros == (ID_CLIENTE,)  # el dueño sale de la compra bloqueada
+
+
+def test_cancelar_por_token_avisa_al_dueno_de_la_compra_aunque_no_haya_sesion(
+    cliente_backend, bd, token_cancelacion
+):
+    bd.cursor.fetchone.return_value = _fila_cancelar(usuario_id=77)
+    bd.consultar_uno.return_value = {"nombre": "Beto", "email": "beto@email.com"}
+    cliente_backend.post("/api/compras/cancelar-por-token", json={"token": token_cancelacion})
+    assert bd.consultar_uno.call_args.args[1] == (77,)
+    bd.enviar_cancelacion.assert_called_once_with(_detalle_cancelada(), {"nombre": "Beto", "email": "beto@email.com"})
+
+
+@pytest.mark.parametrize("cancelar", [_cancelar_por_cliente, _cancelar_por_enlace])
+def test_cancelar_con_email_que_falla_conserva_la_cancelacion(
+    cliente_backend, cabeceras_cliente, bd, token_cancelacion, cancelar
+):
+    bd.consultar_uno.return_value = CLIENTE_EMAIL
+    bd.enviar_cancelacion.return_value = False
+    respuesta = cancelar(cliente_backend, cabeceras_cliente, token_cancelacion)
+
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {"id": COMPRA_ID, "estado": "cancelada"}
+    sentencias = [llamada.args[0] for llamada in bd.cursor.execute.call_args_list]
+    assert any("SET estado = 'cancelada', cancelada_en = NOW(), token_qr = NULL" in sql for sql in sentencias)
+    assert any("UPDATE entradas SET activa = NULL" in sql for sql in sentencias)
+
+
+@pytest.mark.parametrize("origen", ["detalle", "cliente"])
+def test_cancelar_con_error_de_bd_al_preparar_el_email_no_lo_convierte_en_500(
+    cliente_backend, cabeceras_cliente, bd, origen
+):
+    error = pymysql.err.OperationalError(2003, "sin conexión")
+    if origen == "detalle":
+        bd.obtener_compra.side_effect = error
+        bd.consultar_uno.return_value = CLIENTE_EMAIL
+    else:
+        bd.consultar_uno.side_effect = error
+    respuesta = cliente_backend.post(RUTA_CANCELAR, headers=cabeceras_cliente)
+
+    assert respuesta.status_code == 200
+    assert respuesta.get_json() == {"id": COMPRA_ID, "estado": "cancelada"}
+    bd.enviar_cancelacion.assert_not_called()
+
+
+@pytest.mark.parametrize("faltante", ["detalle", "cliente"])
+def test_cancelar_sin_datos_para_el_email_cancela_y_omite_el_aviso(cliente_backend, cabeceras_cliente, bd, faltante):
+    bd.obtener_compra.return_value = None if faltante == "detalle" else _detalle_cancelada()
+    bd.consultar_uno.return_value = None if faltante == "cliente" else CLIENTE_EMAIL
+    respuesta = cliente_backend.post(RUTA_CANCELAR, headers=cabeceras_cliente)
+
+    assert respuesta.status_code == 200
+    bd.enviar_cancelacion.assert_not_called()
+
+
+def test_cancelar_no_envia_email_cuando_la_cancelacion_se_rechaza(cliente_backend, cabeceras_cliente, bd):
+    for fila, status, codigo in (
+        (None, 404, "NO_ENCONTRADO"),
+        (_fila_cancelar(usuario_id=999), 403, "SIN_PERMISO"),
+        (_fila_cancelar(estado="cancelada"), 409, "YA_CANCELADA"),
+        (_fila_cancelar(utilizada_en=datetime(2026, 11, 10, 20, 21)), 409, "YA_UTILIZADA"),
+        (_fila_cancelar(estado="pendiente"), 409, "COMPRA_NO_CONFIRMADA"),
+        (_fila_cancelar(fecha_hora=datetime.now() + timedelta(minutes=45)), 409, "FUERA_DE_PLAZO"),
+    ):
+        bd.cursor.fetchone.return_value = fila
+        afirmar_error_json(cliente_backend.post(RUTA_CANCELAR, headers=cabeceras_cliente), status, codigo)
+    bd.obtener_compra.assert_not_called()
+    bd.enviar_cancelacion.assert_not_called()
+
+
+def test_cancelar_por_token_invalido_no_envia_email(cliente_backend, bd):
+    cliente_backend.post("/api/compras/cancelar-por-token", json={"token": "falso"})
+    bd.enviar_cancelacion.assert_not_called()
+
+
+@pytest.mark.parametrize("cancelar", [_cancelar_por_cliente, _cancelar_por_enlace])
+def test_el_email_se_prepara_y_envia_despues_del_commit_de_la_cancelacion(
+    cliente_backend, cabeceras_cliente, bd, token_cancelacion, cancelar
+):
+    eventos = []
+
+    @contextmanager
+    def transaccion():
+        eventos.append("abre transacción")
+        yield bd.cursor
+        eventos.append("commit")
+
+    bd.transaccion.side_effect = transaccion
+    bd.consultar_uno.return_value = CLIENTE_EMAIL
+    bd.obtener_compra.side_effect = lambda compra_id: eventos.append("lee detalle") or _detalle_cancelada()
+    bd.enviar_cancelacion.side_effect = lambda *args: eventos.append("envía email") or True
+
+    assert cancelar(cliente_backend, cabeceras_cliente, token_cancelacion).status_code == 200
+    assert eventos == ["abre transacción", "commit", "lee detalle", "envía email"]
 def test_cancelar_por_token_alterado_devuelve_400(
     cliente_backend,
     bd,
@@ -364,7 +487,6 @@ def test_doble_cancelacion_segunda_devuelve_409(
     cliente_backend,
     cabeceras_cliente,
     bd,
-    email_cancelacion,
 ):
     bd.cursor.fetchone.side_effect = [
         _fila_cancelar(),
@@ -388,44 +510,7 @@ def test_doble_cancelacion_segunda_devuelve_409(
         "YA_CANCELADA",
     )
 
-    _, enviar_cancelacion = email_cancelacion
-    enviar_cancelacion.assert_called_once()
-
-
-def test_fallo_email_no_deshace_cancelacion(
-    cliente_backend,
-    cabeceras_cliente,
-    bd,
-):
-    with patch(
-        "src.backend.services.compras.perfil.obtener_compra",
-        return_value={"id": COMPRA_ID},
-    ), patch(
-        "src.backend.services.compras.correo.enviar_cancelacion",
-        return_value=False,
-    ) as enviar_cancelacion:
-        respuesta = cliente_backend.post(
-            f"/api/compras/{COMPRA_ID}/cancelar",
-            headers=cabeceras_cliente,
-        )
-    assert respuesta.status_code == 200
-    assert respuesta.get_json() == {
-        "id": COMPRA_ID,
-        "estado": "cancelada",
-    }
-    sentencias = [
-        llamada.args[0]
-        for llamada in bd.cursor.execute.call_args_list
-    ]
-    assert any(
-        "SET estado = 'cancelada'" in sql
-        for sql in sentencias
-    )
-    assert any(
-        "UPDATE entradas SET activa = NULL" in sql
-        for sql in sentencias
-    )
-    enviar_cancelacion.assert_called_once()
+    bd.enviar_cancelacion.assert_called_once()
 
 
 def test_error_bd_hace_rollback_y_no_envia_email(app_backend):

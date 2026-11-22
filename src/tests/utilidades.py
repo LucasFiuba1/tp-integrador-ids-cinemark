@@ -21,9 +21,15 @@ ID_CLIENTE = 2
 
 # --- app ---
 def crear_app_backend(**config):
-    """App del backend lista para pruebas; `config` pisa los valores por defecto (por ejemplo TMDB_API_KEY="")."""
+    """App del backend lista para pruebas; `config` pisa los valores por defecto (por ejemplo TMDB_API_KEY="").
+
+    El correo queda aislado: sin credenciales de Mailjet del entorno, nada sale a la red.
+    """
     app = crear_backend()
-    app.config.update(TESTING=True, SECRET_KEY="pruebas", TMDB_API_KEY="clave-de-prueba")
+    app.config.update(
+        TESTING=True, SECRET_KEY="pruebas", TMDB_API_KEY="clave-de-prueba",
+        MAILJET_API_KEY="", MAILJET_SECRET_KEY="", MAIL_FROM="entradas@cineparadiso.test",
+    )
     app.config.update(config)
     return app
 

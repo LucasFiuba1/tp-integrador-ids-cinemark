@@ -280,7 +280,9 @@ o `pendiente` (compra sin pagar). La firma alcanza para informar también una co
 `token_qr`. Ninguna vista devuelve el email, el QR ni los datos para cancelar. Errores: 400 `TOKEN_INVALIDO`
 (falta o la firma no es válida) · 404 `NO_ENCONTRADO`.
 
-Errores de confirmación: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `COMPRA_NO_PENDIENTE` · 409 `RESERVA_VENCIDA` (libera las butacas). Si el envío por SMTP falla, la compra queda confirmada igual con `"email_enviado": false`.
+Errores de confirmación: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `COMPRA_NO_PENDIENTE` · 409 `RESERVA_VENCIDA` (libera las butacas). Si el envío por la API HTTPS de Mailjet falla o falta su configuración, la compra queda confirmada igual con `"email_enviado": false`. Un valor `true` indica aceptación del proveedor, no entrega en la casilla. La factura incluye un único QR embebido por Content-ID y el enlace firmado de cancelación, sin copia adjunta del QR.
+
+Al cancelar desde el perfil o por token, se intenta enviar el aviso al dueño de la compra **después del commit**. No incluye QR. Un fallo al preparar el aviso o enviarlo no revierte la cancelación, la liberación de butacas ni la invalidación del QR. La respuesta conserva `{"id": 88, "estado": "cancelada"}`; no informa el resultado del correo. Una cancelación rechazada no envía avisos.
 
 Errores de cancelación: 400 `TOKEN_INVALIDO` (en las rutas por token, cuando falta o la firma no es válida) · 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `FUERA_DE_PLAZO` · 409 `YA_CANCELADA` · 409 `YA_UTILIZADA` · 409 `COMPRA_NO_CONFIRMADA`.
 
