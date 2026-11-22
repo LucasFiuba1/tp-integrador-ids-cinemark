@@ -1,7 +1,7 @@
 """Reservas de butacas, servicios de la compra, confirmación con QR y factura por email, detalle y cancelación de
 compras (SCRUM-62, SCRUM-64, SCRUM-66, SCRUM-67, SCRUM-69, SCRUM-70)."""
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import current_app
 
@@ -11,7 +11,7 @@ from src.backend.errores import error_api
 from src.backend.services import correo, perfil, qr
 from src.backend.services.perfil import cancelable_hasta, es_cancelable
 from src.backend.services.validaciones import datos_invalidos, entero_en_rango, entero_positivo, requerir_campos
-from src.backend.tokens import firmar_qr, leer_cancelacion
+from src.backend.tokens import firmar_qr, leer_cancelacion, leer_qr
 
 MAXIMO_CANTIDAD_SERVICIO = 20  # por servicio y por compra; evita pedidos absurdos (la columna admite hasta 65535)
 MAXIMO_SERVICIOS_POR_COMPRA = 50  # servicios distintos en un mismo pedido; acota el IN (...) de la consulta
@@ -206,6 +206,66 @@ def obtener(usuario, compra_id):
 
 def obtener_por_token(token):
     return _detalle_compra(_id_desde_token_cancelacion(token))
+
+
+# QR de la entrada (SCRUM-74): cualquiera que lo escanee identifica la función; solo el comprador y el admin ven la
+# compra completa, y solo el admin la puede validar (POST /api/admin/ingresos/validar). Lo decide el backend.
+CAMPOS_ENTRADA_BASICA = ("pelicula", "poster_url", "local", "sala", "funcion", "butacas")
+CAMPOS_ENTRADA_COMPRA = ("id", "servicios", "total", "utilizada_en", "cancelada_en")
+ESTADOS_PAGO = {"confirmada": "pagado", "cancelada": "anulado"}
+
+
+def _estado_entrada(estado_compra, utilizada_en, fin_funcion):
+    """valida, utilizada, cancelada, vencida (la función ya terminó) o pendiente (todavía sin pagar)."""
+    if estado_compra == "cancelada":
+        return "cancelada"
+    if utilizada_en is not None:
+        return "utilizada"
+    if estado_compra != "confirmada":
+        return "pendiente"
+    return "vencida" if fin_funcion <= datetime.now() else "valida"
+
+
+def _vista_entrada(usuario, comprador_id):
+    """publica para anónimos y para clientes que no hicieron la compra; comprador; o admin."""
+    if usuario is None:
+        return "publica"
+    if usuario["rol"] == "admin":
+        return "admin"
+    return "comprador" if usuario["id"] == comprador_id else "publica"
+
+
+def obtener_por_qr(token, usuario=None):
+    """Datos de la entrada del QR según quién la consulta (usuario es None si no inició sesión).
+
+    La firma del token prueba que lo emitimos, así que también se informa una compra cancelada (que ya no tiene
+    token_qr) para avisar que no permite el ingreso. La vista pública no incluye datos personales ni de pago.
+    """
+    compra_id = leer_qr(token)
+    if compra_id is None:
+        error_api(400, "TOKEN_INVALIDO", "El código QR no es válido.")
+    detalle = _detalle_compra(compra_id)
+    fila = consultar_uno(
+        "SELECT c.usuario_id, c.estado, u.nombre, f.fecha_hora, p.duracion_min FROM compras c "
+        "JOIN usuarios u ON u.id = c.usuario_id "
+        "JOIN funciones f ON f.id = c.funcion_id "
+        "JOIN peliculas p ON p.id = f.pelicula_id "
+        "WHERE c.id = %s",
+        (compra_id,),
+    )
+    vista = _vista_entrada(usuario, fila["usuario_id"])
+    fin_funcion = fila["fecha_hora"] + timedelta(minutes=fila["duracion_min"])
+    entrada = {campo: detalle[campo] for campo in CAMPOS_ENTRADA_BASICA}
+    entrada["vista"] = vista
+    entrada["estado"] = _estado_entrada(fila["estado"], detalle["utilizada_en"], fin_funcion)
+    if vista == "publica":
+        return entrada
+    entrada.update({campo: detalle[campo] for campo in CAMPOS_ENTRADA_COMPRA})
+    entrada["cantidad_entradas"] = len(detalle["butacas"])
+    entrada["estado_pago"] = ESTADOS_PAGO.get(fila["estado"], "pendiente")
+    if vista == "admin":
+        entrada["titular"] = fila["nombre"]
+    return entrada
 
 
 def _cancelar_compra(compra_id, usuario_id=None):

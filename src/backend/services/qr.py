@@ -1,7 +1,8 @@
 """QR de ingreso de una compra (SCRUM-4, SCRUM-67).
 
-El QR codifica la URL de la pantalla de validación del backoffice, <FRONTEND_URL>/admin/ingreso?token=<token_qr>:
-al escanearlo con la cámara del celular se abre esa página con el código ya cargado (SCRUM-74).
+El QR codifica la URL pública de la entrada, <FRONTEND_URL>/entrada?token=<token_qr>: al escanearlo con la cámara
+del celular cualquiera ve los datos básicos de la entrada, el comprador ve su compra completa y el admin, además,
+puede validar el ingreso (ver compras.obtener_por_qr).
 Usa qrcode con el generador de PNG en Python puro (pypng), así no hace falta instalar Pillow.
 """
 from io import BytesIO
@@ -12,9 +13,9 @@ from flask import current_app
 from qrcode.image.pure import PyPNGImage
 
 
-def url_ingreso(token_qr):
-    """URL de validación del ingreso, con la base del frontend tomada de FRONTEND_URL y el token codificado."""
-    return f"{current_app.config['FRONTEND_URL']}/admin/ingreso?{urlencode({'token': token_qr})}"
+def url_entrada(token_qr):
+    """URL pública de la entrada, con la base del frontend tomada de FRONTEND_URL y el token codificado."""
+    return f"{current_app.config['FRONTEND_URL']}/entrada?{urlencode({'token': token_qr})}"
 
 
 def generar_png(texto):
@@ -26,5 +27,5 @@ def generar_png(texto):
 
 
 def generar_qr(token_qr):
-    """PNG del QR de ingreso de una compra: codifica url_ingreso(token_qr)."""
-    return generar_png(url_ingreso(token_qr))
+    """PNG del QR de ingreso de una compra: codifica url_entrada(token_qr)."""
+    return generar_png(url_entrada(token_qr))

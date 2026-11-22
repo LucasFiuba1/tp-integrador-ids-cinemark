@@ -1,7 +1,7 @@
 """Reserva de butacas, servicios, checkout, cancelación y perfil (SCRUM-1, 2, 3, 25, 26, 64)."""
 from flask import Blueprint, g, jsonify, request
 
-from src.backend.auth import requiere_rol
+from src.backend.auth import requiere_rol, usuario_opcional
 from src.backend.routes.comun import cuerpo_json
 from src.backend.services import compras
 
@@ -30,6 +30,13 @@ def obtener_compra(compra_id):
 @compras_bp.get("/compras/por-token")
 def obtener_compra_por_token():
     return jsonify(compras.obtener_por_token(request.args.get("token")))
+
+
+@compras_bp.get("/compras/por-qr")
+def obtener_compra_por_qr():
+    # Pública como por-token (la protege la firma del token del QR); si viene un token de sesión válido, el service
+    # muestra más datos al comprador y al admin.
+    return jsonify(compras.obtener_por_qr(request.args.get("token"), usuario_opcional()))
 
 
 @compras_bp.post("/compras/<int:compra_id>/cancelar")

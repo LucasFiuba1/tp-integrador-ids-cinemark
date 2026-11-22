@@ -21,6 +21,23 @@ def generar_token(usuario_id):
     return _serializador().dumps({"user_id": usuario_id})
 
 
+def _usuario_del_encabezado(encabezado):
+    """Usuario {"id", "nombre", "email", "rol"} del encabezado "Bearer <token>", o None si el token está mal
+    firmado, venció o el usuario ya no existe."""
+    try:
+        datos = _serializador().loads(encabezado[len("Bearer "):], max_age=VIGENCIA_TOKEN_SEGUNDOS)
+    except BadSignature:
+        return None
+    return consultar_uno("SELECT id, nombre, email, rol FROM usuarios WHERE id = %s", (datos.get("user_id"),))
+
+
+def usuario_opcional():
+    """Para endpoints públicos que muestran más datos a quien inició sesión: el usuario si mandó un token válido,
+    o None si no mandó ninguno o no sirve (nunca corta el request)."""
+    encabezado = request.headers.get("Authorization", "")
+    return _usuario_del_encabezado(encabezado) if encabezado.startswith("Bearer ") else None
+
+
 def requiere_rol(*roles):
     """Exige un token válido y que el usuario tenga alguno de los roles dados."""
 
@@ -30,15 +47,7 @@ def requiere_rol(*roles):
             encabezado = request.headers.get("Authorization", "")
             if not encabezado.startswith("Bearer "):
                 error_api(401, "NO_AUTENTICADO", "Tenés que iniciar sesión.")
-            try:
-                datos = _serializador().loads(
-                    encabezado[len("Bearer "):], max_age=VIGENCIA_TOKEN_SEGUNDOS
-                )
-            except BadSignature:
-                error_api(401, "TOKEN_INVALIDO", "El token es inválido o venció.")
-            usuario = consultar_uno(
-                "SELECT id, nombre, email, rol FROM usuarios WHERE id = %s", (datos.get("user_id"),)
-            )
+            usuario = _usuario_del_encabezado(encabezado)
             if usuario is None:
                 error_api(401, "TOKEN_INVALIDO", "El token es inválido o venció.")
             if usuario["rol"] not in roles:

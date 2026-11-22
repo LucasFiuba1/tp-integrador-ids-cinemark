@@ -176,6 +176,7 @@ Solo devuelve los servicios activos (los dados de baja no aparecen), ordenados p
 | POST | `/api/compras/<id>/confirmar` | 👤 | Checkout con pago simulado: confirma, genera el QR y envía el email con la factura. |
 | GET | `/api/compras/<id>` | 👤 🛠️ | Detalle de una compra propia (el admin puede ver cualquiera); incluye el QR si está confirmada. |
 | GET | `/api/compras/por-token?token=` | 🌐 | Detalle de la compra identificada por el token firmado del enlace del email (sin requerir sesión). |
+| GET | `/api/compras/por-qr?token=` | 🌐 | Entrada identificada por el token firmado del QR: datos básicos para cualquiera; compra completa para el comprador y el admin. |
 | POST | `/api/compras/<id>/cancelar` | 👤 | Cancela una compra propia dentro del plazo permitido. |
 | POST | `/api/compras/cancelar-por-token` | 🌐 | Cancela desde el enlace del email (el token firmado identifica la compra). |
 
@@ -227,7 +228,7 @@ El `total` se recalcula al confirmar (entradas activas + servicios de la compra)
 { "id": 88, "estado": "confirmada", "total": 23000.00, "qr_png_base64": "iVBORw0...", "email_enviado": true }
 ```
 
-`qr_png_base64` es el QR de ingreso: codifica `<FRONTEND_URL>/admin/ingreso?token=<token_qr>` (el mismo `token_qr` que valida `POST /api/admin/ingresos/validar`), así la cámara del celular abre directo la pantalla de validación del backoffice.
+`qr_png_base64` es el QR de ingreso: codifica `<FRONTEND_URL>/entrada?token=<token_qr>` (el mismo `token_qr` que valida `POST /api/admin/ingresos/validar`). Al escanearlo con la cámara del celular se abre la página de la entrada (`GET /api/compras/por-qr`): cualquiera ve los datos básicos, el comprador ve su compra completa y el admin, además, puede validar el ingreso.
 
 ```http
 GET /api/compras/88
@@ -245,6 +246,39 @@ GET /api/compras/88
 ```
 
 `estado` es `pendiente`, `confirmada`, `cancelada` o `vencida`; una `pendiente` cuyo `vence_en` ya pasó se informa como `vencida` aunque la base todavía no se haya actualizado. `vence_en` solo tiene valor en las pendientes en plazo y `qr_png_base64` solo en las confirmadas. `cancelable` y `cancelable_hasta` se calculan igual que en el perfil. Errores: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (un cliente pidiendo una compra ajena). `GET /api/compras/por-token` devuelve el mismo detalle.
+
+```http
+GET /api/compras/por-qr?token=eyJjb21wcmFfaWQiOjg4fQ.firma
+
+200 OK   (sin sesión, o un cliente que no hizo la compra)
+{
+  "vista": "publica", "estado": "valida", "pelicula": "Volver al futuro", "poster_url": "https://image.tmdb.org/...",
+  "local": "Paradiso Centro", "sala": "Sala 1", "funcion": "2026-11-12T20:30:00", "butacas": ["F7", "F8"]
+}
+
+200 OK   (Authorization del cliente que hizo la compra)
+{
+  "vista": "comprador", "estado": "valida", "pelicula": "Volver al futuro", "...": "mismos datos básicos",
+  "id": 88, "cantidad_entradas": 2, "servicios": [{"servicio_id": 3, "nombre": "Pochoclo grande", "cantidad": 1,
+  "precio_unitario": 5000.0, "subtotal": 5000.0}], "total": 23000.0, "estado_pago": "pagado",
+  "utilizada_en": null, "cancelada_en": null
+}
+```
+
+Pública a propósito, como las rutas por token del email: la protege la firma del token del QR (un token de
+cancelación no sirve acá ni al revés). El `Authorization` es **opcional**: si viene un token de sesión válido, el
+backend decide qué devolver; si falta o no sirve, responde la vista pública (nunca 401).
+
+| `vista` | Quién | Qué agrega |
+|---|---|---|
+| `publica` | Sin sesión, o un cliente que **no** hizo la compra | Solo película, local, sala, función, butacas y estado. Sin datos personales ni de pago. |
+| `comprador` | El cliente que hizo la compra | N.º de operación (`id`), `cantidad_entradas`, servicios, `total`, `estado_pago` (`pagado`, `anulado`, `pendiente`), `utilizada_en` y `cancelada_en`. |
+| `admin` | Administrador | Lo mismo que el comprador más `titular` (nombre completo). Valida con `POST /api/admin/ingresos/validar`. |
+
+`estado` es `valida`, `utilizada`, `cancelada`, `vencida` (la función ya terminó: inicio + duración de la película)
+o `pendiente` (compra sin pagar). La firma alcanza para informar también una compra cancelada, que ya no tiene
+`token_qr`. Ninguna vista devuelve el email, el QR ni los datos para cancelar. Errores: 400 `TOKEN_INVALIDO`
+(falta o la firma no es válida) · 404 `NO_ENCONTRADO`.
 
 Errores de confirmación: 404 `NO_ENCONTRADO` · 403 `SIN_PERMISO` (compra de otro usuario) · 409 `COMPRA_NO_PENDIENTE` · 409 `RESERVA_VENCIDA` (libera las butacas). Si el envío por SMTP falla, la compra queda confirmada igual con `"email_enviado": false`.
 
