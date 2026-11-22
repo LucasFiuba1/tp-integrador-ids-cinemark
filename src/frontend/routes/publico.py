@@ -14,10 +14,12 @@ from flask import (
 
 from src.frontend.api_client import llamar
 from src.frontend.filtros import hora
+from src.frontend.routes.backoffice import funciones_de_hoy
 from src.frontend.sesion import ir_al_login, requiere_sesion
 from src.frontend.validaciones import (
     MAXIMO_CANTIDAD_SERVICIO,
     leer_formulario,
+    token_del_qr,
     validar_cantidades_servicios,
     validar_login,
     validar_pago,
@@ -611,6 +613,28 @@ def cancelar_por_token(token):
             error["status"],
         )
     return render_template("compra/cancelar.html", compra=compra, accion_url=accion_url, volver_url=volver_url)
+
+
+# Entrada escaneada (SCRUM-74): el QR codifica /entrada?token=<token_qr>. No pide sesión; llamar manda el token si
+# hay una, y el backend decide qué ve cada uno (vista "publica", "comprador" o "admin") y el estado de la entrada.
+# Al admin se le suma el formulario para validar, que envía a /admin/ingreso: el GET nunca gasta la entrada.
+@publico_bp.get("/entrada")
+def entrada():
+    token = token_del_qr(request.args.get("token", "").strip())
+    if not token:
+        return render_template("compra/entrada.html", compra=None, error="Falta el código del QR."), 400
+    compra, error = llamar("GET", "/api/compras/por-qr", params={"token": token})
+    if error is not None:
+        return render_template("compra/entrada.html", compra=None, error=error["mensaje"]), error["status"]
+    validable = compra["vista"] == "admin" and compra["estado"] == "valida"
+    return render_template(
+        "compra/entrada.html",
+        compra=compra,
+        token=token,
+        funciones=funciones_de_hoy() if validable else [],
+        funcion_id=session.get("funcion_ingreso", ""),
+        validable=validable,
+    )
 
 
 # Perfil del cliente (SCRUM-50 sobre la maqueta de SCRUM-116): cuenta, compras por pestaña y películas vistas.

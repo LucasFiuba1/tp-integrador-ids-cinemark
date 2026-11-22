@@ -625,10 +625,10 @@ def baja_pelicula(id):
 
     return redirect(url_for("backoffice.peliculas"))
 
-# Validar ingreso (SCRUM-74). El QR del email codifica /admin/ingreso?token=<token_qr>: la cámara del celular abre
-# esta página con el código cargado; sin cámara, se pega en el mismo campo. El GET solo muestra el formulario
-# (abrir o recargar la URL del QR no gasta la entrada): valida el POST del botón. La función que se controla no
-# viene en el QR, así que se elige una vez y queda en la sesión del frontend.
+# Validar ingreso (SCRUM-74). El QR del email codifica /entrada?token=<token_qr> (página pública de la entrada); para
+# un admin, esa página envía el token acá. También se puede abrir /admin/ingreso?token=... o pegar el código.
+# El GET solo muestra el formulario (abrir o recargar la URL no gasta la entrada): valida el POST del botón.
+# La función que se controla no viene en el QR, así que se elige una vez y queda en la sesión del frontend.
 MOTIVOS_RECHAZO = {
     "QR_INVALIDO": "QR inválido",
     "CANCELADA": "Compra cancelada",
@@ -638,7 +638,7 @@ MOTIVOS_RECHAZO = {
 }
 
 
-def _funciones_de_hoy():
+def funciones_de_hoy():
     """Opciones {"valor", "texto"} con las funciones de hoy, para elegir la que se controla en la puerta."""
     hoy = date.today().isoformat()
     funciones, error = llamar(
@@ -699,7 +699,7 @@ def ingreso():
             formulario["token"] = ""  # el campo queda vacío para el próximo QR
     pagina = render_template(
         "backoffice/ingreso.html",
-        funciones=_funciones_de_hoy(), formulario=formulario, errores=errores, resultado=resultado,
+        funciones=funciones_de_hoy(), formulario=formulario, errores=errores, resultado=resultado,
         historial=_historial_ingresos(session.get("funcion_ingreso")),
     )
     return pagina, 400 if errores else 200

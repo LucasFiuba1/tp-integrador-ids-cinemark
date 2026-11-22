@@ -30,7 +30,7 @@ services:
         sync: false
       - key: TMDB_API_KEY
         sync: false
-      # URL pública del sitio: la usan el QR (/admin/ingreso?token=...) y el enlace de cancelación del email.
+      # URL pública del sitio: la usan el QR (/entrada?token=...) y el enlace de cancelación del email.
       - key: FRONTEND_URL
         value: https://cine-paradiso-web.onrender.com
 
