@@ -6,6 +6,15 @@ set -e
 
 cd "$(dirname "$0")"
 
+if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
+  echo "Error: no se encontró Python. Instalá Python 3.12 o superior y volvé a correr este script." >&2
+  exit 1
+fi
+if [ "${1:-}" = "--db" ] && ! command -v mysql >/dev/null 2>&1; then
+  echo "Error: --db necesita el cliente 'mysql' en el PATH (o cargá a mano src/backend/db/schema.sql y seed.sql)." >&2
+  exit 1
+fi
+
 if [ ! -d ".venv" ]; then
   echo "Creando entorno virtual en .venv..."
   if command -v python3 >/dev/null 2>&1; then
@@ -21,6 +30,11 @@ if [ -f ".venv/bin/activate" ]; then
 else
   source .venv/Scripts/activate
 fi
+
+if ! python -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)"; then
+  echo "Aviso: el proyecto se probó con Python 3.12 o superior; tu versión es $(python --version 2>&1)."
+fi
+
 echo "Instalando dependencias..."
 python -m pip install --upgrade pip -q
 python -m pip install -r requirements.txt -q
@@ -30,7 +44,7 @@ if [ ! -f ".env" ]; then
   echo "Se creó .env a partir de .env.example. Completá tus credenciales."
 fi
 
-if [ "$1" == "--db" ]; then
+if [ "${1:-}" = "--db" ]; then
   set -a
   # shellcheck disable=SC1091
   source .env

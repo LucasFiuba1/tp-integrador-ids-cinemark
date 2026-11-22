@@ -138,7 +138,7 @@ Verificar `http://localhost:5000/api/salud` y abrir `http://localhost:5001`. El 
 | `ValueError` al arrancar | `DB_PORT`, `SMTP_PORT` y tiempos deben ser enteros. |
 | Cambié .env y nada cambió | Reiniciar; revisar variables exportadas/panel, que tienen prioridad sobre el archivo. |
 | Sesión inválida después de actualizar | Claves rotadas o instancias con claves diferentes; unificar por servicio y volver a ingresar. |
-| No llega el email | El envío todavía no está implementado; completar SMTP no lo habilita. |
+| No llega el email | Revisar `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` y `SMTP_PASSWORD` (en Gmail, contraseña de aplicación) y el log del backend: si el envío falla, la compra queda confirmada con `email_enviado: false`. Mirar también la carpeta de spam. |
 
 No imprimir `.env`, subirlo a Git, enviarlo al grupo ni incluirlo en logs. Comprobar sin mostrar su contenido:
 

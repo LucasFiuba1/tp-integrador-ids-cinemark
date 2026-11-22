@@ -20,8 +20,21 @@ Backend Flask en `http://localhost:5000`. Todas las respuestas son JSON.
 | 401 | Sin token o token inválido/vencido |
 | 403 | El rol no tiene permiso o el recurso es de otro usuario |
 | 404 | Recurso inexistente |
+| 405 | Verbo HTTP no permitido para esa ruta |
 | 409 | Conflicto con una regla de negocio (butaca ocupada, funciones superpuestas, fuera de plazo…) |
 | 500 | Error inesperado |
+| 502 | TMDB no disponible (falta `TMDB_API_KEY`, error de red o respuesta de error del proveedor) |
+
+Códigos genéricos que puede devolver cualquier endpoint (los arma `src/backend/errores.py`):
+| HTTP | Código | Cuándo |
+|---|---|---|
+| 400 | `DATOS_INVALIDOS` | Cuerpo o parámetros inválidos. |
+| 401 | `NO_AUTENTICADO` | Falta el header `Authorization: Bearer <token>` en un endpoint protegido. |
+| 401 | `TOKEN_INVALIDO` | El token tiene una firma inválida o venció. |
+| 403 | `SIN_PERMISO` | El rol no alcanza o el recurso es de otro usuario. |
+| 404 | `NO_ENCONTRADO` | Ruta o recurso inexistente. |
+| 405 | `METODO_NO_PERMITIDO` | La ruta existe pero no con ese verbo. |
+| 500 | `ERROR_INTERNO` | Error inesperado (el detalle queda en el log, no en la respuesta). |
 
 ### Filtros de los listados
 
@@ -52,7 +65,7 @@ Un parámetro **vacío** (`?local_id=`) se trata según el listado:
 |---|---|---|---|
 | POST | `/api/auth/registro` | 🌐 | Registra un cliente nuevo. |
 | POST | `/api/auth/login` | 🌐 | Inicia sesión y devuelve el token. |
-| GET | `/api/auth/me` | 👤 | Datos del usuario logueado. |
+| GET | `/api/auth/me` | 👤 🛠️ | Datos del usuario logueado. |
 
 ```http
 POST /api/auth/registro
@@ -241,8 +254,8 @@ Errores de cancelación: 400 `TOKEN_INVALIDO` (en las rutas por token, cuando fa
 
 | Método | Ruta | Rol | Descripción |
 |---|---|---|---|
-| GET | `/api/me/compras` | 👤 | Historial de compras (entradas, servicios, total, estado, si es cancelable). |
-| GET | `/api/me/peliculas-vistas` | 👤 | Películas cuyo QR fue validado en el ingreso. |
+| GET | `/api/me/compras` | 👤 🛠️ | Historial de compras (entradas, servicios, total, estado, si es cancelable). |
+| GET | `/api/me/peliculas-vistas` | 👤 🛠️ | Películas cuyo QR fue validado en el ingreso. |
 
 El usuario sale del token: no hay parámetros. El historial incluye compras `confirmada` y `cancelada`, más las `pendiente` que todavía no vencieron (para poder pagarlas desde el perfil); las `vencida` nunca se pagaron y no aparecen. `vence_en` solo tiene valor en las pendientes. `token_qr` es `null` si la compra no está confirmada. `cancelable_hasta` es la fecha de la función menos `HORAS_LIMITE_CANCELACION`, y `cancelable` es `true` solo si la compra está confirmada, sin usar y todavía no pasó ese límite.
 
@@ -303,6 +316,11 @@ POST /api/admin/peliculas
 { "id": 3, "titulo": "Volver al futuro", "duracion_min": 116, "genero": "Ciencia ficción" }
 ```
 
+Errores de TMDB e importación: 502 `TMDB_NO_DISPONIBLE` (falta `TMDB_API_KEY`, no se pudo consultar TMDB o devolvió
+un error) · 404 `TMDB_NO_ENCONTRADA` (el `tmdb_id` no existe en TMDB) · 409 `PELICULA_DUPLICADA` (ya fue importada) ·
+409 `PELICULA_INCOMPLETA` (TMDB no tiene duración o género). Todos los endpoints de esta sección devuelven 401
+`NO_AUTENTICADO` sin token y 403 `SIN_PERMISO` si el rol no es admin.
+
 ```http
 PATCH /api/admin/peliculas/3
 { "disponible_hasta": "2027-01-31T00:00:00" }
@@ -324,6 +342,11 @@ PATCH /api/admin/peliculas/3
 | GET | `/api/admin/salas/<id>` | 🛠️ | Detalle de la sala con su grilla de butacas. |
 | PUT | `/api/admin/salas/<id>` | 🛠️ | Modifica una sala; achicarla no se permite con funciones futuras ni con entradas vendidas en las butacas que se quitan. |
 | DELETE | `/api/admin/salas/<id>` | 🛠️ | Baja lógica (no si tiene funciones futuras). |
+
+Errores: 400 `DATOS_INVALIDOS` · 404 `NO_ENCONTRADO` · 409 `LOCAL_DUPLICADO` (mismo nombre o dirección) ·
+409 `LOCAL_CON_SALAS` / `LOCAL_CON_HISTORIAL` (`DELETE` de un local) · 409 `SALA_DUPLICADA` (mismo nombre en el
+local) · 409 `SALA_CON_FUNCIONES` (reducir o dar de baja una sala con funciones futuras) · 409
+`BUTACAS_CON_ENTRADAS` (achicar una sala que tiene entradas vendidas en las butacas que se quitarían).
 
 ```http
 POST /api/admin/salas
@@ -349,6 +372,9 @@ GET /api/admin/salas/6
 | POST | `/api/admin/funciones` | 🛠️ | Programa una función (valida superposición y período). |
 | PUT | `/api/admin/funciones/<id>` | 🛠️ | Modifica una función sin entradas vendidas. |
 | DELETE | `/api/admin/funciones/<id>` | 🛠️ | Da de baja una función sin entradas vendidas. |
+
+Errores: 400 `DATOS_INVALIDOS` · 404 `NO_ENCONTRADO` · 409 `FUNCION_SUPERPUESTA` (la sala ya tiene otra función en ese
+horario) · 409 `FUNCION_CON_ENTRADAS` (`PUT` que cambia sala u horario, o `DELETE`, con entradas registradas).
 
 ```http
 POST /api/admin/funciones

@@ -28,7 +28,7 @@ La documentación permite múltiples sitios en una cuenta, también en Free. La 
 - Usar la dirección gratuita de la cuenta `CUENTA.alwaysdata.net`: Free no permite sitios con dominio propio. No crear varias cuentas gratuitas para repartir los componentes.
 - No vender entradas reales ni recibir pagos: el plan no admite uso comercial. Esta receta es para datos ficticios y pago simulado.
 - Sin tarjeta/pagos, alwaysdata documenta un [modo restringido](https://help.alwaysdata.com/en/docs/admin-billing/profile/restricted-mode/) con filtros HTTP y limitaciones de envío SMTP. Probar TMDB y las llamadas del frontend a la API. Si una restricción bloquea el TP, detenerse antes de contratar nada.
-- El envío SMTP de la aplicación **todavía no está implementado**. No prometer factura/QR por email por el solo hecho de configurar el hosting.
+- La aplicación envía la factura con el QR y el aviso de cancelación por SMTP (`src/backend/services/correo.py`), pero el proveedor puede restringir el SMTP saliente: completar las variables `SMTP_*` no garantiza que el correo llegue. Probarlo antes de prometer factura/QR por email.
 
 ### Por qué no usar directamente otras ofertas gratuitas
 
@@ -318,8 +318,8 @@ Mantener activa la cuenta: alwaysdata puede suspender Free por no entrar al pane
 ## 8. Límites y pendientes de esta versión
 
 - Esta guía prepara una demo; no certifica que sea apta para manejar clientes reales, cobros ni datos sensibles.
-- El correo está pendiente. El proveedor puede restringir SMTP; completar variables no elimina esa restricción. Probar Gmail/STARTTLS cuando se implemente, sin pagar para desbloquearlo automáticamente.
-- El alcance declarado incluye QR, pago y cancelaciones, pero no todos los flujos están implementados en esta rama. Verificar el código y las pruebas del commit que se publique.
+- El correo está implementado, pero el proveedor puede restringir el SMTP saliente; completar variables no elimina esa restricción. Probar Gmail/STARTTLS y, si falla, la compra queda confirmada igual (`email_enviado: false`). No pagar para desbloquearlo automáticamente.
+- Verificar el código y las pruebas del commit que se publique antes de cada demo.
 - Revisar protección CSRF, manejo de proxies, revocación de sesiones, permisos de base y política de backups antes de una publicación productiva. El wrapper no implementa esas funciones.
 - No exponer MySQL públicamente más de lo requerido; no usar `root` como usuario de aplicación ni compartir credenciales entre ambientes.
 - El `Dockerfile` y el `docker-compose.yml` del repositorio son para correr todo en local (ver el README); esta guía no los usa. No hay un servicio desplegado o URL de producción verificados por esta documentación.
