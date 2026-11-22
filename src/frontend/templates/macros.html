@@ -199,7 +199,7 @@
       <div class="local-acciones">
         <a class="accion-texto" href="{{ url_for('backoffice.editar_local', id=local.id) }}">Editar local</a>
         {{ boton_baja(url_for('backoffice.baja_local', id=local.id), "Eliminar",
-                      "¿Eliminar el local " ~ local.nombre ~ "? Solo se puede si no tiene salas.") }}
+                      "¿Eliminar el local " ~ local.nombre ~ "? Solo se puede si ninguna sala tiene funciones programadas o en curso.") }}
       </div>
     </div>
     <div class="salas-lista">

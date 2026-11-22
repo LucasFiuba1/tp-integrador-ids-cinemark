@@ -31,10 +31,18 @@ CREATE TABLE usuarios (
 );
 
 -- Los 3 centros de entretenimiento de Cine Paradiso.
+-- Baja lógica (activo = FALSE) si alguna de sus salas tuvo funciones; si no, se borra.
 CREATE TABLE locales (
     id        INT AUTO_INCREMENT PRIMARY KEY,
-    nombre    VARCHAR(100) NOT NULL UNIQUE,
-    direccion VARCHAR(200) NOT NULL UNIQUE
+    nombre    VARCHAR(100) NOT NULL,
+    direccion VARCHAR(200) NOT NULL,
+    activo    BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Igual que en salas: copias solo mientras el local está activo, así un local dado de baja libera su nombre
+    -- y su dirección para uno nuevo.
+    nombre_activo    VARCHAR(100) AS (IF(activo, nombre, NULL)) STORED,
+    direccion_activa VARCHAR(200) AS (IF(activo, direccion, NULL)) STORED,
+    UNIQUE KEY uq_local_nombre (nombre_activo),
+    UNIQUE KEY uq_local_direccion (direccion_activa)
 );
 
 -- Cada sala pertenece a un local. Capacidad = filas x columnas.

@@ -174,27 +174,35 @@ def cursor_locales(db_locales):
     return cursor
 
 
-def test_eliminar_local_sin_salas_activas_ni_funciones_devuelve_204(pedir, db_locales, local, cursor_locales):
+def sentencias_ejecutadas(cursor):
+    return [llamada.args[0] for llamada in cursor.execute.call_args_list]
+
+
+def test_eliminar_local_sin_funciones_borra_el_local_y_sus_salas(pedir, db_locales, local, cursor_locales):
     db_locales.consultar_uno.side_effect = [local, None, None]
     respuesta = pedir("DELETE", "/api/admin/locales/1")
     assert respuesta.status_code == 204
-    sentencias = [llamada.args[0] for llamada in cursor_locales.execute.call_args_list]
+    sentencias = sentencias_ejecutadas(cursor_locales)
     assert "DELETE FROM salas" in sentencias[0]
     assert "DELETE FROM locales" in sentencias[1]
 
 
-def test_eliminar_local_solo_cuenta_salas_activas(pedir, db_locales, local, cursor_locales):
-    db_locales.consultar_uno.side_effect = [local, None, None]
-    pedir("DELETE", "/api/admin/locales/1")
-    assert "activa = TRUE" in db_locales.consultar_uno.call_args_list[1].args[0]
-
-
-def test_eliminar_local_con_salas_dadas_de_baja_con_funciones_devuelve_409(pedir, db_locales, local):
+def test_eliminar_local_con_funciones_pasadas_lo_da_de_baja_con_sus_salas(pedir, db_locales, local, cursor_locales):
     db_locales.consultar_uno.side_effect = [local, None, {"id": 30}]
     respuesta = pedir("DELETE", "/api/admin/locales/1")
-    assert respuesta.status_code == 409
-    assert respuesta.get_json()["error"]["codigo"] == "LOCAL_CON_HISTORIAL"
-    db_locales.transaccion.assert_not_called()
+    assert respuesta.status_code == 204
+    sentencias = sentencias_ejecutadas(cursor_locales)
+    assert "UPDATE salas SET activa = FALSE" in sentencias[0]
+    assert "UPDATE locales SET activo = FALSE" in sentencias[1]
+
+
+def test_eliminar_local_busca_funciones_vigentes_en_sus_salas(pedir, db_locales, local, cursor_locales):
+    db_locales.consultar_uno.side_effect = [local, None, None]
+    pedir("DELETE", "/api/admin/locales/1")
+    consulta = db_locales.consultar_uno.call_args_list[1]
+    assert "DATE_ADD(f.fecha_hora, INTERVAL p.duracion_min MINUTE) > NOW()" in consulta.args[0]
+    assert "s.local_id = %s" in consulta.args[0]
+    assert consulta.args[1] == (1,)
 
 
 def test_eliminar_local_inexistente_devuelve_404(pedir, db_locales):
@@ -203,11 +211,11 @@ def test_eliminar_local_inexistente_devuelve_404(pedir, db_locales):
     assert respuesta.status_code == 404
 
 
-def test_eliminar_local_con_salas_devuelve_409(pedir, db_locales, local):
-    db_locales.consultar_uno.side_effect = [local, {"id": 5}]
+def test_eliminar_local_con_funciones_programadas_o_en_curso_devuelve_409(pedir, db_locales, local):
+    db_locales.consultar_uno.side_effect = [local, {"id": 9}]
     respuesta = pedir("DELETE", "/api/admin/locales/1")
     assert respuesta.status_code == 409
-    assert respuesta.get_json()["error"]["codigo"] == "LOCAL_CON_SALAS"
+    assert respuesta.get_json()["error"]["codigo"] == "LOCAL_CON_FUNCIONES"
     db_locales.transaccion.assert_not_called()
 
 
@@ -380,12 +388,21 @@ def test_eliminar_sala_inexistente_devuelve_404(pedir, db_salas):
     db_salas.ejecutar.assert_not_called()
 
 
-def test_eliminar_sala_con_funciones_futuras_devuelve_409(pedir, db_salas, sala):
+def test_eliminar_sala_con_funciones_programadas_o_en_curso_devuelve_409(pedir, db_salas, sala):
     db_salas.consultar_uno.side_effect = [sala, {"id": 9}]
     respuesta = pedir("DELETE", "/api/admin/salas/5")
     assert respuesta.status_code == 409
     assert respuesta.get_json()["error"]["codigo"] == "SALA_CON_FUNCIONES"
     db_salas.ejecutar.assert_not_called()
+
+
+def test_eliminar_sala_cuenta_las_funciones_en_curso(pedir, db_salas, sala):
+    db_salas.consultar_uno.side_effect = [sala, None]
+    pedir("DELETE", "/api/admin/salas/5")
+    consulta = db_salas.consultar_uno.call_args_list[1]
+    assert "f.activa = TRUE" in consulta.args[0]
+    assert "DATE_ADD(f.fecha_hora, INTERVAL p.duracion_min MINUTE) > NOW()" in consulta.args[0]
+    assert consulta.args[1] == (5,)
 
 def test_crear_local_guarda_los_textos_sin_espacios_en_los_extremos(pedir, db_locales):
     db_locales.ejecutar.return_value = 4
