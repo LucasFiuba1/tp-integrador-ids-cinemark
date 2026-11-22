@@ -53,11 +53,9 @@ def modificar_local(local_id):
 @requiere_rol("admin")
 def eliminar_local(local_id):
     requerir_existente(locales.obtener_local(local_id), MENSAJE_LOCAL_INEXISTENTE)
-    if locales.local_tiene_salas_activas(local_id):
-        return respuesta_error(409, "LOCAL_CON_SALAS", "No se puede eliminar un local que tiene salas activas.")
-    if locales.local_tiene_funciones(local_id):
+    if locales.local_tiene_funciones_vigentes(local_id):
         return respuesta_error(
-            409, "LOCAL_CON_HISTORIAL", "No se puede eliminar el local: tiene salas dadas de baja con funciones registradas."
+            409, "LOCAL_CON_FUNCIONES", "No se puede eliminar el local: tiene salas con funciones programadas o en curso."
         )
     locales.eliminar_local(local_id)
     return "", 204
@@ -95,8 +93,8 @@ def modificar_sala(sala_id):
     datos = cuerpo_json()
     nombre, filas, columnas = salas.validar_salas(datos.get("nombre"), datos.get("filas"), datos.get("columnas"))
     se_achica_la_sala = filas < sala["filas"] or columnas < sala["columnas"]
-    if se_achica_la_sala and salas.tiene_funciones_futuras(sala_id):
-        return respuesta_error(409, "SALA_CON_FUNCIONES", "No se puede reducir una sala con funciones futuras.")
+    if se_achica_la_sala and salas.tiene_funciones_vigentes(sala_id):
+        return respuesta_error(409, "SALA_CON_FUNCIONES", "No se puede reducir una sala con funciones programadas o en curso.")
     if se_achica_la_sala and salas.hay_entradas_en_butacas_eliminadas(sala_id, filas, columnas):
         return respuesta_error(409, "BUTACAS_CON_ENTRADAS", "Hay entradas vendidas en las butacas que se quitarían.")
     with traducir_duplicado(MENSAJE_SALA_DUPLICADA, "SALA_DUPLICADA"):
@@ -108,8 +106,10 @@ def modificar_sala(sala_id):
 @requiere_rol("admin")
 def eliminar_sala(sala_id):
     requerir_existente(salas.obtener_sala(sala_id), MENSAJE_SALA_INEXISTENTE)
-    if salas.tiene_funciones_futuras(sala_id):
-        return respuesta_error(409, "SALA_CON_FUNCIONES", "No se puede dar de baja una sala con funciones futuras.")
+    if salas.tiene_funciones_vigentes(sala_id):
+        return respuesta_error(
+            409, "SALA_CON_FUNCIONES", "No se puede dar de baja una sala con funciones programadas o en curso."
+        )
     salas.eliminar_sala(sala_id)
     return "", 204
 

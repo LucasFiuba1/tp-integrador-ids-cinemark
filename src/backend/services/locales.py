@@ -1,9 +1,10 @@
 from src.backend import db
+from src.backend.services.salas import CONSULTA_FUNCIONES_VIGENTES
 from src.backend.services.validaciones import texto_no_vacio
 
 
 def listar_locales():
-    query = "SELECT id, nombre, direccion FROM locales ORDER BY nombre"
+    query = "SELECT id, nombre, direccion FROM locales WHERE activo = TRUE ORDER BY nombre"
     locales = db.consultar(query)
     return locales
 
@@ -14,6 +15,7 @@ def listar_locales_publicos():
         SELECT DISTINCT l.id, l.nombre
         FROM locales l
         JOIN salas s ON s.local_id = l.id AND s.activa = TRUE
+        WHERE l.activo = TRUE
         ORDER BY l.nombre
     """
     return db.consultar(query)
@@ -31,18 +33,18 @@ def crear_local(nombre_local, direccion_local):
 
 
 def obtener_local(local_id):
-    query = "SELECT id, nombre, direccion FROM locales WHERE id = %s"
+    query = "SELECT id, nombre, direccion FROM locales WHERE id = %s AND activo = TRUE"
     return db.consultar_uno(query, (local_id,))
 
 
-def local_tiene_salas_activas(local_id):
-    query = "SELECT id FROM salas WHERE local_id = %s AND activa = TRUE"
-    res = db.consultar_uno(query, (local_id,))
-    return res is not None
+def local_tiene_funciones_vigentes(local_id):
+    """True si alguna sala del local (activa o no) tiene funciones programadas o en curso."""
+    query = CONSULTA_FUNCIONES_VIGENTES + " AND s.local_id = %s LIMIT 1"
+    return db.consultar_uno(query, (local_id,)) is not None
 
 
 def local_tiene_funciones(local_id):
-    """Incluye las funciones de salas dadas de baja: son historial y no se pueden borrar."""
+    """Incluye las funciones pasadas y las de salas dadas de baja: son historial y no se pueden borrar."""
     query = "SELECT f.id FROM funciones f JOIN salas s ON s.id = f.sala_id WHERE s.local_id = %s LIMIT 1"
     res = db.consultar_uno(query, (local_id,))
     return res is not None
@@ -55,7 +57,13 @@ def modificar_local(local_id, nombre_local, direccion_local):
 
 
 def eliminar_local(local_id):
-    """Borra el local y sus salas dadas de baja (sin funciones); las butacas se borran en cascada."""
+    """Sin funciones registradas, borra el local y sus salas (las butacas se borran en cascada). Con historial, da
+    de baja lógica el local y sus salas para no perder las compras. Antes hay que chequear que no haya funciones
+    vigentes (local_tiene_funciones_vigentes)."""
+    if local_tiene_funciones(local_id):
+        sentencias = ("UPDATE salas SET activa = FALSE WHERE local_id = %s", "UPDATE locales SET activo = FALSE WHERE id = %s")
+    else:
+        sentencias = ("DELETE FROM salas WHERE local_id = %s", "DELETE FROM locales WHERE id = %s")
     with db.transaccion() as cursor:
-        cursor.execute("DELETE FROM salas WHERE local_id = %s", (local_id,))
-        cursor.execute("DELETE FROM locales WHERE id = %s", (local_id,))
+        for sentencia in sentencias:
+            cursor.execute(sentencia, (local_id,))

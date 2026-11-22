@@ -75,10 +75,19 @@ def listar_butacas(sala_id):
     return db.consultar(query, (sala_id,))
 
 
-def tiene_funciones_futuras(sala_id):
-    query = "SELECT id FROM funciones WHERE sala_id = %s AND activa = TRUE AND fecha_hora > NOW()"
-    res = db.consultar_uno(query, (sala_id,))
-    return res is not None
+# Funciones activas programadas o en curso (todavía no terminaron: inicio + duración de la película > ahora).
+# Se completa con el filtro por sala o por local; los alias f, p y s quedan disponibles.
+CONSULTA_FUNCIONES_VIGENTES = """
+    SELECT f.id FROM funciones f
+    JOIN peliculas p ON p.id = f.pelicula_id
+    JOIN salas s ON s.id = f.sala_id
+    WHERE f.activa = TRUE AND DATE_ADD(f.fecha_hora, INTERVAL p.duracion_min MINUTE) > NOW()
+"""
+
+
+def tiene_funciones_vigentes(sala_id):
+    query = CONSULTA_FUNCIONES_VIGENTES + " AND s.id = %s LIMIT 1"
+    return db.consultar_uno(query, (sala_id,)) is not None
 
 
 def eliminar_sala(sala_id):
